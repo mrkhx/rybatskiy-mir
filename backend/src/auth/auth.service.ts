@@ -16,8 +16,8 @@ export class AuthService {
   constructor(
     @Inject(APP_ENV) private readonly env: AppEnv,
     @Inject(VK_AUTH_PROVIDER) private readonly vkAuth: VkAuthProvider,
-    private readonly prisma: PrismaService,
-    private readonly jwt: JwtService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(JwtService) private readonly jwt: JwtService,
   ) {}
 
   async createDevSession(dto: DevSessionDto): Promise<AuthSession> {

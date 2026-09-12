@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Post, Query, UseGuards } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import type { AuthUser } from "./auth.types";
 import { CurrentUser } from "./current-user.decorator";
@@ -7,7 +7,7 @@ import { JwtAuthGuard } from "./jwt-auth.guard";
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(@Inject(AuthService) private readonly auth: AuthService) {}
 
   @Get("vk/status")
   vkStatus(): { configured: boolean } {

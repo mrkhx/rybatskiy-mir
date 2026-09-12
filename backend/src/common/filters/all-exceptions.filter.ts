@@ -23,10 +23,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const publicMessage = isHttp ? exception.message : "Internal server error";
+    const details = exception instanceof Error ? exception.message : "unknown error";
 
-    this.logger.error(
-      `${request.method} ${request.url} -> ${status} ${publicMessage}`,
-    );
+    this.logger.error(`${request.method} ${request.url} -> ${status} ${publicMessage}`);
+    if (!isHttp) {
+      this.logger.error(details);
+    }
 
     response.status(status).json({
       statusCode: status,
