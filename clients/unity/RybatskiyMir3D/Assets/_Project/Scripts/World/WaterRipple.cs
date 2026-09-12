@@ -26,8 +26,12 @@ namespace RybatskiyMir.World
             var f = gameObject.AddComponent<MeshFilter>();
             f.sharedMesh = _ring;
             var rend = gameObject.AddComponent<MeshRenderer>();
-            _mat = MeshUtil.Unlit(new Color(0.84f, 0.91f, 0.93f, 0.45f));
-            if (_mat.HasProperty("_BaseColor")) _mat.SetColor("_BaseColor", new Color(0.84f, 0.91f, 0.93f, 0.45f));
+            _mat = MeshUtil.Unlit(new Color(0.84f, 0.91f, 0.93f, 0.40f));
+            if (_mat.HasProperty("_BaseColor")) _mat.SetColor("_BaseColor", new Color(0.84f, 0.91f, 0.93f, 0.40f));
+            _mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            _mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            _mat.SetInt("_ZWrite", 0);
+            _mat.renderQueue = 3100;
             rend.sharedMaterial = _mat;
             rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }

@@ -99,27 +99,30 @@ namespace RybatskiyMir.Fishing
                 Status = Session.loseReason ?? "Сход";
                 Gear.SetVisible(true, false, false, false);
                 if (Body) Body.Pose = FishermanPose.Sit;
-                if (Input.CastPressed) _ = End();
+                if (WantCast()) _ = End();
             }
 
             if (_hookFlash > 0f) _hookFlash -= Time.deltaTime;
             AnimateView();
         }
 
+        bool WantCast() => Input != null && (Input.CastPressed || Input.JumpPressed);
+
         void TickReady()
         {
             if (Body) Body.Pose = FishermanPose.Aim;
             _aimYaw += Input.Look.x * 0.35f;
             _force = Mathf.Clamp01(_force + Input.Move.y * Time.deltaTime * 0.35f);
-            Status = $"Сила {Mathf.RoundToInt(_force * 100)}%  ·  ЛКМ заброс  ·  Esc встать";
+            Status = $"Сила {Mathf.RoundToInt(_force * 100)}%  ·  ЛКМ / Пробел заброс  ·  R встать";
             Gear.BendRod(0.08f + _force * 0.18f);
             if (LookOut && SitPoint)
             {
                 var dir = Quaternion.Euler(0, _aimYaw, 0) * SitPoint.forward;
                 Mover.transform.rotation = Quaternion.Slerp(Mover.transform.rotation, Quaternion.LookRotation(dir, Vector3.up), Time.deltaTime * 6f);
             }
-            if (Input.CastPressed && !_casting) _ = DoCast();
+            if (WantCast() && !_casting) _ = DoCast();
             if (Input.CancelPressed) _ = End();
+
         }
 
         async Task DoCast()
@@ -179,7 +182,7 @@ namespace RybatskiyMir.Fishing
             var wave = LakeWater.Instance ? LakeWater.Instance.SampleHeight(_floatPos) : WaterY + Mathf.Sin(Time.time * 1.6f) * 0.04f;
             _floatPos.y = wave;
             Gear.BendRod(0.07f);
-            if (Input.CastPressed && !_busy) _ = DoCast();
+            if (WantCast() && !_busy) _ = DoCast();
         }
 
         async Task PollBite()
@@ -202,7 +205,7 @@ namespace RybatskiyMir.Fishing
             _floatPos.y = baseY - 0.1f - Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 0.16f;
             _floatPos += new Vector3(Mathf.Sin(Time.time * 11f), 0, Mathf.Cos(Time.time * 8f)) * 0.012f;
             Gear.BendRod(0.22f);
-            if (Input.CastPressed) _ = DoHook();
+            if (WantCast()) _ = DoHook();
         }
 
         async Task DoHook()
@@ -254,7 +257,7 @@ namespace RybatskiyMir.Fishing
                 var pressure = Mathf.Clamp01(0.5f + Input.Move.y * 0.3f);
                 Session = await Client.Tick(reel, pressure, Input.Move.x, 0.42f);
                 if (Session.state == "LANDED")
-                    Status = $"Улов · {Session.weightG} г · {Session.tier}  ·  ЛКМ в садок  ·  Esc отпустить";
+                    Status = $"Улов · {Session.weightG} г · {Session.tier}  ·  ЛКМ в садок  ·  R отпустить";
                 else if (Session.state is "LOST" or "BROKEN")
                     Status = Session.loseReason ?? "Сход";
             }
@@ -268,7 +271,7 @@ namespace RybatskiyMir.Fishing
             Gear.BendRod(0.12f);
             var land = SitPoint.position + SitPoint.forward * 1.15f + Vector3.up * 0.55f;
             _fishPos = Vector3.Lerp(_fishPos, land, Time.deltaTime * 2.2f);
-            if (Input.CastPressed) _ = Decide(true);
+            if (WantCast()) _ = Decide(true);
             if (Input.CancelPressed) _ = Decide(false);
         }
 
@@ -298,8 +301,8 @@ namespace RybatskiyMir.Fishing
                     _floatPos = _lureTo;
                     Gear.SetVisible(true, true, true, false);
                     SplashOnce(_floatPos);
-                    LakeWater.Instance?.Pulse();
-                    WaterRipple.Spawn(_floatPos, 0.4f);
+                    LakeWater.Instance?.Pulse(_floatPos);
+                    WaterRipple.Spawn(_floatPos, 0.55f);
                 }
                 return;
             }

@@ -21,14 +21,14 @@ namespace RybatskiyMir.Fishing
         public static FishingGear Build(Transform rightHand)
         {
             var gear = new GameObject("Gear").AddComponent<FishingGear>();
-            var cork = MeshUtil.Lit(new Color(0.45f, 0.32f, 0.18f), 0.2f);
-            var blank = MeshUtil.Lit(new Color(0.15f, 0.16f, 0.14f), 0.45f);
-            var wrap = MeshUtil.Lit(new Color(0.55f, 0.18f, 0.14f), 0.3f);
+            var cork = MeshUtil.Lit(new Color(0.45f, 0.32f, 0.18f), 0.22f, false, TextureFactory.Wood);
+            var blank = MeshUtil.Lit(new Color(0.14f, 0.15f, 0.13f), 0.55f);
+            var wrap = MeshUtil.Lit(new Color(0.55f, 0.16f, 0.12f), 0.32f);
 
             var root = new GameObject("Rod").transform;
             root.SetParent(rightHand, false);
             root.localPosition = Vector3.zero;
-            root.localRotation = Quaternion.Euler(8f, 0f, 0f);
+            root.localRotation = Quaternion.Euler(-78f, 6f, 12f);
             gear.Hand = root;
             gear.Bones = new Transform[6];
             Transform parent = root;
@@ -58,12 +58,13 @@ namespace RybatskiyMir.Fishing
 
             var lr = gear.gameObject.AddComponent<LineRenderer>();
             lr.positionCount = gear._line.Length;
-            lr.startWidth = 0.01f;
-            lr.endWidth = 0.006f;
-            lr.material = new Material(Shader.Find("Sprites/Default") ?? Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
-            lr.startColor = new Color(0.9f, 0.88f, 0.8f, 0.9f);
-            lr.endColor = new Color(0.9f, 0.88f, 0.8f, 0.45f);
+            lr.material = MeshUtil.Unlit(new Color(0.88f, 0.86f, 0.78f, 0.85f));
+            lr.startColor = new Color(0.92f, 0.90f, 0.82f, 0.92f);
+            lr.endColor = new Color(0.88f, 0.86f, 0.78f, 0.4f);
+            lr.startWidth = 0.008f;
+            lr.endWidth = 0.004f;
             lr.numCapVertices = 2;
+            lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             gear.Line = lr;
 
             var flo = GameObject.CreatePrimitive(PrimitiveType.Capsule);

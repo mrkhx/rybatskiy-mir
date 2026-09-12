@@ -12,6 +12,7 @@ namespace RybatskiyMir
 {
     public class GameInstaller : MonoBehaviour
     {
+        public const int PlayerLayer = 8;
         public string ApiBaseUrl = "http://127.0.0.1:3000";
         public string DevVkId = "910001";
         public bool AllowDevAuth = true;
@@ -50,17 +51,21 @@ namespace RybatskiyMir
             var cam = camGo.AddComponent<Camera>();
             cam.tag = "MainCamera";
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.55f, 0.72f, 0.8f);
+            cam.backgroundColor = Palette.FogDay;
             cam.nearClipPlane = 0.12f;
             cam.farClipPlane = QualityTier.ViewDistance;
-            cam.fieldOfView = 58f;
+            cam.fieldOfView = 56f;
+            cam.allowMSAA = true;
+            cam.allowHDR = true;
             var orbit = camGo.AddComponent<OrbitCamera>();
             orbit.Target = player.transform;
             orbit.Input = _input;
+            orbit.Cam = cam;
+            orbit.CollisionMask = ~(1 << PlayerLayer);
             _mover.CameraPivot = camGo.transform;
             camGo.AddComponent<AudioListener>();
             orbit.SnapBehind();
-            camGo.transform.position = player.transform.position - player.transform.forward * 4.8f + Vector3.up * 1.7f;
+            camGo.transform.position = player.transform.position - player.transform.forward * 4.6f + Vector3.up * 1.7f;
 
             var body = player.GetComponent<FishermanBody>();
             var gear = FishingGear.Build(body.RightHand);
@@ -78,6 +83,7 @@ namespace RybatskiyMir
 
             _hud = gameObject.AddComponent<HudOverlay>();
             _hud.Fishing = _fishing;
+            _hud.Input = _input;
 
             var audio = gameObject.AddComponent<WorldAudio>();
             audio.Build(LakeWater.Instance ? LakeWater.Instance.transform : transform);
@@ -110,7 +116,7 @@ namespace RybatskiyMir
 
             var sit = ForestLakeBuilder.SitPoint;
             if (!sit) return;
-            var near = Vector3.Distance(_mover.transform.position, sit.position) < 2.4f;
+            var near = Vector3.Distance(_mover.transform.position, sit.position) < 2.6f;
             if (_hud) _hud.NearSpot = near;
             if (_prompt)
             {
@@ -124,16 +130,18 @@ namespace RybatskiyMir
         GameObject CreateFisherman()
         {
             var root = new GameObject("Fisherman");
-            root.transform.position = new Vector3(0, 0.05f, 1.8f);
+            root.transform.position = ForestLakeBuilder.SpawnPos;
             var cc = root.AddComponent<CharacterController>();
             cc.height = 1.78f;
-            cc.radius = 0.26f;
+            cc.radius = 0.28f;
             cc.center = new Vector3(0, 0.9f, 0);
-            cc.slopeLimit = 45f;
-            cc.stepOffset = 0.3f;
+            cc.slopeLimit = 48f;
+            cc.stepOffset = 0.32f;
+            cc.skinWidth = 0.08f;
             var body = FishermanBody.Build(root.transform);
             var mover = root.AddComponent<FishermanController>();
             mover.Body = body;
+            MeshUtil.SetLayerRecursively(root, PlayerLayer);
             return root;
         }
 
@@ -142,19 +150,21 @@ namespace RybatskiyMir
             var go = new GameObject("Splash");
             var ps = go.AddComponent<ParticleSystem>();
             var main = ps.main;
-            main.startLifetime = 0.5f;
-            main.startSpeed = 1.6f;
-            main.startSize = 0.07f;
-            main.startColor = new Color(0.85f, 0.92f, 0.95f, 0.75f);
+            main.startLifetime = 0.55f;
+            main.startSpeed = 1.8f;
+            main.startSize = 0.06f;
+            main.startColor = new Color(0.86f, 0.93f, 0.96f, 0.72f);
             main.playOnAwake = false;
-            main.gravityModifier = 0.8f;
-            main.maxParticles = 40;
+            main.gravityModifier = 0.85f;
+            main.maxParticles = 48;
             var sh = ps.shape;
             sh.shapeType = ParticleSystemShapeType.Hemisphere;
-            sh.radius = 0.16f;
+            sh.radius = 0.18f;
             var em = ps.emission;
-            em.SetBursts(new[] { new ParticleSystem.Burst(0f, 18) });
+            em.SetBursts(new[] { new ParticleSystem.Burst(0f, 22) });
             em.rateOverTime = 0;
+            var rend = go.GetComponent<ParticleSystemRenderer>();
+            rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             return ps;
         }
     }

@@ -1,4 +1,5 @@
 using RybatskiyMir.Fishing;
+using RybatskiyMir.Input;
 using UnityEngine;
 
 namespace RybatskiyMir.Hud
@@ -9,6 +10,7 @@ namespace RybatskiyMir.Hud
     public class HudOverlay : MonoBehaviour
     {
         public FishingDirector Fishing;
+        public PlayerInputReader Input;
         public bool NearSpot;
         Texture2D _px;
 
@@ -22,11 +24,16 @@ namespace RybatskiyMir.Hud
             }
 
             var pad = 18;
-            GUI.color = new Color(0.06f, 0.12f, 0.14f, 0.72f);
-            GUI.DrawTexture(new Rect(pad, pad, 280, 36), _px);
-            GUI.color = new Color(0.92f, 0.94f, 0.9f);
+            GUI.color = new Color(0.06f, 0.12f, 0.14f, 0.62f);
+            GUI.DrawTexture(new Rect(pad, pad, 292, 36), _px);
+            GUI.color = new Color(0.93f, 0.95f, 0.90f);
             var title = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };
-            GUI.Label(new Rect(pad + 10, pad + 6, 260, 24), "Лесное озеро  ·  Старый мостик", title);
+            GUI.Label(new Rect(pad + 10, pad + 6, 270, 24), "Лесное озеро  ·  Старый мостик", title);
+
+            if (Input != null && !Input.PointerLocked)
+            {
+                DrawBar(Screen.width / 2 - 150, 18, 300, 32, "ЛКМ — вернуть камеру");
+            }
 
             if (Fishing == null) return;
 
@@ -38,7 +45,7 @@ namespace RybatskiyMir.Hud
             if (!Fishing.Active) return;
 
             var h = 56;
-            GUI.color = new Color(0.06f, 0.1f, 0.12f, 0.78f);
+            GUI.color = new Color(0.06f, 0.10f, 0.12f, 0.78f);
             GUI.DrawTexture(new Rect(0, Screen.height - h, Screen.width, h), _px);
             GUI.color = Color.white;
             var st = new GUIStyle(GUI.skin.label) { fontSize = 14, alignment = TextAnchor.MiddleLeft };

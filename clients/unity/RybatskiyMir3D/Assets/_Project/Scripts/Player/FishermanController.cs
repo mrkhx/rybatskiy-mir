@@ -6,10 +6,16 @@ namespace RybatskiyMir.Player
     [RequireComponent(typeof(CharacterController))]
     public class FishermanController : MonoBehaviour
     {
-        public float WalkSpeed = 3.2f;
-        public float RunSpeed = 5.6f;
-        public float RotateSpeed = 12f;
-        public float Gravity = -22f;
+        public float WalkSpeed = 3.15f;
+        public float RunSpeed = 5.45f;
+        public float Accel = 14f;
+        public float Decel = 18f;
+        public float AirControl = 0.32f;
+        public float RotateSpeed = 11f;
+        public float Gravity = -26f;
+        public float JumpVelocity = 6.35f;
+        public float CoyoteTime = 0.12f;
+        public float JumpBuffer = 0.12f;
         public Transform CameraPivot;
         public PlayerInputReader Input;
         public bool Locked;
@@ -17,45 +23,88 @@ namespace RybatskiyMir.Player
 
         CharacterController _cc;
         float _vy;
+        float _coyote;
+        float _buffer;
         public Vector3 PlanarVelocity { get; private set; }
         public float Speed => PlanarVelocity.magnitude;
+        public bool Grounded { get; private set; }
 
-        void Awake() => _cc = GetComponent<CharacterController>();
+        void Awake()
+        {
+            _cc = GetComponent<CharacterController>();
+            _cc.slopeLimit = 48f;
+            _cc.stepOffset = 0.32f;
+            _cc.skinWidth = 0.08f;
+            _cc.minMoveDistance = 0f;
+            _cc.radius = 0.28f;
+            _cc.height = 1.78f;
+            _cc.center = new Vector3(0, 0.9f, 0);
+        }
 
         void Update()
         {
+            var dt = Time.deltaTime;
+            Grounded = _cc.isGrounded;
+            if (Grounded) _coyote = CoyoteTime;
+            else _coyote -= dt;
+
+            if (Input != null && Input.JumpPressed) _buffer = JumpBuffer;
+            else _buffer -= dt;
+
             if (Body)
             {
                 if (!Locked)
-                    Body.Pose = Speed > 4.2f ? FishermanPose.Run : Speed > 0.2f ? FishermanPose.Walk : FishermanPose.Idle;
+                {
+                    if (!Grounded && _vy > 0.4f) Body.Pose = FishermanPose.Idle;
+                    else Body.Pose = Speed > 4.15f ? FishermanPose.Run : Speed > 0.18f ? FishermanPose.Walk : FishermanPose.Idle;
+                }
                 Body.MoveSpeed = Speed;
             }
 
             if (Locked)
             {
                 PlanarVelocity = Vector3.zero;
-                _vy += Gravity * Time.deltaTime;
-                _cc.Move(new Vector3(0, _vy, 0) * Time.deltaTime);
+                _vy += Gravity * dt;
+                _cc.Move(new Vector3(0, _vy, 0) * dt);
+                _buffer = 0;
                 return;
             }
 
-            var camFwd = CameraPivot ? Vector3.ProjectOnPlane(CameraPivot.forward, Vector3.up).normalized : transform.forward;
-            var camRight = CameraPivot ? Vector3.ProjectOnPlane(CameraPivot.right, Vector3.up).normalized : transform.right;
-            // On-foot strafe: A = -right (left on screen), D = +right. Not vehicle yaw.
-            var wish = camFwd * Input.Move.y + camRight * Input.Move.x;
-            if (wish.sqrMagnitude > 1) wish.Normalize();
-            var speed = Input.Sprint ? RunSpeed : WalkSpeed;
-            PlanarVelocity = wish * speed;
+            var camFwd = CameraPivot
+                ? Vector3.ProjectOnPlane(CameraPivot.forward, Vector3.up).normalized
+                : transform.forward;
+            var camRight = CameraPivot
+                ? Vector3.ProjectOnPlane(CameraPivot.right, Vector3.up).normalized
+                : transform.right;
+            if (camFwd.sqrMagnitude < 0.001f) camFwd = transform.forward;
 
-            if (wish.sqrMagnitude > 0.05f)
+            var wish = camFwd * Input.Move.y + camRight * Input.Move.x;
+            if (wish.sqrMagnitude > 1f) wish.Normalize();
+            var speed = Input.Sprint ? RunSpeed : WalkSpeed;
+            var desired = wish * speed;
+            var a = wish.sqrMagnitude > 0.02f ? Accel : Decel;
+            if (!Grounded) a *= AirControl;
+            PlanarVelocity = Vector3.MoveTowards(PlanarVelocity, desired, a * dt);
+
+            if (wish.sqrMagnitude > 0.04f)
             {
                 var look = Quaternion.LookRotation(wish, Vector3.up);
-                transform.rotation = Quaternion.Slerp(transform.rotation, look, RotateSpeed * Time.deltaTime);
+                var turn = Grounded ? RotateSpeed : RotateSpeed * 0.45f;
+                transform.rotation = Quaternion.Slerp(transform.rotation, look, turn * dt);
             }
 
-            if (_cc.isGrounded && _vy < 0) _vy = -2f;
-            _vy += Gravity * Time.deltaTime;
-            _cc.Move((PlanarVelocity + Vector3.up * _vy) * Time.deltaTime);
+            if (Grounded && _vy < 0f) _vy = -2.2f;
+            var canJump = _coyote > 0f && _buffer > 0f && _vy <= 0.6f;
+            if (canJump)
+            {
+                _vy = JumpVelocity;
+                _coyote = 0f;
+                _buffer = 0f;
+                Grounded = false;
+            }
+            _vy += Gravity * dt;
+            var flags = _cc.Move((PlanarVelocity + Vector3.up * _vy) * dt);
+            if ((flags & CollisionFlags.Above) != 0 && _vy > 0f) _vy = 0f;
         }
 
         public void Teleport(Vector3 pos, Quaternion rot)
@@ -63,6 +112,8 @@ namespace RybatskiyMir.Player
             _cc.enabled = false;
             transform.SetPositionAndRotation(pos, rot);
             _cc.enabled = true;
+            PlanarVelocity = Vector3.zero;
+            _vy = 0f;
         }
     }
 }

@@ -3,7 +3,9 @@
   "rootNamespace": "RybatskiyMir",
   "references": [
     "Unity.InputSystem",
-    "Newtonsoft.Json"
+    "Newtonsoft.Json",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "Unity.RenderPipelines.Core.Runtime"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
