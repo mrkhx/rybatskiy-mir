@@ -46,6 +46,8 @@ export type Session = {
   biteAt: string | null;
   loseReason: string | null;
   depthM: number | null;
+  retrieve: string | null;
+  playerHint: string | null;
 };
 
 export type Player = {

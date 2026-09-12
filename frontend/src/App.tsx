@@ -30,6 +30,7 @@ type WorldSnap = {
     npcs: Array<{ name: string; greeting: string }>;
   };
   events: Array<{ title: string; description: string }>;
+  feeding?: Array<{ spotId: string; label: string }>;
 };
 type CatchRow = { id: string; kept: boolean; weightG: number; species: { name: string } };
 type BagRow = {
@@ -39,7 +40,26 @@ type BagRow = {
   equipped: boolean;
   item: { id: string; name: string; kind: string; stats?: { method?: string } };
 };
+type PatchRow = {
+  id: string;
+  name: string;
+  description: string;
+  stock: string;
+  requiredSkill: number;
+  locked: boolean;
+  hint: string | null;
+  tools: string[];
+};
 type ShopRow = { name: string; offers: Array<{ id: string; price: number; item: { name: string } }> };
+
+const RETRIEVE: Array<{ id: string; label: string }> = [
+  { id: "even", label: "равномерная" },
+  { id: "slow", label: "медленная" },
+  { id: "fast", label: "быстрая" },
+  { id: "stepped", label: "ступенчатая" },
+  { id: "twitch", label: "твичинг" },
+  { id: "pause", label: "с паузами" },
+];
 
 const TOD: Record<string, string> = {
   DAWN: "рассвет",
@@ -255,6 +275,9 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   const [log, setLog] = useState<Array<{ summary: string }>>([]);
   const [speciesName, setSpeciesName] = useState<Record<string, string>>({});
   const [spinHint, setSpinHint] = useState(false);
+  const [retrieve, setRetrieve] = useState("even");
+  const [patches, setPatches] = useState<PatchRow[]>([]);
+  const [harvestNote, setHarvestNote] = useState("");
   const canSpin = hasSpinningRod(bag);
 
   const applySession = useCallback((s: Session, extra?: string) => {
@@ -296,6 +319,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
     if (tab === "bag") {
       void api<BagRow[]>("/inventory").then(setBag);
       void api<CatchRow[]>("/catalog/catches").then((rows) => setKept(rows.filter((r) => r.kept).slice(0, 8)));
+      void api<{ patches: PatchRow[] }>("/inventory/patches").then((r) => setPatches(r.patches));
     }
     if (tab === "shop") void api<ShopRow[]>("/shops").then(setShops);
     if (tab === "log") void api<Array<{ summary: string }>>("/catalog/diary").then(setLog);
@@ -304,7 +328,10 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   useEffect(() => {
     const t = window.setInterval(() => {
       if (session?.state !== "WAITING_BITE") return;
-      void api<Session>("/fishing/bite", { method: "POST", body: "{}" }).then(setSession);
+      void api<Session>("/fishing/bite", { method: "POST", body: "{}" }).then((s) => {
+        setSession(s);
+        if (s.playerHint) setStatus(s.playerHint);
+      });
     }, 900);
     return () => window.clearInterval(t);
   }, [session?.state]);
@@ -354,9 +381,9 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
     try {
       const s = await api<Session>("/fishing/cast", {
         method: "POST",
-        body: JSON.stringify({ force, direction: 0.2, depthM: depth }),
+        body: JSON.stringify({ force, direction: 0.2, depthM: depth, retrieve }),
       });
-      applySession(s, "Ждём поклёвку…");
+      applySession(s, s.playerHint ?? "Ждём поклёвку…");
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Ошибка заброса");
     }
@@ -417,7 +444,24 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   const hud = (() => {
     if (!session) return null;
     if (session.state === "WAITING_BITE") {
-      return <p className="muted">Поплавок на воде. Ждём.</p>;
+      return (
+        <>
+          {session.playerHint && <p className="warn">{session.playerHint}</p>}
+          <p className="muted">Поплавок на воде. Можно сменить глубину или проводку и перезабросить.</p>
+          <label className="muted">Глубина {depth.toFixed(1)} м</label>
+          <input type="range" min={0.5} max={5.2} step={0.1} value={depth} onChange={(e) => setDepth(Number(e.target.value))} />
+          {shownMethod === "SPINNING" && (
+            <div className="chip-row">
+              {RETRIEVE.map((r) => (
+                <button key={r.id} type="button" className={`chip-btn ${retrieve === r.id ? "on" : ""}`} onClick={() => setRetrieve(r.id)}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button className="btn primary" type="button" onClick={() => void cast()}>Перезабросить</button>
+        </>
+      );
     }
     if (session.state === "BITE") {
       return (
@@ -450,12 +494,47 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
       );
     }
     if (session.state === "READY") {
+      const mixes = bag.filter((r) => r.item.id.startsWith("groundbait"));
       return (
         <>
           <label className="muted">Сила заброса {Math.round(force * 100)}</label>
           <input type="range" min={0.2} max={1} step={0.05} value={force} onChange={(e) => setForce(Number(e.target.value))} />
           <label className="muted">Глубина {depth.toFixed(1)} м</label>
           <input type="range" min={0.5} max={5.2} step={0.1} value={depth} onChange={(e) => setDepth(Number(e.target.value))} />
+          {shownMethod === "SPINNING" && (
+            <>
+              <p className="muted">Проводка</p>
+              <div className="chip-row">
+                {RETRIEVE.map((r) => (
+                  <button key={r.id} type="button" className={`chip-btn ${retrieve === r.id ? "on" : ""}`} onClick={() => setRetrieve(r.id)}>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {mixes.length > 0 && (
+            <button
+              className="btn"
+              type="button"
+              onClick={() => {
+                const mix = mixes[0];
+                if (!mix) return;
+                void api<{ label: string; session: Session }>("/fishing/feed", {
+                  method: "POST",
+                  body: JSON.stringify({ mixItemId: mix.item.id }),
+                })
+                  .then(async (r) => {
+                    applySession(r.session, r.label);
+                    setBag(await api<BagRow[]>("/inventory"));
+                    setWorld(await api<WorldSnap>("/world"));
+                  })
+                  .catch((e: Error) => setStatus(e.message));
+              }}
+            >
+              Прикормить
+            </button>
+          )}
           <button className="btn primary" type="button" onClick={() => void cast()}>Заброс</button>
         </>
       );
@@ -465,7 +544,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
 
   return (
     <div className="app">
-      <Lake tod={tod} wx={wx} bite={session?.state === "BITE"} float={Boolean(floatOn)} rod={fighting ? -12 : -28} />
+      <Lake tod={tod} wx={wx} bite={session?.state === "BITE"} float={Boolean(floatOn)} rod={fighting ? -12 : -28} feeding={Boolean(world?.feeding?.some((f) => f.spotId === shownSpotId))} />
       <div className="ui">
         <header className="topbar">
           <div className="brand">
@@ -486,6 +565,9 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
             <div className="hud">
               <div className="panel" style={{ padding: 14, borderRadius: 22 }}>
                 <p className="muted">{spot?.name} · {shownMethod === "FLOAT" ? "Поплавок" : "Спиннинг"}</p>
+                {world?.feeding?.find((f) => f.spotId === shownSpotId) && (
+                  <p className="ok">{world.feeding.find((f) => f.spotId === shownSpotId)?.label}</p>
+                )}
                 {spinHint ? <p className="muted">{SPIN_HINT}</p> : <p>{status}</p>}
                 {spinHint && (
                   <button className="btn primary" type="button" onClick={() => setTab("shop")}>Открыть лавку</button>
@@ -522,6 +604,11 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
               {!spinHint && status && <p className="muted">{status}</p>}
               {world.events.map((e) => (
                 <p key={e.title} className="warn">{e.title}</p>
+              ))}
+              {(world.feeding ?? []).map((f) => (
+                <p key={f.spotId} className="ok">
+                  {world.waterbody.spots.find((s) => s.id === f.spotId)?.name}: {f.label}
+                </p>
               ))}
               <div className="list">
                 {world.waterbody.spots.map((s) => {
@@ -622,7 +709,39 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
                   </span>
                 </div>
               ))}
-              <button className="btn" type="button" onClick={() => void api("/inventory/harvest", { method: "POST", body: JSON.stringify({ kind: "worm" }) }).then(() => api<BagRow[]>("/inventory").then(setBag))}>Копать червей</button>
+              <h2>Добыча наживки</h2>
+              <p className="muted">Одно действие — реалистичный улов. Участки истощаются и восстанавливаются.</p>
+              {harvestNote && <p className="ok">{harvestNote}</p>}
+              {patches.map((p) => (
+                <div className="row" key={p.id}>
+                  <span>
+                    {p.name}
+                    <small className="muted"> · {p.stock}{p.locked ? ` · навык ${p.requiredSkill}` : ""}</small>
+                    {p.hint && <div className="muted">{p.hint}</div>}
+                  </span>
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={p.locked}
+                    onClick={() => {
+                      setHarvestNote("");
+                      void api<{ name: string; qty: number; quality: string; stock: string }>("/inventory/harvest", {
+                        method: "POST",
+                        body: JSON.stringify({ patchId: p.id }),
+                      })
+                        .then(async (r) => {
+                          setHarvestNote(`${r.name} ×${r.qty} · ${r.quality === "fresh" ? "свежая" : "обычная"} · ${r.stock}`);
+                          setBag(await api<BagRow[]>("/inventory"));
+                          setPatches((await api<{ patches: PatchRow[] }>("/inventory/patches")).patches);
+                          onPlayer(await api<Player>("/players/me"));
+                        })
+                        .catch((e: Error) => setHarvestNote(e.message));
+                    }}
+                  >
+                    Добыть
+                  </button>
+                </div>
+              ))}
             </section>
           )}
           {tab === "shop" && (
@@ -709,12 +828,14 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   );
 }
 
-function Lake({ tod, wx, bite, float, rod }: { tod: string; wx: string; bite?: boolean; float?: boolean; rod?: number }) {
+function Lake({ tod, wx, bite, float, rod, feeding }: { tod: string; wx: string; bite?: boolean; float?: boolean; rod?: number; feeding?: boolean }) {
   return (
     <div className="lake" data-tod={tod} data-wx={wx} style={{ ["--rod-angle" as string]: `${rod ?? -28}deg` }}>
       <div className="layer far-pines" />
       <div className="layer mid-shore" />
       <div className="layer water-sheet" />
+      <div className="layer water-glint" />
+      <div className="layer lilies" />
       <div className="layer reeds-left" />
       <div className="layer reeds-right" />
       <div className="layer birds" />
@@ -722,6 +843,8 @@ function Lake({ tod, wx, bite, float, rod }: { tod: string; wx: string; bite?: b
       <div className="layer angler" />
       <div className="layer rod" />
       <div className={`layer float ${float ? "on" : ""} ${bite ? "bite" : ""}`} />
+      {feeding && <div className="layer feed-ring" />}
+      {bite && <div className="layer splash" />}
       <div className="weather-rain" />
       <div className="weather-snow" />
     </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-type Tab = "overview" | "waters" | "species" | "items" | "players";
+type Tab = "overview" | "waters" | "species" | "items" | "players" | "bite" | "harvest";
 
 const LABELS: Record<Tab, string> = {
   overview: "Сводка",
@@ -8,6 +8,8 @@ const LABELS: Record<Tab, string> = {
   species: "Рыбы",
   items: "Предметы",
   players: "Игроки",
+  bite: "Клёв",
+  harvest: "Добыча",
 };
 
 const RARITY: Record<string, string> = {
@@ -97,7 +99,11 @@ export default function App() {
             ? "/admin/waterbodies"
             : tab === "items"
               ? "/admin/items"
-              : "/admin/players";
+              : tab === "bite"
+                ? "/admin/bite-debug?spotId=old-bridge&method=FLOAT&bait=worm&depthM=1.4"
+                : tab === "harvest"
+                  ? "/admin/harvest-debug"
+                  : "/admin/players";
     void (async () => {
       setError("");
       const res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
@@ -145,7 +151,7 @@ export default function App() {
           ))}
         </nav>
         <section className="panel">
-          <h2>{tab === "waters" ? "Водоёмы и точки" : LABELS[tab]}</h2>
+          <h2>{tab === "waters" ? "Водоёмы и точки" : tab === "bite" ? "Почему клюёт" : tab === "harvest" ? "Участки добычи" : LABELS[tab]}</h2>
           <Catalog data={data} tab={tab} />
         </section>
       </main>
@@ -214,6 +220,45 @@ function Catalog({ data, tab }: { data: unknown; tab: Tab }) {
           <div className="row" key={s.id}>
             <span>{s.nickname}</span>
             <span className="note">ур. {s.stats?.level ?? 0} · {s.stats?.coins ?? 0}</span>
+          </div>
+        ))}
+      </>
+    );
+  }
+  if (tab === "bite" && data && typeof data === "object") {
+    const row = data as {
+      clock: { timeOfDay: string; weather: string; season: string };
+      feeding: string;
+      pressure: number;
+      candidates: Array<{ name?: string; speciesId: string; score: number; excluded: boolean; weakest: string | null }>;
+    };
+    return (
+      <>
+        <p className="note">Только admin. Игроку эти числа не показываются.</p>
+        <div className="row"><span>Часы мира</span><span className="note">{row.clock.season} · {row.clock.timeOfDay} · {row.clock.weather}</span></div>
+        <div className="row"><span>Прикормка</span><span className="note">{row.feeding}</span></div>
+        <div className="row"><span>Прессинг</span><span className="note">{row.pressure.toFixed(2)}</span></div>
+        {row.candidates.map((c) => (
+          <div className="row" key={c.speciesId}>
+            <span>{c.name ?? c.speciesId}</span>
+            <span className="note">{c.excluded ? "исключён" : c.score.toFixed(3)}{c.weakest ? ` · ${c.weakest}` : ""}</span>
+          </div>
+        ))}
+      </>
+    );
+  }
+  if (tab === "harvest" && data && typeof data === "object") {
+    const row = data as {
+      clock: { season?: string; weather?: string; timeOfDay?: string };
+      patches: Array<{ id: string; name: string; stock: number; maxStock: number; requiredSkill: number; depletion: number }>;
+    };
+    return (
+      <>
+        <p className="note">{row.clock.season} · {row.clock.timeOfDay} · {row.clock.weather}</p>
+        {row.patches.map((p) => (
+          <div className="row" key={p.id}>
+            <span>{p.name}</span>
+            <span className="note">запас {p.stock.toFixed(1)}/{p.maxStock} · навык {p.requiredSkill}</span>
           </div>
         ))}
       </>

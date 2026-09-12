@@ -153,6 +153,67 @@ body {
 }
 @keyframes fly { from { transform: translateX(0); } to { transform: translateX(70vw); } }
 
+.water-glint {
+  top: 56%; height: 30%;
+  background:
+    radial-gradient(ellipse 40% 12% at 30% 20%, rgba(255,255,255,0.18), transparent 70%),
+    radial-gradient(ellipse 28% 10% at 70% 40%, rgba(180,230,240,0.12), transparent 70%);
+  animation: glint 7s ease-in-out infinite;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+@keyframes glint { 50% { opacity: 0.45; } }
+.lilies {
+  top: 62%; left: 8%; width: 28%; height: 16%;
+  background:
+    radial-gradient(ellipse 18px 10px at 20% 40%, #2f6a3e 70%, transparent 72%),
+    radial-gradient(ellipse 14px 8px at 55% 60%, #245533 70%, transparent 72%),
+    radial-gradient(ellipse 16px 9px at 80% 30%, #2a6240 70%, transparent 72%);
+  opacity: 0.7;
+}
+.feed-ring {
+  left: 58%; top: 66%;
+  width: 86px; height: 38px;
+  border: 2px solid rgba(210, 190, 120, 0.45);
+  border-radius: 50%;
+  transform: translateX(-50%);
+  animation: ring 2.8s ease-out infinite;
+}
+@keyframes ring {
+  from { transform: translateX(-50%) scale(0.6); opacity: 0.7; }
+  to { transform: translateX(-50%) scale(1.6); opacity: 0; }
+}
+.splash {
+  left: 61%; top: 63%;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.7), transparent 70%);
+  animation: splash 0.4s ease-out infinite;
+}
+@keyframes splash { to { transform: scale(2.2); opacity: 0; } }
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.chip-btn {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  min-height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 0.78rem;
+}
+.chip-btn.on {
+  background: color-mix(in oklab, var(--accent) 80%, white);
+  color: var(--accent-fg);
+  border-color: transparent;
+}
+
 .weather-rain, .weather-snow {
   position: absolute; inset: 0;
   pointer-events: none;
@@ -350,5 +411,5 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reeds-left, .reeds-right, .water-sheet, .birds, .weather-rain, .weather-snow, .float { animation: none; }
+  .reeds-left, .reeds-right, .water-sheet, .birds, .weather-rain, .weather-snow, .float, .feed-ring, .splash, .water-glint { animation: none; }
 }
