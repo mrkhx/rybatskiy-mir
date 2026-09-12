@@ -11,6 +11,7 @@ type LakeProps = {
 
 const RIPPLE = [12, 28, 44, 61, 73, 19, 36, 55, 81, 8, 47, 66];
 const A = "/scene/forest-lake";
+const V = "v=3";
 
 export function Lake({ tod, wx, bite, float, rod, feeding }: LakeProps) {
   const root = useRef<HTMLDivElement>(null);
@@ -46,15 +47,12 @@ export function Lake({ tod, wx, bite, float, rod, feeding }: LakeProps) {
       data-feed={feeding ? "1" : "0"}
       style={{ ["--rod-angle" as string]: `${rod ?? -28}deg` }}
     >
-      <img className="lyr sky par-far" src={`${A}/sky.webp`} alt="" />
+      <img className="lyr sky par-far" src={`${A}/sky.webp?${V}`} alt="" />
       <div className="sun-glow par-far" />
-      <img className="lyr far-forest par-far" src={`${A}/far-forest.webp`} alt="" />
-
-      <img className="lyr trees-l par-mid" src={`${A}/trees.webp`} alt="" />
-      <img className="lyr trees-r par-mid" src={`${A}/trees.webp`} alt="" />
+      <img className="lyr far-forest par-far" src={`${A}/far-forest.webp?${V}`} alt="" />
 
       <div className="lyr water par-play">
-        <img className="water-tex" src={`${A}/water.webp`} alt="" />
+        <img className="water-tex" src={`${A}/water.webp?${V}`} alt="" />
         <div className="water-reflect" />
         <div className="water-sheen" />
         <svg className="water-svg" viewBox="0 0 1440 420" preserveAspectRatio="none" aria-hidden="true">
@@ -65,10 +63,10 @@ export function Lake({ tod, wx, bite, float, rod, feeding }: LakeProps) {
         </svg>
       </div>
 
-      <img className="lyr lilies-a par-play" src={`${A}/lilies.webp`} alt="" />
-      <img className="lyr lilies-b" src={`${A}/lilies.webp`} alt="" />
-      <img className="lyr rocks par-play" src={`${A}/rocks.webp`} alt="" />
-      <img className="lyr pier par-play" src={`${A}/pier.webp`} alt="" />
+      <img className="lyr lilies-a par-play" src={`${A}/lilies.webp?${V}`} alt="" />
+      <img className="lyr lilies-b" src={`${A}/lilies.webp?${V}`} alt="" />
+      <img className="lyr rocks par-play" src={`${A}/rocks.webp?${V}`} alt="" />
+      <img className="lyr pier par-play" src={`${A}/pier.webp?${V}`} alt="" />
       <div className="lyr angler par-play" />
 
       <svg className="lyr tackle par-play" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -81,9 +79,9 @@ export function Lake({ tod, wx, bite, float, rod, feeding }: LakeProps) {
         </g>
       </svg>
 
-      <img className="lyr reeds-l par-fg sway-a" src={`${A}/reeds.webp`} alt="" />
-      <img className="lyr reeds-r par-fg sway-b" src={`${A}/reeds.webp`} alt="" />
-      <img className="lyr branch par-fg" src={`${A}/branch.webp`} alt="" />
+      <img className="lyr reeds-l par-fg sway-a" src={`${A}/reeds.webp?${V}`} alt="" />
+      <img className="lyr reeds-r par-fg sway-b" src={`${A}/reeds.webp?${V}`} alt="" />
+      <img className="lyr branch par-fg" src={`${A}/branch.webp?${V}`} alt="" />
 
       <div className="wash" />
       <div className="fog-sheet" />
