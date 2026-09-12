@@ -61,7 +61,10 @@ body {
 .lake {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   background: var(--sky-top);
+  --px: 0;
+  --py: 0;
   --sky-top: #7eb4c4;
   --sky-mid: #9fc4b8;
   --sky-horizon: #6aa0a6;
@@ -71,134 +74,302 @@ body {
   --sun: #f0e0b8;
   --cloud: rgba(255, 255, 255, 0.28);
   --hill-far: #1a3328;
+  --wash: transparent;
+  --wash-op: 0;
+  --fog-op: 0;
 }
 .lake[data-tod="NIGHT"] {
   --sky-top: #0a1624;
-  --sky-mid: #12283c;
-  --sky-horizon: #163444;
   --water: #0c3542;
   --water-hi: #164854;
   --deep: #03141c;
   --sun: #dfe7f0;
-  --cloud: rgba(180, 200, 220, 0.12);
+  --wash: #0b1a2c;
+  --wash-op: 0.55;
 }
 .lake[data-tod="DAWN"] {
   --sky-top: #c9896a;
-  --sky-mid: #e0b08a;
-  --sky-horizon: #c9a07a;
   --water: #2a6f78;
-  --water-hi: #4a8f90;
   --sun: #f4c98a;
+  --wash: #c9896a;
+  --wash-op: 0.22;
 }
 .lake[data-tod="DUSK"] {
   --sky-top: #5a3b55;
-  --sky-mid: #c27b5a;
-  --sky-horizon: #7a4a58;
   --water: #1a5560;
-  --water-hi: #2e6e74;
   --sun: #f0b070;
+  --wash: #7a3a48;
+  --wash-op: 0.32;
 }
 .lake[data-tod="DAY"] {
   --sky-top: #8ec4d4;
-  --sky-mid: #b7d4c8;
-  --sky-horizon: #8eb8b0;
   --sun: #fff3c8;
 }
 .lake[data-tod="MORNING"] {
   --sky-top: #9fd0d4;
-  --sky-mid: #c3dcc8;
-  --sky-horizon: #93c0b4;
   --sun: #ffe7b0;
 }
 .lake[data-tod="EVENING"] {
   --sky-top: #6b8aa8;
-  --sky-mid: #c9a07a;
-  --sky-horizon: #7a8a90;
   --sun: #f0c090;
+  --wash: #6b4a38;
+  --wash-op: 0.18;
 }
 .lake[data-wx="OVERCAST"],
 .lake[data-wx="RAIN"],
 .lake[data-wx="DOWNPOUR"] {
-  --sky-top: #6d8490;
-  --sky-mid: #7d9498;
-  --sky-horizon: #5d7478;
-  --cloud: rgba(220, 230, 236, 0.45);
   --sun: transparent;
+  --wash: #4a5c64;
+  --wash-op: 0.28;
+  --fog-op: 0.45;
 }
 .lake[data-wx="STORM"] {
-  --sky-top: #3a4a56;
-  --sky-mid: #4a5c64;
-  --sky-horizon: #334248;
   --water: #123840;
-  --cloud: rgba(200, 214, 220, 0.35);
   --sun: transparent;
+  --wash: #1c2830;
+  --wash-op: 0.48;
+  --fog-op: 0.35;
 }
 .lake[data-wx="FOG"] {
-  --cloud: rgba(230, 238, 240, 0.5);
+  --fog-op: 0.78;
+  --wash: #9aa8ac;
+  --wash-op: 0.22;
+}
+.lake[data-wx="PARTLY_CLOUDY"] {
+  --wash: #6d8490;
+  --wash-op: 0.1;
+  --fog-op: 0.12;
 }
 
-.scene {
+.lyr {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  max-width: none;
+}
+.par-far { transform: translate3d(calc(var(--px) * -8px), calc(var(--py) * -4px), 0); }
+.par-mid { transform: translate3d(calc(var(--px) * -18px), calc(var(--py) * -8px), 0); }
+.par-play { transform: translate3d(calc(var(--px) * -10px), calc(var(--py) * -5px), 0); }
+.par-fg { transform: translate3d(calc(var(--px) * -28px), calc(var(--py) * -12px), 0); }
+
+.sky {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+.sun-glow {
+  position: absolute;
+  width: 42%;
+  height: 38%;
+  right: 4%;
+  top: -6%;
+  background: radial-gradient(circle at 55% 45%, color-mix(in oklab, var(--sun) 80%, transparent), transparent 68%);
+  pointer-events: none;
+}
+.far-forest {
+  left: -6%;
+  top: -2%;
+  width: 112%;
+  height: 56%;
+  object-fit: cover;
+  object-position: center 52%;
+  animation: driftX 42s ease-in-out infinite;
+}
+.trees-l {
+  left: -12%;
+  top: 4%;
+  height: 48%;
+  width: auto;
+  animation: driftX 32s ease-in-out infinite reverse;
+}
+.trees-r {
+  right: -14%;
+  top: 2%;
+  height: 50%;
+  width: auto;
+  transform: translate3d(calc(var(--px) * -18px), calc(var(--py) * -8px), 0) scaleX(-1);
+  animation: driftX 36s ease-in-out infinite;
+}
+.water {
+  left: 0;
+  right: 0;
+  top: 45%;
+  bottom: 0;
+  overflow: hidden;
+}
+.water-tex {
+  position: absolute;
+  left: -6%;
+  top: -8%;
+  width: 112%;
+  height: 116%;
+  object-fit: cover;
+  object-position: center 40%;
+  animation: waterDrift 22s ease-in-out infinite;
+}
+.water-reflect {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 28%;
+  background: linear-gradient(180deg, rgba(16, 40, 32, 0.28), transparent);
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+.water-sheen {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(180, 220, 230, 0.16), transparent 18%),
+    radial-gradient(ellipse 50% 24% at 36% 18%, rgba(255,255,255,0.18), transparent 70%),
+    radial-gradient(ellipse 40% 18% at 72% 42%, rgba(160, 220, 230, 0.12), transparent 70%);
+  mix-blend-mode: screen;
+  animation: glint 9s ease-in-out infinite;
+}
+.water-svg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  display: block;
 }
 
-.sun { filter: blur(0.2px); }
-.lake[data-tod="NIGHT"] .sun { r: 22; }
-.clouds { opacity: 0.9; }
-.drift-slow { animation: driftX 46s ease-in-out infinite; }
-.drift-far { animation: driftX 38s ease-in-out infinite; }
-.drift-mid { animation: driftX 28s ease-in-out infinite reverse; }
+.lilies-a {
+  left: 6%;
+  top: 68%;
+  width: 18%;
+  filter: drop-shadow(0 6px 8px rgba(0,20,24,0.25));
+}
+.lilies-b {
+  right: 8%;
+  top: 62%;
+  width: 14%;
+  opacity: 0.92;
+  transform: translate3d(calc(var(--px) * -10px), calc(var(--py) * -5px), 0) scaleX(-1);
+}
+.rocks {
+  left: 2%;
+  top: 56%;
+  width: 22%;
+  filter: drop-shadow(0 8px 10px rgba(0,16,20,0.3));
+}
+.pier {
+  left: 3%;
+  top: 45%;
+  width: 56%;
+  z-index: 1;
+  filter: drop-shadow(0 18px 16px rgba(6, 16, 14, 0.32));
+}
+.angler {
+  left: 22%;
+  top: 46.5%;
+  width: min(176px, 36vw);
+  aspect-ratio: 1 / 1;
+  z-index: 2;
+  background: url("/scene/forest-lake/angler-idle.webp") 0 0 / 200% 100% no-repeat;
+  animation: anglerIdle 2.8s steps(1) infinite;
+  filter: drop-shadow(0 10px 8px rgba(0,0,0,0.28));
+}
+@keyframes anglerIdle {
+  0%, 49% { background-position: 0 0; }
+  50%, 100% { background-position: 100% 0; }
+}
+
+.reeds-l {
+  left: -6%;
+  bottom: -6%;
+  height: 52%;
+  width: auto;
+  transform-origin: 50% 100%;
+  z-index: 4;
+}
+.reeds-r {
+  right: -8%;
+  bottom: -8%;
+  height: 48%;
+  width: auto;
+  transform-origin: 70% 100%;
+  z-index: 4;
+}
+.branch {
+  left: -2%;
+  top: -4%;
+  width: 48%;
+  z-index: 5;
+  filter: drop-shadow(0 8px 10px rgba(0,0,0,0.2));
+}
+
+.tackle {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+}
+.wash {
+  position: absolute;
+  inset: 0;
+  background: var(--wash);
+  opacity: var(--wash-op);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  z-index: 6;
+  transition: opacity 0.6s var(--ease);
+}
+.fog-sheet {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  opacity: var(--fog-op);
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 48%, rgba(230, 238, 240, 0.55), transparent 70%),
+    linear-gradient(180deg, rgba(214, 226, 230, 0.18), transparent 28%, rgba(214, 226, 230, 0.28) 62%, rgba(200, 214, 220, 0.12) 100%);
+  transition: opacity 0.7s var(--ease);
+}
+
 @keyframes driftX {
-  from, to { transform: translateX(0); }
-  50% { transform: translateX(12px); }
+  from, to { translate: 0 0; }
+  50% { translate: 14px 0; }
+}
+@keyframes waterDrift {
+  from, to { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-2.2%, 1.4%, 0) scale(1.04); }
 }
 
-.far-forest { color: #143024; opacity: 0.95; }
-.mid-forest { color: #1c3d2a; }
-.tree-reflect { fill: #10281c; opacity: 0.16; }
-.wave-d { stroke: rgba(255, 255, 255, 0.06); animation: waveShift 14s linear infinite reverse; }
 .wave {
-  stroke: rgba(255, 255, 255, 0.16);
-  stroke-width: 1.4;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 1.6;
   fill: none;
 }
-.wave-b { stroke: rgba(210, 236, 240, 0.12); animation: waveShift 9s linear infinite; }
-.wave-a { animation: waveShift 7s linear infinite reverse; }
-.wave-c { stroke: rgba(255, 255, 255, 0.08); animation: waveShift 12s linear infinite; }
+.wave-a { animation: waveShift 8s linear infinite reverse; }
+.wave-b { stroke: rgba(210, 236, 240, 0.14); animation: waveShift 11s linear infinite; }
+.wave-c { stroke: rgba(255, 255, 255, 0.1); animation: waveShift 14s linear infinite; }
+.wave-d { stroke: rgba(255, 255, 255, 0.07); animation: waveShift 18s linear infinite reverse; }
 @keyframes waveShift {
   from { transform: translateX(0); }
   to { transform: translateX(-160px); }
 }
-.wet-edge {
-  stroke: rgba(90, 150, 150, 0.45);
-  stroke-width: 3;
-  filter: blur(0.4px);
-}
-.pier-shadow { fill: rgba(6, 16, 14, 0.28); }
 
-.sway-a { transform-origin: 50% 100%; animation: sway 6.5s ease-in-out infinite; }
-.sway-b { transform-origin: 50% 100%; animation: sway 8s ease-in-out infinite reverse; }
+.sway-a { animation: sway 6.8s ease-in-out infinite; }
+.sway-b { animation: sway 8.4s ease-in-out infinite reverse; }
 @keyframes sway {
-  from, to { transform: rotate(-2.2deg); }
-  50% { transform: rotate(2.4deg); }
+  from, to { rotate: -1.6deg; }
+  50% { rotate: 2deg; }
 }
 
 .rod-stick {
-  stroke: #d7c4a0;
-  stroke-width: 3.2;
+  stroke: #e8d4ae;
+  stroke-width: 3.4;
   stroke-linecap: round;
-  transform-origin: 768px 478px;
+  transform-origin: 470px 455px;
   transform: rotate(calc(var(--rod-angle, -28deg) + 28deg));
 }
 .cast-line {
   stroke: rgba(236, 228, 214, 0.55);
-  stroke-width: 1.15;
+  stroke-width: 1.2;
   stroke-dasharray: 3 5;
 }
-.lake[data-float="1"] .cast-line { stroke-dasharray: none; stroke: rgba(236, 228, 214, 0.7); }
+.lake[data-float="1"] .cast-line { stroke-dasharray: none; stroke: rgba(236, 228, 214, 0.78); }
 .float-body { fill: #c45c4a; }
 .float-tip { fill: #f2eee6; }
 .float-ring {
@@ -220,33 +391,19 @@ body {
   to { transform: scale(1.8); opacity: 0; }
 }
 
-.birds { animation: fly 32s linear infinite; opacity: 0.55; }
-@keyframes fly { from { transform: translateX(0); } to { transform: translateX(62vw); } }
-
-.fog { opacity: 0; }
-.lake[data-wx="FOG"] .fog,
-.lake[data-wx="RAIN"] .fog,
-.lake[data-wx="OVERCAST"] .fog { opacity: 1; }
-.flash { fill: #fff; opacity: 0; pointer-events: none; }
-.lake[data-wx="STORM"] .flash { animation: lightning 8s ease-in infinite; }
-@keyframes lightning {
-  0%, 92%, 100% { opacity: 0; }
-  93% { opacity: 0.22; }
-  94% { opacity: 0; }
-  95.5% { opacity: 0.35; }
-  96.5% { opacity: 0; }
-}
 .vignette-sheet {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at 50% 40%, transparent 48%, rgba(4, 12, 16, 0.38) 100%);
+  z-index: 6;
+  background: radial-gradient(ellipse at 50% 40%, transparent 48%, rgba(4, 12, 16, 0.42) 100%);
 }
 
 .caustic-sheet {
   position: absolute;
   left: 0; right: 0; top: 52%; bottom: 0;
   pointer-events: none;
+  z-index: 2;
   background:
     radial-gradient(ellipse 40% 18% at 30% 18%, rgba(255,255,255,0.16), transparent 70%),
     radial-gradient(ellipse 28% 12% at 68% 40%, rgba(180,230,240,0.1), transparent 70%);
@@ -258,12 +415,13 @@ body {
 
 .feed-ring {
   position: absolute;
-  left: 68%; top: 68%;
+  left: 62%; top: 63%;
   width: 92px; height: 40px;
   border: 2px solid rgba(210, 190, 120, 0.4);
   border-radius: 50%;
   transform: translateX(-50%);
   pointer-events: none;
+  z-index: 3;
   animation: ring 2.8s ease-out infinite;
 }
 @keyframes ring {
@@ -272,10 +430,11 @@ body {
 }
 .splash {
   position: absolute;
-  left: 67.5%; top: 66%;
+  left: 61.5%; top: 61%;
   width: 26px; height: 26px;
   border-radius: 50%;
   pointer-events: none;
+  z-index: 3;
   background: radial-gradient(circle, rgba(255,255,255,0.75), transparent 70%);
   animation: splash 0.42s ease-out infinite;
 }
@@ -285,6 +444,7 @@ body {
   position: absolute;
   pointer-events: none;
   opacity: 0;
+  z-index: 7;
 }
 .weather-rain, .weather-snow { inset: 0; }
 .weather-ripples { inset: 0; }
@@ -293,26 +453,28 @@ body {
 .lake[data-wx="STORM"] .weather-rain { opacity: 1; }
 .lake[data-wx="RAIN"] .weather-ripples,
 .lake[data-wx="DOWNPOUR"] .weather-ripples,
-.lake[data-wx="STORM"] .weather-ripples { opacity: 0.85; }
+.lake[data-wx="STORM"] .weather-ripples { opacity: 0.9; }
 .lake[data-wx="SNOW"] .weather-snow { opacity: 0.7; }
 
 .weather-rain {
   background-image:
-    repeating-linear-gradient(104deg, transparent 0 14px, rgba(226, 236, 240, 0.22) 14px 15px),
-    repeating-linear-gradient(98deg, transparent 0 22px, rgba(210, 224, 230, 0.16) 22px 23px);
-  background-size: 48px 90px, 72px 140px;
-  animation: rain 0.7s linear infinite;
-  mask-image: linear-gradient(180deg, #000 0 48%, rgba(0,0,0,0.35) 70%, transparent 92%);
+    radial-gradient(1.2px 10px at 8% 12%, rgba(236, 244, 248, 0.55), transparent),
+    radial-gradient(1px 8px at 22% 40%, rgba(226, 236, 240, 0.4), transparent),
+    radial-gradient(1.4px 12px at 41% 18%, rgba(236, 244, 248, 0.5), transparent),
+    radial-gradient(1px 9px at 63% 55%, rgba(226, 236, 240, 0.38), transparent),
+    radial-gradient(1.2px 11px at 78% 8%, rgba(236, 244, 248, 0.48), transparent),
+    radial-gradient(1px 8px at 91% 33%, rgba(226, 236, 240, 0.36), transparent);
+  background-size: 120px 180px, 90px 160px, 140px 210px, 100px 170px, 130px 190px, 80px 150px;
+  animation: rain 0.85s linear infinite;
+  mask-image: linear-gradient(180deg, #000 0 42%, rgba(0,0,0,0.45) 68%, transparent 94%);
 }
 .lake[data-wx="DOWNPOUR"] .weather-rain,
 .lake[data-wx="STORM"] .weather-rain {
   opacity: 1;
-  background-image:
-    repeating-linear-gradient(108deg, transparent 0 10px, rgba(226, 236, 240, 0.32) 10px 11px),
-    repeating-linear-gradient(98deg, transparent 0 16px, rgba(210, 224, 230, 0.2) 16px 17px);
-  animation-duration: 0.45s;
+  animation-duration: 0.5s;
+  background-size: 80px 140px, 70px 120px, 100px 160px, 72px 130px, 90px 150px, 60px 110px;
 }
-@keyframes rain { to { background-position: 36px 90px, -24px 140px; } }
+@keyframes rain { to { background-position: 28px 180px, -18px 160px, 36px 210px, -22px 170px, 20px 190px, -16px 150px; } }
 .weather-snow {
   background-image: radial-gradient(circle, #fff 1px, transparent 1.5px);
   background-size: 28px 28px;
@@ -320,14 +482,23 @@ body {
 }
 .ripple {
   position: absolute;
-  width: 18px; height: 8px;
-  border: 1px solid rgba(230, 244, 246, 0.4);
+  width: 22px; height: 10px;
+  border: 1px solid rgba(230, 244, 246, 0.45);
   border-radius: 50%;
   animation: ripple 2.8s ease-out infinite;
 }
 @keyframes ripple {
   from { transform: scale(0.4); opacity: 0.55; }
   to { transform: scale(2.2); opacity: 0; }
+}
+
+.lake[data-wx="STORM"] .wash { animation: lightning 8s ease-in infinite; }
+@keyframes lightning {
+  0%, 92%, 100% { opacity: var(--wash-op); }
+  93% { opacity: 0.12; }
+  94% { opacity: var(--wash-op); }
+  95.5% { opacity: 0.08; }
+  96.5% { opacity: var(--wash-op); }
 }
 
 /* —— UI overlay —— */
@@ -434,6 +605,27 @@ body {
 .btn:active { transform: scale(0.96); }
 .btn.ghost { color: var(--muted); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.dock button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 56px;
+  padding: 8px 6px;
+  font-size: 0.72rem;
+}
+.dock button svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 .hud {
   width: min(440px, calc(100% - 24px));
@@ -588,9 +780,10 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drift-slow, .drift-far, .drift-mid, .sway-a, .sway-b,
-  .wave-a, .wave-b, .wave-c, .birds, .weather-rain, .weather-snow,
-  .float-bob, .feed-ring, .splash, .caustic-sheet, .ripple, .flash {
+  .far-forest, .trees-l, .trees-r, .sway-a, .sway-b,
+  .wave-a, .wave-b, .wave-c, .wave-d, .water-tex, .angler,
+  .weather-rain, .weather-snow, .float-bob, .feed-ring, .splash,
+  .caustic-sheet, .ripple, .water-sheen {
     animation: none;
   }
 }

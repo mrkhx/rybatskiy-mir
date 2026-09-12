@@ -62,6 +62,15 @@ const RETRIEVE: Array<{ id: string; label: string }> = [
   { id: "pause", label: "с паузами" },
 ];
 
+const TABS: Array<{ id: Tab; label: string; icon: string }> = [
+  { id: "fish", label: "Ловля", icon: "M14.5 3.5v10.2a4.2 4.2 0 1 1-7.1-3" },
+  { id: "map", label: "Карта", icon: "M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" },
+  { id: "bag", label: "Снасти", icon: "M8 7V6a4 4 0 0 1 8 0v1M4 7h16v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7zM4 12h16" },
+  { id: "shop", label: "Лавка", icon: "M3 9l2-5h14l2 5v10a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19V9zM9.5 20.5V12h5v8.5" },
+  { id: "log", label: "Трофеи", icon: "M8 4h8v5a4 4 0 0 1-8 0V4zM16 6h2.3a2.1 2.1 0 0 1 0 4.2H16M8 6H5.7a2.1 2.1 0 0 0 0 4.2H8M12 13v3M8.5 21h7" },
+  { id: "profile", label: "Профиль", icon: "M12 8a3.15 3.15 0 1 0 0-6.3A3.15 3.15 0 0 0 12 8zM5.4 19.6c1.5-3.1 3.9-4.7 6.6-4.7s5.1 1.6 6.6 4.7" },
+];
+
 const TOD: Record<string, string> = {
   DAWN: "рассвет",
   MORNING: "утро",
@@ -817,9 +826,10 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
             </section>
           )}
           <nav className="dock">
-            {(["fish", "map", "bag", "shop", "log", "profile"] as Tab[]).map((id) => (
-              <button key={id} className={tab === id ? "active" : ""} type="button" onClick={() => setTab(id)}>
-                {{ fish: "Ловля", map: "Карта", bag: "Снасти", shop: "Лавка", log: "Трофеи", profile: "Профиль" }[id]}
+            {TABS.map((item) => (
+              <button key={item.id} className={tab === item.id ? "active" : ""} type="button" onClick={() => setTab(item.id)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d={item.icon} /></svg>
+                {item.label}
               </button>
             ))}
           </nav>
