@@ -55,6 +55,34 @@ namespace RybatskiyMir.Fishing
                 seg.GetComponent<MeshRenderer>().sharedMaterial = i == 0 ? cork : i == 1 ? wrap : blank;
                 gear.Bones[i] = bone;
                 parent = bone;
+
+                if (i == 0)
+                {
+                    var reel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    reel.name = "Reel";
+                    reel.transform.SetParent(bone, false);
+                    reel.transform.localPosition = new Vector3(0.04f, 0.08f, 0);
+                    reel.transform.localRotation = Quaternion.Euler(0, 0, 90f);
+                    reel.transform.localScale = new Vector3(0.055f, 0.018f, 0.055f);
+                    Object.Destroy(reel.GetComponent<Collider>());
+                    reel.GetComponent<MeshRenderer>().sharedMaterial = MeshUtil.Lit(new Color(0.18f, 0.20f, 0.18f), 0.55f);
+                    var spool = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    spool.transform.SetParent(reel.transform, false);
+                    spool.transform.localScale = new Vector3(0.72f, 0.55f, 0.72f);
+                    Object.Destroy(spool.GetComponent<Collider>());
+                    spool.GetComponent<MeshRenderer>().sharedMaterial = MeshUtil.Lit(new Color(0.72f, 0.55f, 0.22f), 0.35f);
+                }
+                if (i >= 1)
+                {
+                    var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    ring.name = "Guide";
+                    ring.transform.SetParent(bone, false);
+                    ring.transform.localPosition = new Vector3(0, lengths[i] * 0.85f, 0.012f);
+                    ring.transform.localRotation = Quaternion.Euler(90f, 0, 0);
+                    ring.transform.localScale = new Vector3(radii[i] * 3.2f, 0.004f, radii[i] * 3.2f);
+                    Object.Destroy(ring.GetComponent<Collider>());
+                    ring.GetComponent<MeshRenderer>().sharedMaterial = MeshUtil.Lit(new Color(0.55f, 0.55f, 0.52f), 0.7f);
+                }
             }
             var tip = new GameObject("Tip");
             tip.transform.SetParent(parent, false);

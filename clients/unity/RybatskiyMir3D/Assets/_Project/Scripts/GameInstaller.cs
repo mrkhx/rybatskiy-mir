@@ -90,6 +90,7 @@ namespace RybatskiyMir
 
             _atmo = gameObject.AddComponent<Atmosphere>();
             _atmo.Build(ForestLakeBuilder.Sun);
+            _hud.Atmo = _atmo;
 
             try
             {

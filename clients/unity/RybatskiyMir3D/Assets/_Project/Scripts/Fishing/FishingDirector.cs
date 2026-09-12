@@ -243,6 +243,7 @@ namespace RybatskiyMir.Fishing
             _busy = true;
             _hookFlash = 0.35f;
             if (Body) Body.Pose = FishermanPose.Hook;
+            if (Cam) Cam.AddImpulse(-Mover.transform.forward * 0.18f + Vector3.up * 0.08f);
             WorldAudio.I?.PlayCast(Mover.transform.position);
             try
             {
@@ -275,6 +276,7 @@ namespace RybatskiyMir.Fishing
             _fishPos = _floatPos + new Vector3(yank * 1.6f, -0.55f - (1f - progress) * 0.9f, yank * 0.5f + progress * 0.8f);
             Gear.AimAt(WaterAim(_fishPos));
             FaceWater();
+            if (Mathf.Abs(yank) > 0.85f && Cam) Cam.AddImpulse(Mover.transform.right * yank * 0.04f);
             if (_fishPos.y > WaterY - 0.08f && Random.value < t * 0.04f) SplashOnce(_fishPos);
             if (Input.Sprint && Time.frameCount % 18 == 0) WorldAudio.I?.PlayReel(Mover.transform.position);
         }
