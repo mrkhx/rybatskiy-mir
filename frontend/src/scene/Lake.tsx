@@ -11,7 +11,7 @@ type LakeProps = {
 
 const RIPPLE = [12, 28, 44, 61, 73, 19, 36, 55, 81, 8, 47, 66];
 const A = "/scene/forest-lake";
-const V = "v=3";
+const V = "v=5";
 
 export function Lake({ tod, wx, bite, float, rod, feeding }: LakeProps) {
   const root = useRef<HTMLDivElement>(null);
@@ -66,16 +66,24 @@ export function Lake({ tod, wx, bite, float, rod, feeding }: LakeProps) {
       <img className="lyr lilies-a par-play" src={`${A}/lilies.webp?${V}`} alt="" />
       <img className="lyr lilies-b" src={`${A}/lilies.webp?${V}`} alt="" />
       <img className="lyr rocks par-play" src={`${A}/rocks.webp?${V}`} alt="" />
-      <img className="lyr pier par-play" src={`${A}/pier.webp?${V}`} alt="" />
-      <div className="lyr angler par-play" />
 
-      <svg className="lyr tackle par-play" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <line className="rod-stick" x1="470" y1="455" x2="700" y2="330" />
-        <line className="cast-line" x1="700" y1="330" x2="890" y2="575" />
+      <div className="lyr play-rig par-play">
+        <img className="pier-reflect" src={`${A}/pier.webp?${V}`} alt="" />
+        <div className="pier-shadow" />
+        <img className="pier" src={`${A}/pier.webp?${V}`} alt="" />
+        <div className="pier-wet" />
+        <div className="angler" />
+      </div>
+
+      <svg className="lyr tackle par-play" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <line className="rod-under" x1="26.4" y1="47.4" x2="48.8" y2="35.2" />
+        <line className="rod-stick" x1="26.4" y1="47.4" x2="48.8" y2="35.2" />
+        <line className="rod-hi" x1="26.6" y1="47.1" x2="48.5" y2="35.4" />
+        <line className="cast-line" x1="48.8" y1="35.2" x2="67.2" y2="57.2" />
         <g className="float-bob">
-          <ellipse className="float-ring" cx="902" cy="588" rx="22" ry="8" />
-          <rect className="float-body" x="894" y="544" width="14" height="34" rx="6" />
-          <rect className="float-tip" x="896" y="534" width="10" height="14" rx="2" />
+          <ellipse className="float-ring" cx="67.9" cy="58.4" rx="2.4" ry="0.95" />
+          <rect className="float-body" x="67.2" y="54.0" width="1.4" height="3.8" rx="0.7" />
+          <rect className="float-tip" x="67.35" y="52.9" width="1.1" height="1.4" rx="0.25" />
         </g>
       </svg>
 

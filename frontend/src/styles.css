@@ -158,6 +158,7 @@ body {
   height: 100%;
   object-fit: cover;
   object-position: center top;
+  filter: saturate(0.86) brightness(1.02);
 }
 .sun-glow {
   position: absolute;
@@ -176,6 +177,7 @@ body {
   object-fit: cover;
   object-position: center bottom;
   animation: driftX 42s ease-in-out infinite;
+  filter: saturate(0.8) contrast(0.98) brightness(0.94);
 }
 .trees-l {
   left: -12%;
@@ -208,6 +210,7 @@ body {
   object-fit: cover;
   object-position: center 40%;
   animation: waterDrift 22s ease-in-out infinite;
+  filter: saturate(0.84) brightness(0.96) hue-rotate(-6deg);
 }
 .water-reflect {
   position: absolute;
@@ -235,40 +238,88 @@ body {
 }
 
 .lilies-a {
-  left: 6%;
-  top: 68%;
-  width: 18%;
-  filter: drop-shadow(0 6px 8px rgba(0,20,24,0.25));
+  left: 7%;
+  top: 58%;
+  width: 11%;
+  filter: saturate(0.82) brightness(0.94) drop-shadow(0 5px 6px rgba(0,20,24,0.28));
 }
 .lilies-b {
-  right: 8%;
-  top: 62%;
-  width: 14%;
-  opacity: 0.92;
+  right: 9%;
+  top: 54%;
+  width: 9%;
+  opacity: 0.9;
   transform: translate3d(calc(var(--px) * -10px), calc(var(--py) * -5px), 0) scaleX(-1);
+  filter: saturate(0.82) brightness(0.94);
 }
 .rocks {
-  left: 2%;
-  top: 56%;
-  width: 22%;
-  filter: drop-shadow(0 8px 10px rgba(0,16,20,0.3));
+  left: 1%;
+  top: 51%;
+  width: 13%;
+  filter: saturate(0.76) brightness(0.92) contrast(1.04) drop-shadow(0 8px 10px rgba(0,16,20,0.3));
 }
-.pier {
-  left: 3%;
-  top: 45%;
-  width: 56%;
-  z-index: 1;
-  filter: drop-shadow(0 18px 16px rgba(6, 16, 14, 0.32));
-}
-.angler {
-  left: 22%;
-  top: 44%;
-  width: min(150px, 30vw);
-  aspect-ratio: 360 / 583;
+
+.play-rig {
+  left: 1%;
+  top: 42%;
+  width: 78%;
+  aspect-ratio: 1240 / 480;
   z-index: 2;
-  background: url("/scene/forest-lake/angler-idle.webp?v=3") 0 0 / 200% 100% no-repeat;
+}
+.play-rig .pier {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: left center;
+  z-index: 1;
+  filter: saturate(0.74) contrast(1.06) brightness(0.96);
+}
+.pier-reflect {
+  position: absolute;
+  left: 6%;
+  top: 58%;
+  width: 86%;
+  height: 38%;
+  object-fit: contain;
+  object-position: left top;
+  transform: scaleY(-1);
+  transform-origin: center top;
+  opacity: 0.22;
+  filter: blur(2.4px) saturate(0.5) brightness(0.58);
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 78%);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 78%);
+  z-index: 0;
+}
+.pier-shadow {
+  position: absolute;
+  left: 12%;
+  top: 52%;
+  width: 72%;
+  height: 24%;
+  background: radial-gradient(ellipse 72% 55% at 48% 35%, rgba(4, 14, 16, 0.55), transparent 72%);
+  filter: blur(7px);
+  z-index: 0;
+}
+.pier-wet {
+  position: absolute;
+  left: 12%;
+  top: 42%;
+  width: 70%;
+  height: 16%;
+  background: linear-gradient(180deg, transparent 10%, rgba(10, 32, 36, 0.34) 48%, transparent 100%);
+  z-index: 2;
+  pointer-events: none;
+}
+.play-rig .angler {
+  left: 24%;
+  top: 8%;
+  width: 9.2%;
+  aspect-ratio: 360 / 583;
+  z-index: 3;
+  background: url("/scene/forest-lake/angler-idle.webp?v=5") 0 0 / 200% 100% no-repeat;
   animation: anglerIdle 2.8s steps(1) infinite;
-  filter: drop-shadow(0 10px 8px rgba(0,0,0,0.28));
+  filter: saturate(0.68) brightness(0.9) contrast(1.06) drop-shadow(0 5px 5px rgba(0,0,0,0.4));
 }
 @keyframes anglerIdle {
   0%, 49% { background-position: 0 0; }
@@ -276,27 +327,29 @@ body {
 }
 
 .reeds-l {
-  left: -4%;
-  bottom: -8%;
-  height: 44%;
+  left: -2%;
+  bottom: 36%;
+  height: 18%;
   width: auto;
   transform-origin: 50% 100%;
   z-index: 4;
+  filter: saturate(0.76) brightness(0.88) contrast(1.08);
 }
 .reeds-r {
-  right: -6%;
-  bottom: -10%;
-  height: 40%;
+  right: -3%;
+  bottom: 38%;
+  height: 16%;
   width: auto;
   transform-origin: 70% 100%;
   z-index: 4;
+  filter: saturate(0.76) brightness(0.88) contrast(1.08);
 }
 .branch {
-  left: -2%;
-  top: -4%;
-  width: 48%;
+  left: -4%;
+  top: -6%;
+  width: 34%;
   z-index: 5;
-  filter: drop-shadow(0 8px 10px rgba(0,0,0,0.2));
+  filter: saturate(0.7) brightness(0.88) contrast(1.04) drop-shadow(0 8px 10px rgba(0,0,0,0.2));
 }
 
 .tackle {
@@ -304,6 +357,7 @@ body {
   width: 100%;
   height: 100%;
   z-index: 3;
+  overflow: visible;
 }
 .wash {
   position: absolute;
@@ -356,19 +410,33 @@ body {
   50% { rotate: 2deg; }
 }
 
-.rod-stick {
-  stroke: #e8d4ae;
-  stroke-width: 3.4;
+.rod-under {
+  stroke: #2a1c10;
+  stroke-width: 1.85;
   stroke-linecap: round;
-  transform-origin: 470px 455px;
+  transform-origin: 26.4px 47.4px;
+  transform: rotate(calc(var(--rod-angle, -28deg) + 28deg));
+}
+.rod-stick {
+  stroke: #c4a06a;
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  transform-origin: 26.4px 47.4px;
+  transform: rotate(calc(var(--rod-angle, -28deg) + 28deg));
+}
+.rod-hi {
+  stroke: #ead9b4;
+  stroke-width: 0.38;
+  stroke-linecap: round;
+  transform-origin: 26.4px 47.4px;
   transform: rotate(calc(var(--rod-angle, -28deg) + 28deg));
 }
 .cast-line {
-  stroke: rgba(236, 228, 214, 0.55);
-  stroke-width: 1.2;
-  stroke-dasharray: 3 5;
+  stroke: rgba(236, 228, 214, 0.72);
+  stroke-width: 0.28;
+  stroke-dasharray: 0.7 1.1;
 }
-.lake[data-float="1"] .cast-line { stroke-dasharray: none; stroke: rgba(236, 228, 214, 0.78); }
+.lake[data-float="1"] .cast-line { stroke-dasharray: none; stroke: rgba(236, 228, 214, 0.88); }
 .float-body { fill: #c45c4a; }
 .float-tip { fill: #f2eee6; }
 .float-ring {
@@ -383,8 +451,8 @@ body {
 .lake[data-float="1"] .float-ring { opacity: 1; animation: ringPulse 2.4s ease-out infinite; }
 .lake[data-bite="1"] .float-bob { animation: nibble 0.2s ease-in-out infinite; }
 .lake[data-bite="1"] .float-body { fill: #e07a6a; }
-@keyframes bob { 50% { transform: translateY(5px); } }
-@keyframes nibble { 50% { transform: translateY(11px) rotate(8deg); } }
+@keyframes bob { 50% { transform: translateY(0.6px); } }
+@keyframes nibble { 50% { transform: translateY(1.3px) rotate(8deg); } }
 @keyframes ringPulse {
   from { transform: scale(0.7); opacity: 0.45; }
   to { transform: scale(1.8); opacity: 0; }
@@ -503,7 +571,8 @@ body {
 /* —— UI overlay —— */
 .ui {
   position: relative;
-  z-index: 3;
+  z-index: 20;
+  isolation: isolate;
   min-height: 100dvh;
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -512,9 +581,9 @@ body {
 .ui > * { pointer-events: auto; }
 
 .topbar, .dock, .panel, .modal, .card {
-  background: color-mix(in oklab, var(--bg-elevated) 82%, transparent);
+  background: color-mix(in oklab, var(--bg-elevated) 92%, transparent);
   box-shadow: var(--shadow-border);
-  backdrop-filter: blur(14px) saturate(1.1);
+  backdrop-filter: blur(18px) saturate(1.15);
 }
 .topbar {
   margin: max(10px, env(safe-area-inset-top)) 12px 0;
@@ -525,6 +594,8 @@ body {
   gap: 10px 16px;
   align-items: center;
   flex-wrap: wrap;
+  z-index: 22;
+  position: relative;
 }
 .brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .brand small, .kicker {
@@ -575,6 +646,8 @@ body {
   display: flex;
   gap: 6px;
   overflow-x: auto;
+  position: relative;
+  z-index: 22;
 }
 .dock button, .btn {
   border: 0;
@@ -631,6 +704,8 @@ body {
   margin: 0 auto 12px;
   display: grid;
   gap: 10px;
+  position: relative;
+  z-index: 21;
 }
 .hud-panel {
   padding: 14px 16px;
@@ -693,7 +768,7 @@ body {
   overflow: auto;
   border-radius: var(--radius-xl);
   padding: 16px 18px;
-  z-index: 4;
+  z-index: 23;
 }
 .sheet h2 {
   margin: 0 0 12px;
@@ -766,6 +841,13 @@ body {
     margin-left: 24px;
     margin-right: auto;
   }
+  .play-rig {
+    left: 3%;
+    top: 38%;
+    width: min(54%, 640px);
+  }
+  .reeds-l { height: 20%; bottom: 18%; }
+  .reeds-r { height: 18%; bottom: 16%; }
 }
 
 @media (max-width: 640px) {
