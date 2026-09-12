@@ -4,6 +4,8 @@
 
 Текущий React frontend (`/frontend`) **не удалять** — это LEGACY / prototype для VK и web preview.
 
+Как смотреть 3D после коммитов: [docs/UNITY_PREVIEW.md](../../docs/UNITY_PREVIEW.md).
+
 ## Требования
 
 - Unity 6 LTS **6000.0.38f1** (или любой 6000.0.x)

@@ -1,0 +1,218 @@
+# Unity 3D client preview builds.
+# Artifacts only — no production/staging deploy.
+# Requires Unity license secrets (see docs/UNITY_PREVIEW.md).
+# If secrets are missing, build jobs are skipped (not a silent green lie).
+
+name: Unity preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_activation:
+        description: "Only generate Unity .alf activation file (no game build)"
+        type: boolean
+        default: false
+      skip_webgl:
+        description: "Skip WebGL job"
+        type: boolean
+        default: false
+  push:
+    branches:
+      - full-game-development
+    paths:
+      - "clients/unity/**"
+      - ".github/workflows/unity-preview.yml"
+      - "docs/UNITY_PREVIEW.md"
+
+concurrency:
+  group: unity-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  UNITY_VERSION: 6000.0.38f1
+  PROJECT_PATH: clients/unity/RybatskiyMir3D
+
+jobs:
+  request-activation:
+    name: request Unity .alf
+    if: github.event_name == 'workflow_dispatch' && inputs.request_activation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Request manual activation file
+        id: activation
+        uses: game-ci/unity-request-activation-file@v2
+
+      - name: Upload .alf
+        uses: actions/upload-artifact@v4
+        with:
+          name: UnityActivationFile
+          path: ${{ steps.activation.outputs.filePath }}
+          if-no-files-found: error
+          retention-days: 3
+
+  license-gate:
+    name: license secrets
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.request_activation == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        run: |
+          set -e
+          personal=0
+          professional=0
+          if [ -n "${UNITY_LICENSE}" ] && [ -n "${UNITY_EMAIL}" ] && [ -n "${UNITY_PASSWORD}" ]; then
+            personal=1
+          fi
+          if [ -n "${UNITY_SERIAL}" ] && [ -n "${UNITY_EMAIL}" ] && [ -n "${UNITY_PASSWORD}" ]; then
+            professional=1
+          fi
+          if [ "$personal" = 1 ] || [ "$professional" = 1 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "Unity license secrets are present. Builds will run."
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Unity license secrets are not configured. Windows and WebGL preview builds are SKIPPED."
+            echo "Add GitHub Actions secrets documented in docs/UNITY_PREVIEW.md"
+            echo "Personal: UNITY_LICENSE + UNITY_EMAIL + UNITY_PASSWORD"
+            echo "Plus/Pro: UNITY_SERIAL + UNITY_EMAIL + UNITY_PASSWORD"
+          fi
+
+  build-windows:
+    name: Windows x86_64 development
+    needs: license-gate
+    if: needs.license-gate.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Library
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PROJECT_PATH }}/Library
+          key: Library-win-${{ env.UNITY_VERSION }}-${{ hashFiles('clients/unity/RybatskiyMir3D/Packages/manifest.json', 'clients/unity/RybatskiyMir3D/ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            Library-win-${{ env.UNITY_VERSION }}-
+            Library-win-
+
+      - name: Build StandaloneWindows64 (Development)
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: ${{ env.PROJECT_PATH }}
+          unityVersion: ${{ env.UNITY_VERSION }}
+          targetPlatform: StandaloneWindows64
+          buildName: RybatskiyMir3D
+          buildsPath: build
+          allowDirtyBuild: true
+          versioning: None
+          buildMethod: RybatskiyMir.Editor.CiBuild.BuildWindows
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RybatskiyMir3D-Windows
+          path: build/StandaloneWindows64
+          if-no-files-found: error
+          retention-days: 14
+
+  build-webgl:
+    name: WebGL development
+    needs: license-gate
+    if: needs.license-gate.outputs.ready == 'true' && (github.event_name == 'push' || inputs.skip_webgl == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Library
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PROJECT_PATH }}/Library
+          key: Library-webgl-${{ env.UNITY_VERSION }}-${{ hashFiles('clients/unity/RybatskiyMir3D/Packages/manifest.json', 'clients/unity/RybatskiyMir3D/ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            Library-webgl-${{ env.UNITY_VERSION }}-
+            Library-webgl-
+
+      - name: Build WebGL (Development)
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: ${{ env.PROJECT_PATH }}
+          unityVersion: ${{ env.UNITY_VERSION }}
+          targetPlatform: WebGL
+          buildName: RybatskiyMir3D
+          buildsPath: build
+          allowDirtyBuild: true
+          versioning: None
+          buildMethod: RybatskiyMir.Editor.CiBuild.BuildWebGL
+
+      - name: Upload WebGL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RybatskiyMir3D-WebGL
+          path: build/WebGL
+          if-no-files-found: warn
+          retention-days: 14
+
+  preview-status:
+    name: preview status
+    needs: [license-gate, build-windows, build-webgl]
+    if: always() && needs.license-gate.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Write summary
+        env:
+          LICENSE: ${{ needs.license-gate.outputs.ready }}
+          WIN: ${{ needs.build-windows.result }}
+          WEB: ${{ needs.build-webgl.result }}
+        run: |
+          {
+            echo "## Unity preview"
+            echo
+            echo "- Unity: \`${UNITY_VERSION}\`"
+            echo "- License secrets ready: \`${LICENSE}\`"
+            echo "- Windows job: \`${WIN}\`"
+            echo "- WebGL job: \`${WEB}\`"
+            echo
+            echo "Artifacts download as \`RybatskiyMir3D-Windows.zip\` and \`RybatskiyMir3D-WebGL.zip\`."
+            echo
+            if [ "$LICENSE" != "true" ]; then
+              echo "**Builds skipped.** Add GitHub Actions secrets, then re-run this workflow."
+              echo
+              echo "- Personal: \`UNITY_LICENSE\` + \`UNITY_EMAIL\` + \`UNITY_PASSWORD\`"
+              echo "- Plus/Pro: \`UNITY_SERIAL\` + \`UNITY_EMAIL\` + \`UNITY_PASSWORD\`"
+              echo
+              echo "See \`docs/UNITY_PREVIEW.md\`."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "license=${LICENSE} windows=${WIN} webgl=${WEB}"

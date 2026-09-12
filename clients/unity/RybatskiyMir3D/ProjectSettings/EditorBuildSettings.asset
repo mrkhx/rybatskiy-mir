@@ -4,5 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/_Project/Scenes/ForestLake.unity
+    guid: 8f2a6c1d4e7b4093a5c8d0e1f2a3b4c5
   m_configObjects: {}
