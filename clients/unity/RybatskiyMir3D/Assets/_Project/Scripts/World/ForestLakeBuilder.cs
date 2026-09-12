@@ -234,7 +234,7 @@ namespace RybatskiyMir.World
             var sit = new GameObject("SitPoint");
             sit.transform.SetParent(pier.transform, false);
             sit.transform.localPosition = new Vector3(0f, 0.10f, sitZ);
-            sit.transform.localRotation = Quaternion.identity;
+            sit.transform.LookAt(new Vector3(LakeCenter.x, sit.transform.position.y, LakeCenter.z));
             SitPoint = sit.transform;
 
             var look = new GameObject("LookOut");

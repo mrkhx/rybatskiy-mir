@@ -12,6 +12,7 @@ namespace RybatskiyMir.Player
     /// Stylized semi-realistic fisherman built at runtime (art-bible palette).
     /// Placeholder until SK_Fisherman + animset. Not a capsule.
     /// </summary>
+    [DefaultExecutionOrder(50)]
     public class FishermanBody : MonoBehaviour
     {
         public FishermanPose Pose = FishermanPose.Idle;
@@ -163,39 +164,44 @@ namespace RybatskiyMir.Player
             else
             {
                 ApplySitBase(ref hipPos, ref hip, ref lLegU, ref rLegU, ref lLegL, ref rLegL, ref spine);
-                lU = Quaternion.Euler(-22f, 16f, 26f);
-                lL = Quaternion.Euler(-18f, 0, 0);
-                rU = Quaternion.Euler(-52f, -10f, -16f);
-                rL = Quaternion.Euler(-12f, 0, 0);
-                chest = Quaternion.Euler(6f, 0, 0);
-                neck = Quaternion.Euler(-4f, 0, 0);
+                // Default fishing hold: both hands in front of the chest, not hanging back.
+                lU = Quaternion.Euler(-36f, 22f, 28f);
+                lL = Quaternion.Euler(-42f, 0, 0);
+                rU = Quaternion.Euler(-58f, -8f, -22f);
+                rL = Quaternion.Euler(-52f, 4f, 8f);
+                chest = Quaternion.Euler(6f, 8f, 0);
+                neck = Quaternion.Euler(-6f, 6f, 0);
+                head = Quaternion.Euler(-8f, 8f, 0);
 
                 if (Pose == FishermanPose.Aim)
                 {
-                    rU = Quaternion.Euler(-72f, -6f, -8f);
-                    rL = Quaternion.Euler(-18f, 0, 0);
-                    chest = Quaternion.Euler(10f, 10f, 0);
-                    head = Quaternion.Euler(-6f, 8f, 0);
+                    rU = Quaternion.Euler(-70f, -4f, -16f);
+                    rL = Quaternion.Euler(-40f, 4f, 6f);
+                    lU = Quaternion.Euler(-44f, 18f, 26f);
+                    lL = Quaternion.Euler(-48f, 0, 0);
+                    chest = Quaternion.Euler(8f, 12f, 0);
+                    head = Quaternion.Euler(-10f, 10f, 0);
                 }
                 else if (Pose == FishermanPose.Cast)
                 {
                     var t = Mathf.Clamp01(CastT);
                     float back = t < 0.38f ? t / 0.38f : Mathf.Clamp01(1f - (t - 0.38f) / 0.62f * 1.35f);
                     float fwd = t < 0.38f ? 0 : Mathf.Clamp01((t - 0.38f) / 0.18f);
-                    rU = Quaternion.Euler(Mathf.Lerp(28f, -118f, back) + fwd * -16f, -8f, -10f);
-                    rL = Quaternion.Euler(Mathf.Lerp(0f, -22f, fwd), 0, 0);
-                    chest = Quaternion.Euler(Mathf.Lerp(8f, -14f, back) + fwd * 20f, fwd * 12f, 0);
+                    rU = Quaternion.Euler(Mathf.Lerp(-20f, -108f, back) + fwd * -12f, -6f, -12f);
+                    rL = Quaternion.Euler(Mathf.Lerp(-28f, -18f, fwd), 0, 0);
+                    chest = Quaternion.Euler(Mathf.Lerp(8f, -10f, back) + fwd * 18f, fwd * 12f, 0);
                     spine = Quaternion.Euler(12f, 0, 0);
-                    lU = Quaternion.Euler(-18f, 18f, 22f);
+                    lU = Quaternion.Euler(-28f, 18f, 22f);
                     head = Quaternion.Euler(fwd * -8f, fwd * 6f, 0);
                 }
                 else if (Pose == FishermanPose.Hook)
                 {
-                    rU = Quaternion.Euler(-100f, -4f, -6f);
-                    rL = Quaternion.Euler(-6f, 0, 0);
-                    chest = Quaternion.Euler(-10f, 0, 0);
+                    rU = Quaternion.Euler(-96f, -4f, -10f);
+                    rL = Quaternion.Euler(-18f, 0, 4f);
+                    chest = Quaternion.Euler(-8f, 8f, 0);
                     spine = Quaternion.Euler(4f, 0, 0);
-                    lU = Quaternion.Euler(-30f, 12f, 18f);
+                    lU = Quaternion.Euler(-38f, 14f, 20f);
+                    head = Quaternion.Euler(-12f, 8f, 0);
                 }
                 else if (Pose == FishermanPose.Fight)
                 {
@@ -203,12 +209,13 @@ namespace RybatskiyMir.Player
                     hip = Quaternion.Euler(12f, yank * 0.35f, 0);
                     lLegU = Quaternion.Euler(-80f, -10f, 0);
                     rLegU = Quaternion.Euler(-88f, 10f, 0);
-                    rU = Quaternion.Euler(-58f + yank, -12f, -14f);
-                    rL = Quaternion.Euler(-14f, 0, 0);
-                    lU = Quaternion.Euler(-42f + yank * 0.35f, 14f, 20f);
-                    chest = Quaternion.Euler(14f + yank * 0.28f, yank * 0.45f, 0);
+                    rU = Quaternion.Euler(-64f + yank, -8f, -16f);
+                    rL = Quaternion.Euler(-38f, 0, 6f);
+                    lU = Quaternion.Euler(-48f + yank * 0.35f, 16f, 22f);
+                    lL = Quaternion.Euler(-36f, 0, 0);
+                    chest = Quaternion.Euler(12f + yank * 0.28f, 8f + yank * 0.45f, 0);
                     spine = Quaternion.Euler(16f, 0, 0);
-                    head = Quaternion.Euler(-6f, yank * 0.2f, 0);
+                    head = Quaternion.Euler(-8f, 8f + yank * 0.2f, 0);
                 }
                 else if (Pose == FishermanPose.Land)
                 {
@@ -218,15 +225,21 @@ namespace RybatskiyMir.Player
                     rLegU = Quaternion.Euler(-72f, 8f, 0);
                     lLegL = Quaternion.Euler(66f, 0, 0);
                     rLegL = Quaternion.Euler(66f, 0, 0);
-                    rU = Quaternion.Euler(-22f, -28f, -8f);
-                    lU = Quaternion.Euler(-20f, 26f, 10f);
-                    chest = Quaternion.Euler(12f, 0, 0);
-                    head = Quaternion.Euler(8f, 0, 0);
+                    rU = Quaternion.Euler(-36f, -12f, -14f);
+                    rL = Quaternion.Euler(-48f, 8f, 6f);
+                    lU = Quaternion.Euler(-32f, 22f, 12f);
+                    lL = Quaternion.Euler(-40f, 0, 0);
+                    chest = Quaternion.Euler(10f, 8f, 0);
+                    head = Quaternion.Euler(4f, 6f, 0);
                 }
                 else if (Pose == FishermanPose.Wait)
                 {
-                    rU = Quaternion.Euler(-48f, -8f, -12f);
-                    chest = Quaternion.Euler(8f + Mathf.Sin(_breath * 1.2f) * 1.5f, 0, 0);
+                    rU = Quaternion.Euler(-62f, -6f, -18f);
+                    rL = Quaternion.Euler(-46f, 4f, 6f);
+                    lU = Quaternion.Euler(-40f, 16f, 24f);
+                    lL = Quaternion.Euler(-44f, 0, 0);
+                    chest = Quaternion.Euler(8f + Mathf.Sin(_breath * 1.2f) * 1.5f, 8f, 0);
+                    head = Quaternion.Euler(-6f, 8f, 0);
                 }
             }
 

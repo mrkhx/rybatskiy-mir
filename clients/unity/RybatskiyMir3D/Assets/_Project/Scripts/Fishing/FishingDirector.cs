@@ -53,8 +53,15 @@ namespace RybatskiyMir.Fishing
                 Active = true;
                 _standPos = Mover.transform.position;
                 _standRot = Mover.transform.rotation;
+                _aimYaw = 0f;
+                _force = 0.6f;
+                _lureT = 1f;
+                _casting = false;
+                _biteTimer = 0f;
+                _tickTimer = 0f;
                 Mover.Locked = true;
-                Mover.Teleport(SitPoint.position, SitPoint.rotation);
+                var sitRot = Quaternion.LookRotation(AimDir(), Vector3.up);
+                Mover.Teleport(SitPoint.position, sitRot);
                 if (Cam)
                 {
                     Cam.FishingLook = LookOut;
@@ -62,6 +69,10 @@ namespace RybatskiyMir.Fishing
                 }
                 Gear.SetVisible(true, false, false, false);
                 Gear.BendRod(0.05f);
+                var hold = CastTarget(1.2f);
+                _floatPos = hold;
+                _floatPos.y = WaterY;
+                Gear.AimAt(hold);
                 if (Body) Body.Pose = FishermanPose.Sit;
                 Status = Session.playerHint ?? "Прицельтесь и забросьте.";
             }
@@ -81,6 +92,7 @@ namespace RybatskiyMir.Fishing
             Mover.Locked = false;
             Mover.Teleport(_standPos, _standRot);
             if (Cam) Cam.ExitFishing();
+            Gear.ClearAim();
             Gear.SetVisible(false, false, false, false);
             if (Body) Body.Pose = FishermanPose.Idle;
             Status = "Свободное перемещение.";
@@ -101,6 +113,8 @@ namespace RybatskiyMir.Fishing
             {
                 Status = Session.loseReason ?? "Сход";
                 Gear.SetVisible(true, false, false, false);
+                Gear.AimAt(CastTarget(1.2f));
+                FaceWater();
                 if (Body) Body.Pose = FishermanPose.Sit;
                 if (WantCast()) _ = End();
             }
@@ -115,17 +129,17 @@ namespace RybatskiyMir.Fishing
         {
             if (Body) Body.Pose = FishermanPose.Aim;
             _aimYaw += Input.Look.x * 0.35f;
+            _aimYaw = Mathf.Clamp(_aimYaw, -55f, 55f);
             _force = Mathf.Clamp01(_force + Input.Move.y * Time.deltaTime * 0.35f);
             Status = $"Сила {Mathf.RoundToInt(_force * 100)}%  ·  ЛКМ / Пробел заброс  ·  R встать";
             Gear.BendRod(0.08f + _force * 0.18f);
-            if (LookOut && SitPoint)
-            {
-                var dir = Quaternion.Euler(0, _aimYaw, 0) * SitPoint.forward;
-                Mover.transform.rotation = Quaternion.Slerp(Mover.transform.rotation, Quaternion.LookRotation(dir, Vector3.up), Time.deltaTime * 6f);
-            }
+            var hold = CastTarget(1.25f);
+            _floatPos = hold;
+            _floatPos.y = WaterY;
+            Gear.AimAt(hold);
+            FaceWater();
             if (WantCast() && !_casting) _ = DoCast();
             if (Input.CancelPressed) _ = End();
-
         }
 
         async Task DoCast()
@@ -139,19 +153,27 @@ namespace RybatskiyMir.Fishing
                 Body.CastT = 0;
             }
             WorldAudio.I?.PlayCast(Mover.transform.position);
+            var waterTarget = CastTarget(0f);
+            var origin = SitPoint ? SitPoint.position : Mover.transform.position;
+            // High lift, barely behind — not a shore-pointing back-cast.
+            var windup = origin + Vector3.up * 4.05f - AimDir() * 0.28f;
+            Gear.AimAt(windup);
             float t = 0;
             while (t < 0.42f)
             {
                 t += Time.deltaTime;
                 if (Body) Body.CastT = t / 0.7f;
                 Gear.BendRod(0.25f + t);
+                if (t > 0.18f)
+                {
+                    var k = Mathf.Clamp01((t - 0.18f) / 0.24f);
+                    Gear.AimAt(Vector3.Lerp(windup, waterTarget + Vector3.up * 1.35f, k));
+                }
                 await Task.Yield();
             }
 
             _lureFrom = Gear.TipPos;
-            var dir = Quaternion.Euler(0, _aimYaw, 0) * SitPoint.forward;
-            var dist = 8f + _force * 10f;
-            _lureTo = SitPoint.position + dir * dist;
+            _lureTo = waterTarget;
             _lureTo.y = WaterY;
             _lureT = 0;
             Gear.SetVisible(true, true, false, false);
@@ -185,6 +207,8 @@ namespace RybatskiyMir.Fishing
             var wave = LakeWater.Instance ? LakeWater.Instance.SampleHeight(_floatPos) : WaterY + Mathf.Sin(Time.time * 1.6f) * 0.04f;
             _floatPos.y = wave;
             Gear.BendRod(0.07f);
+            Gear.AimAt(WaterAim(_floatPos));
+            FaceWater();
             if (WantCast() && !_busy) _ = DoCast();
         }
 
@@ -208,6 +232,8 @@ namespace RybatskiyMir.Fishing
             _floatPos.y = baseY - 0.1f - Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 0.16f;
             _floatPos += new Vector3(Mathf.Sin(Time.time * 11f), 0, Mathf.Cos(Time.time * 8f)) * 0.012f;
             Gear.BendRod(0.22f);
+            Gear.AimAt(WaterAim(_floatPos));
+            FaceWater();
             if (WantCast()) _ = DoHook();
         }
 
@@ -247,6 +273,8 @@ namespace RybatskiyMir.Fishing
             var yank = Mathf.Sin(Time.time * (2.5f + t * 4f));
             var progress = Session.fightProgress;
             _fishPos = _floatPos + new Vector3(yank * 1.6f, -0.55f - (1f - progress) * 0.9f, yank * 0.5f + progress * 0.8f);
+            Gear.AimAt(WaterAim(_fishPos));
+            FaceWater();
             if (_fishPos.y > WaterY - 0.08f && Random.value < t * 0.04f) SplashOnce(_fishPos);
             if (Input.Sprint && Time.frameCount % 18 == 0) WorldAudio.I?.PlayReel(Mover.transform.position);
         }
@@ -272,8 +300,10 @@ namespace RybatskiyMir.Fishing
         {
             if (Body) Body.Pose = FishermanPose.Land;
             Gear.BendRod(0.12f);
-            var land = SitPoint.position + SitPoint.forward * 1.15f + Vector3.up * 0.55f;
+            var land = SitPoint.position + AimDir() * 1.15f + Vector3.up * 0.55f;
             _fishPos = Vector3.Lerp(_fishPos, land, Time.deltaTime * 2.2f);
+            Gear.AimAt(_fishPos + Vector3.up * 0.25f);
+            FaceWater();
             if (WantCast()) _ = Decide(true);
             if (Input.CancelPressed) _ = Decide(false);
         }
@@ -297,6 +327,7 @@ namespace RybatskiyMir.Fishing
                 if (Body) Body.CastT = 0.42f + t * 0.58f;
                 var pos = Vector3.Lerp(_lureFrom, _lureTo, t);
                 pos.y += Mathf.Sin(t * Mathf.PI) * 3.2f;
+                Gear.AimAt(pos);
                 Gear.DrawLine(Gear.TipPos, pos, 0.12f * (1 - t));
                 Gear.BendRod(0.15f + (1 - t) * 0.2f);
                 if (t >= 1f)
@@ -333,6 +364,52 @@ namespace RybatskiyMir.Fishing
                 Gear.DrawLine(Gear.TipPos, _fishPos, 0.08f);
                 Gear.SetVisible(true, true, false, true);
             }
+            else if (st is "READY" or "IDLE")
+            {
+                Gear.SetVisible(true, false, false, false);
+            }
+        }
+
+        Vector3 AimDir()
+        {
+            var fwd = SitPoint ? SitPoint.forward : (Mover ? Mover.transform.forward : Vector3.forward);
+            fwd.y = 0f;
+            if (fwd.sqrMagnitude < 0.0001f) fwd = Vector3.forward;
+            return Quaternion.Euler(0f, _aimYaw, 0f) * fwd.normalized;
+        }
+
+        Vector3 CastTarget(float extraY)
+        {
+            var origin = SitPoint ? SitPoint.position : (Mover ? Mover.transform.position : Vector3.zero);
+            var p = origin + AimDir() * (8f + _force * 10f);
+            p.y = WaterY + extraY;
+            return p;
+        }
+
+        Vector3 WaterAim(Vector3 surface)
+        {
+            var origin = SitPoint ? SitPoint.position : (Mover ? Mover.transform.position : Vector3.zero);
+            var fwd = AimDir();
+            var p = surface;
+            var to = p - origin;
+            to.y = 0f;
+            if (to.sqrMagnitude < 1f || Vector3.Dot(to, fwd) < 1.2f)
+                p = origin + fwd * 8f;
+            p.y = Mathf.Max(surface.y, WaterY) + 1.35f;
+            return p;
+        }
+
+        void FaceWater()
+        {
+            if (!Mover) return;
+            var dir = AimDir();
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 0.0001f) return;
+            var want = Quaternion.LookRotation(dir.normalized, Vector3.up);
+            Mover.transform.rotation = Quaternion.Slerp(
+                Mover.transform.rotation,
+                want,
+                1f - Mathf.Exp(-8f * Time.deltaTime));
         }
 
         void SplashOnce(Vector3 p)

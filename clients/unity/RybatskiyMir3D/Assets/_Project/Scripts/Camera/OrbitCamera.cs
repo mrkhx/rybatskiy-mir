@@ -7,7 +7,9 @@ namespace RybatskiyMir.Cam
     /// Explore: orbit around the fisherman.
     /// Fishing: over-shoulder, high, off-axis. Water and cast zone fill the frame.
     /// Blends with SmoothDamp — no snap.
+    /// Character is assumed to face the water (FishingDirector.FaceWater).
     /// </summary>
+    [DefaultExecutionOrder(250)]
     public class OrbitCamera : MonoBehaviour
     {
         public Transform Target;

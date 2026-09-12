@@ -4,8 +4,11 @@ using RybatskiyMir.World;
 namespace RybatskiyMir.Fishing
 {
     /// <summary>
-    /// Procedural 6-bone rod. Line is a LineRenderer from tip to float/fish.
+    /// Procedural 6-bone rod. Length axis is +Y.
+    /// While fishing, world rotation is driven so the tip points at the water,
+    /// independent of the hand's -Y bone chain.
     /// </summary>
+    [DefaultExecutionOrder(200)]
     public class FishingGear : MonoBehaviour
     {
         public Transform Hand;
@@ -17,6 +20,9 @@ namespace RybatskiyMir.Fishing
         public float Bend;
         Vector3[] _line = new Vector3[10];
         Quaternion[] _boneRest;
+        Quaternion _gripLocal = Quaternion.Euler(180f, 0f, 0f);
+        Vector3 _aimPoint;
+        bool _aimWater;
 
         public static FishingGear Build(Transform rightHand)
         {
@@ -27,8 +33,9 @@ namespace RybatskiyMir.Fishing
 
             var root = new GameObject("Rod").transform;
             root.SetParent(rightHand, false);
-            root.localPosition = Vector3.zero;
-            root.localRotation = Quaternion.Euler(-78f, 6f, 12f);
+            // Palm offset. World aim in LateUpdate overrides rotation.
+            root.localPosition = new Vector3(0.015f, -0.045f, 0.02f);
+            root.localRotation = gear._gripLocal;
             gear.Hand = root;
             gear.Bones = new Transform[6];
             Transform parent = root;
@@ -65,6 +72,7 @@ namespace RybatskiyMir.Fishing
             lr.endWidth = 0.004f;
             lr.numCapVertices = 2;
             lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            lr.useWorldSpace = true;
             gear.Line = lr;
 
             var flo = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -87,12 +95,25 @@ namespace RybatskiyMir.Fishing
             return gear;
         }
 
+        public void AimAt(Vector3 worldPoint)
+        {
+            _aimPoint = worldPoint;
+            _aimWater = true;
+        }
+
+        public void ClearAim()
+        {
+            _aimWater = false;
+            if (Hand) Hand.localRotation = _gripLocal;
+        }
+
         public void SetVisible(bool rod, bool line, bool bobber, bool fish)
         {
             if (Hand) Hand.gameObject.SetActive(rod);
             if (Line) Line.enabled = line;
             if (Float) Float.gameObject.SetActive(bobber);
             if (Fish) Fish.gameObject.SetActive(fish);
+            if (!rod) ClearAim();
         }
 
         public void BendRod(float amount)
@@ -102,7 +123,9 @@ namespace RybatskiyMir.Fishing
             for (int i = 0; i < Bones.Length; i++)
             {
                 var w = (i + 1) / (float)Bones.Length;
-                var extra = Quaternion.Euler(Bend * 18f * w, 0, Bend * 4f * w);
+                // After AimAt, rod +Y is the length and +X is world-right-ish.
+                // Bend around +X droops the tip toward the water.
+                var extra = Quaternion.Euler(Bend * 16f * w, 0f, 0f);
                 Bones[i].localRotation = _boneRest[i] * extra;
             }
         }
@@ -122,5 +145,38 @@ namespace RybatskiyMir.Fishing
         }
 
         public Vector3 TipPos => Tip ? Tip.position : transform.position;
+
+        void LateUpdate()
+        {
+            if (!_aimWater || !Hand || !Hand.gameObject.activeInHierarchy) return;
+            var origin = Hand.position;
+            var dir = _aimPoint - origin;
+            if (dir.sqrMagnitude < 0.0001f) return;
+            dir.Normalize();
+            var up = Vector3.up;
+            if (Mathf.Abs(Vector3.Dot(dir, up)) > 0.98f)
+                up = Hand.parent ? Hand.parent.right : Vector3.right;
+            // LookRotation aims +Z; rod length is +Y → extra +90 X maps +Y onto dir.
+            Hand.rotation = Quaternion.LookRotation(dir, up) * Quaternion.Euler(90f, 0f, 0f);
+#if UNITY_EDITOR
+            if (Vector3.Dot(Hand.up, dir) < 0.5f)
+                Debug.LogWarning($"Rod +Y is not aiming at water (dot {Vector3.Dot(Hand.up, dir):F2}).");
+#endif
+        }
+
+#if UNITY_EDITOR
+        void OnDrawGizmos()
+        {
+            if (!_aimWater || !Hand) return;
+            Gizmos.color = new Color(0.2f, 0.85f, 1f, 0.9f);
+            Gizmos.DrawLine(Hand.position, _aimPoint);
+            Gizmos.DrawSphere(_aimPoint, 0.08f);
+            if (Tip)
+            {
+                Gizmos.color = new Color(1f, 0.85f, 0.15f, 0.95f);
+                Gizmos.DrawRay(Tip.position, Tip.up * 2.4f);
+            }
+        }
+#endif
     }
 }
