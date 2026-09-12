@@ -1,5 +1,7 @@
-import { Body, Controller, Get, Inject, Post, UseGuards } from "@nestjs/common";
-import { IsInt, IsString } from "class-validator";
+import { Body, Controller, Get, Inject, Post, Query, UseGuards } from "@nestjs/common";
+import { IsInt, IsOptional, IsString } from "class-validator";
+import { Type } from "class-transformer";
+import type { FishingMethod } from "@prisma/client";
 import type { AuthUser } from "../auth/auth.types";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -14,6 +16,32 @@ class CompensateDto {
 
   @IsString()
   reason!: string;
+}
+
+class BiteDebugQuery {
+  @IsOptional()
+  @IsString()
+  spotId?: string;
+
+  @IsOptional()
+  @IsString()
+  method?: FishingMethod;
+
+  @IsOptional()
+  @IsString()
+  bait?: string;
+
+  @IsOptional()
+  @IsString()
+  lure?: string;
+
+  @IsOptional()
+  @IsString()
+  retrieve?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  depthM?: number;
 }
 
 @Controller("admin")
@@ -55,6 +83,18 @@ export class AdminController {
   async shops(@CurrentUser() user: AuthUser) {
     await this.admin.assertAdmin(user.id);
     return this.admin.shops();
+  }
+
+  @Get("bite-debug")
+  async biteDebug(@CurrentUser() user: AuthUser, @Query() query: BiteDebugQuery) {
+    await this.admin.assertAdmin(user.id);
+    return this.admin.biteDebug(query);
+  }
+
+  @Get("harvest-debug")
+  async harvestDebug(@CurrentUser() user: AuthUser) {
+    await this.admin.assertAdmin(user.id);
+    return this.admin.harvestDebug();
   }
 
   @Post("compensate")

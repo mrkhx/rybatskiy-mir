@@ -13,6 +13,7 @@ const STARTER = [
   { itemId: "spinner", qty: 1 },
   { itemId: "bread", qty: 6 },
   { itemId: "shovel", qty: 1 },
+  { itemId: "groundbait", qty: 1 },
   { itemId: "bread-food", qty: 2 },
   { itemId: "water", qty: 2 },
 ];

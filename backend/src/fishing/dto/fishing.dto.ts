@@ -21,6 +21,10 @@ export class CastDto {
   @Min(0.3)
   @Max(8)
   depthM!: number;
+
+  @IsOptional()
+  @IsIn(["even", "slow", "fast", "stepped", "twitch", "pause"])
+  retrieve?: "even" | "slow" | "fast" | "stepped" | "twitch" | "pause";
 }
 
 export class HookDto {
@@ -53,6 +57,11 @@ export class TickDto {
 export class DecideDto {
   @IsBoolean()
   keep!: boolean;
+}
+
+export class FeedDto {
+  @IsString()
+  mixItemId!: string;
 }
 
 export class NicknameDto {

@@ -7,21 +7,43 @@ import {
 import type { FishingMethod, Prisma } from "@prisma/client";
 import { rollBite } from "../game/bite";
 import { timeOfDay } from "../game/clock";
+import type { DietProfile } from "../game/types";
+import { SPECIES_DIETS } from "../game/diets";
 import { hookSuccess, stepFight, type FightConfig } from "../game/fight";
+import { baitFreshness } from "../game/freshness";
+import { applyFeed, feedingLabel, mixFor, sampleFeeding, type FeedingState } from "../game/groundbait";
+import { fishInterest } from "../game/interest";
+import { addCastPressure, decayPressure } from "../game/pressure";
 import { systemRng, type Rng } from "../game/rng";
 import { assertTransition, isTerminal } from "../game/state-machine";
-import type { BiteContext, FightSnapshot, FightTick, FishingState, LoseReason, SpeciesForBite } from "../game/types";
+import type { BiteContext, BoilieStats, FightSnapshot, FightTick, FishingState, LoseReason, SpeciesForBite } from "../game/types";
 import { rollSpecimen } from "../game/weight";
-import { applyXp, catchXp, skillXpForCatch } from "../game/xp";
+import { applyXp, catchXp, skillLevelFromXp, skillXpForCatch } from "../game/xp";
 import { PlayerService } from "../player/player.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { WorldService } from "../world/world.service";
 
-const METHOD_SKILL: Record<string, "FLOAT" | "SPINNING" | "FEEDER" | "BOTTOM"> = {
+const METHOD_SKILL: Record<string, "FLOAT" | "SPINNING" | "FEEDER" | "BOTTOM" | "CARP"> = {
   FLOAT: "FLOAT",
   SPINNING: "SPINNING",
   FEEDER: "FEEDER",
   BOTTOM: "BOTTOM",
+  CARP: "CARP",
+};
+
+type ItemStats = {
+  dietKey?: string;
+  slug?: string;
+  sizeMm?: number;
+  aroma?: string;
+  buoyancy?: string;
+  spoilHours?: number;
+  mix?: boolean;
+  targetSpecies?: string[];
+  nutritionalValue?: number;
+  attraction?: number;
+  particle?: number;
+  spoilMul?: number;
 };
 
 @Injectable()
@@ -82,24 +104,99 @@ export class FishingService {
         lineItemId: kit.line,
         baitItemId: kit.bait,
         lureItemId: kit.lure,
+        retrieve: input.method === "SPINNING" ? "even" : null,
       },
     });
   }
 
-  async cast(userId: string, input: { force: number; direction: number; depthM: number }) {
-    const session = await this.requireActive(userId);
+  async cast(userId: string, input: { force: number; direction: number; depthM: number; retrieve?: string }) {
+    let session = await this.requireActive(userId);
+    if (session.state === "WAITING_BITE") {
+      assertTransition("WAITING_BITE", "READY");
+      session = await this.prisma.fishingSession.update({
+        where: { id: session.id },
+        data: { state: "READY", biteAt: null, playerHint: null, speciesId: null },
+      });
+    }
     assertTransition(session.state as FishingState, "CAST");
     const force = clamp(input.force, 0.15, 1);
     const depthM = clamp(input.depthM, 0.3, 8);
+    const retrieve = input.retrieve ?? session.retrieve ?? (session.method === "SPINNING" ? "even" : null);
     await this.prisma.fishingSession.update({
       where: { id: session.id },
-      data: { state: "CAST", castForce: force, castDir: input.direction, depthM },
+      data: { state: "CAST", castForce: force, castDir: input.direction, depthM, retrieve },
     });
     const waiting = await this.prisma.fishingSession.update({
       where: { id: session.id },
       data: { state: "WAITING_BITE" },
     });
+    await this.bumpPressure(session.spotId);
     return this.scheduleBite(waiting);
+  }
+
+  async reelIn(userId: string) {
+    const session = await this.requireActive(userId);
+    if (session.state !== "WAITING_BITE" && session.state !== "CAST") {
+      throw new BadRequestException("Сейчас нельзя вымотать");
+    }
+    assertTransition(session.state as FishingState, "READY");
+    return this.prisma.fishingSession.update({
+      where: { id: session.id },
+      data: { state: "READY", biteAt: null, playerHint: null },
+    });
+  }
+
+  async feed(userId: string, mixItemId: string) {
+    const session = await this.requireActive(userId);
+    if (!["READY", "WAITING_BITE", "CAST"].includes(session.state)) {
+      throw new BadRequestException("Прикармливать можно до поклёвки");
+    }
+    const item = await this.prisma.item.findUnique({ where: { id: mixItemId } });
+    const stats = (item?.stats ?? {}) as ItemStats;
+    if (!item || (item.kind !== "CONSUMABLE" && !stats.mix)) {
+      throw new BadRequestException("Это не прикормка");
+    }
+    const bag = await this.prisma.inventoryItem.findFirst({ where: { userId, itemId: mixItemId } });
+    if (!bag || bag.qty < 1) throw new BadRequestException("Нет прикормки");
+    if (bag.qty <= 1) await this.prisma.inventoryItem.delete({ where: { id: bag.id } });
+    else await this.prisma.inventoryItem.update({ where: { id: bag.id }, data: { qty: { decrement: 1 } } });
+
+    const spot = await this.prisma.spot.findUnique({ where: { id: session.spotId } });
+    const now = Date.now();
+    const prevRow = await this.prisma.feedingSpot.findFirst({
+      where: { spotId: session.spotId, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+    });
+    const mix = mixFor(mixItemId, stats);
+    const next = applyFeed(prevRow ? toFeedState(prevRow) : null, mix, 1, spot?.current ?? 0, now);
+    if (prevRow) {
+      await this.prisma.feedingSpot.update({
+        where: { id: prevRow.id },
+        data: fromFeedState(next),
+      });
+    } else {
+      await this.prisma.feedingSpot.create({
+        data: {
+          waterbodyId: session.waterbodyId,
+          spotId: session.spotId,
+          ...fromFeedState(next),
+        },
+      });
+    }
+    await this.prisma.playerSkill.upsert({
+      where: { userId_skill: { userId, skill: "GROUNDBAIT" } },
+      update: { xp: { increment: 5 } },
+      create: { userId, skill: "GROUNDBAIT", xp: 5, level: 1 },
+    });
+    const sampled = sampleFeeding(next, now, "", mix.targetSpecies);
+    return {
+      ok: true,
+      label: feedingLabel(next.saturation, sampled.attraction, now, next.expiresAt, next.peakAt),
+      session: await this.prisma.fishingSession.update({
+        where: { id: session.id },
+        data: { groundbaitItemId: mixItemId },
+      }),
+    };
   }
 
   async peekBite(userId: string, rng: Rng = systemRng) {
@@ -212,65 +309,64 @@ export class FishingService {
     return this.start(userId, { spotId: session.spotId, method: session.method });
   }
 
-  private async scheduleBite(session: { id: string; userId: string; spotId: string; method: FishingMethod; baitItemId: string | null; lureItemId: string | null; depthM: number | null }) {
+  async explainBite(input: {
+    spotId: string;
+    method: FishingMethod;
+    bait?: string;
+    lure?: string;
+    retrieve?: string;
+    depthM?: number;
+    userId?: string;
+  }) {
+    const dummy = {
+      id: "debug",
+      userId: input.userId ?? "debug",
+      spotId: input.spotId,
+      method: input.method,
+      baitItemId: input.bait ?? null,
+      lureItemId: input.lure ?? null,
+      retrieve: input.retrieve ?? (input.method === "SPINNING" ? "stepped" : null),
+      depthM: input.depthM ?? 1.5,
+    };
+    const built = await this.buildBite(dummy);
+    return {
+      clock: built.clockView,
+      feeding: built.feedLabel,
+      pressure: built.pressure,
+      candidates: built.debugRows,
+    };
+  }
+
+  private async scheduleBite(session: SessionBite) {
     const rng = systemRng;
-    const clock = await this.world.getClock();
-    const links = await this.prisma.spotSpecies.findMany({
-      where: { spotId: session.spotId },
-      include: { species: true },
-    });
-    const events = await this.world.activeEvents("forest-lake");
-    const ctx = this.context(session, clock, events);
-    const pool: SpeciesForBite[] = links.map((l) => ({
-      id: l.species.id,
-      slug: l.species.slug,
-      spotWeight: l.weight,
-      baits: asStringArray(l.species.baits),
-      lures: asStringArray(l.species.lures),
-      methods: speciesMethods(asStringArray(l.species.baits), asStringArray(l.species.lures)),
-      activity: l.species.activity as SpeciesForBite["activity"],
-      legendary: l.species.legendary,
-    }));
-    const roll = rollBite(rng, pool, ctx);
+    const built = await this.buildBite(session);
+    const roll = rollBite(rng, built.pool, built.ctx);
     return this.prisma.fishingSession.update({
       where: { id: session.id },
-      data: { biteAt: new Date(Date.now() + roll.delayMs) },
+      data: { biteAt: new Date(Date.now() + roll.delayMs), playerHint: roll.hint },
     });
   }
 
-  private async resolveWaiting(
-    session: {
-      id: string;
-      userId: string;
-      spotId: string;
-      method: FishingMethod;
-      baitItemId: string | null;
-      lureItemId: string | null;
-      depthM: number | null;
-    },
-    rng: Rng,
-  ) {
-    const clock = await this.world.getClock();
-    const links = await this.prisma.spotSpecies.findMany({
-      where: { spotId: session.spotId },
-      include: { species: true },
-    });
-    const events = await this.world.activeEvents("forest-lake");
-    const ctx = this.context(session, clock, events);
-    const pool: SpeciesForBite[] = links.map((l) => ({
-      id: l.species.id,
-      slug: l.species.slug,
-      spotWeight: l.weight * eventBoost(l.speciesId, events),
-      baits: asStringArray(l.species.baits),
-      lures: asStringArray(l.species.lures),
-      methods: speciesMethods(asStringArray(l.species.baits), asStringArray(l.species.lures)),
-      activity: l.species.activity as SpeciesForBite["activity"],
-      legendary: l.species.legendary,
-    }));
-    const roll = rollBite(rng, pool, ctx);
-    if (!roll.species) return this.fail(session, "missed_bite");
+  private async resolveWaiting(session: SessionBite, rng: Rng) {
+    const built = await this.buildBite(session);
+    const roll = rollBite(rng, built.pool, built.ctx);
+    if (!roll.species) {
+      return this.prisma.fishingSession.update({
+        where: { id: session.id },
+        data: {
+          state: "WAITING_BITE",
+          biteAt: new Date(Date.now() + roll.delayMs),
+          playerHint: roll.hint ?? "Сейчас пауза в клёве",
+        },
+      });
+    }
     const species = await this.prisma.fishSpecies.findUnique({ where: { id: roll.species.id } });
-    if (!species) return this.fail(session, "missed_bite");
+    if (!species) {
+      return this.prisma.fishingSession.update({
+        where: { id: session.id },
+        data: { biteAt: new Date(Date.now() + 8000), playerHint: roll.hint },
+      });
+    }
     const spot = await this.prisma.spot.findUnique({ where: { id: session.spotId } });
     const specimen = rollSpecimen(rng, species, 1 + (spot?.trophyChance ?? 0));
     assertTransition("WAITING_BITE", "BITE");
@@ -282,6 +378,7 @@ export class FishingService {
         weightG: specimen.weightG,
         lengthCm: specimen.lengthCm,
         tier: specimen.tier,
+        playerHint: null,
       },
     });
   }
@@ -299,6 +396,7 @@ export class FishingService {
     rodItemId: string | null;
     baitItemId: string | null;
     lureItemId: string | null;
+    retrieve: string | null;
     depthM: number | null;
   }) {
     if (!session.speciesId || !session.weightG || !session.tier || !session.lengthCm) {
@@ -338,6 +436,7 @@ export class FishingService {
           rodItemId: session.rodItemId,
           baitItemId: session.baitItemId,
           lureItemId: session.lureItemId,
+          retrieve: session.retrieve,
           weather: clock.weather,
           timeOfDay: timeOfDay(clock.minutes),
           season: clock.season,
@@ -376,7 +475,15 @@ export class FishingService {
             userId: session.userId,
             catchId: caught.id,
             summary: `${species.name} ${session.weightG} г`,
-            details: { spotId: session.spotId, weather: clock.weather, method: session.method },
+            details: {
+              spotId: session.spotId,
+              weather: clock.weather,
+              method: session.method,
+              retrieve: session.retrieve,
+              bait: session.baitItemId,
+              lure: session.lureItemId,
+              depthM: session.depthM,
+            },
           },
         });
       }
@@ -439,15 +546,50 @@ export class FishingService {
     else await this.prisma.inventoryItem.update({ where: { id: row.id }, data: { qty: { decrement: 1 } } });
   }
 
-  private context(
-    session: { method: FishingMethod; baitItemId: string | null; lureItemId: string | null; depthM: number | null },
-    clock: { season: BiteContext["season"]; minutes: number; weather: BiteContext["weather"]; temperatureC: number; pressureHpa: number; windKmh: number; waterClarity: number },
-    events: Array<{ modifiers: Prisma.JsonValue }>,
-  ): BiteContext {
-    return {
+  private async buildBite(session: SessionBite) {
+    const clock = await this.world.getClock();
+    const [links, events, baitItem, lureItem, feedRow, pressureRow, skillRow, bag, spot] = await Promise.all([
+      this.prisma.spotSpecies.findMany({ where: { spotId: session.spotId }, include: { species: true } }),
+      this.world.activeEvents("forest-lake"),
+      session.baitItemId ? this.prisma.item.findUnique({ where: { id: session.baitItemId } }) : Promise.resolve(null),
+      session.lureItemId ? this.prisma.item.findUnique({ where: { id: session.lureItemId } }) : Promise.resolve(null),
+      this.prisma.feedingSpot.findFirst({
+        where: { spotId: session.spotId, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: "desc" },
+      }),
+      this.prisma.spotPressure.findUnique({ where: { spotId: session.spotId } }),
+      session.userId
+        ? this.prisma.playerSkill.findUnique({
+            where: { userId_skill: { userId: session.userId, skill: METHOD_SKILL[session.method] ?? "FLOAT" } },
+          })
+        : Promise.resolve(null),
+      session.userId
+        ? this.prisma.inventoryItem.findMany({ where: { userId: session.userId }, include: { item: true } })
+        : Promise.resolve([]),
+      this.prisma.spot.findUnique({ where: { id: session.spotId } }),
+    ]);
+
+    const baitStats = (baitItem?.stats ?? {}) as ItemStats;
+    const lureStats = (lureItem?.stats ?? {}) as ItemStats;
+    const baitKey = baitStats.dietKey ?? baitStats.slug ?? session.baitItemId ?? undefined;
+    const lureKey = lureStats.dietKey ?? lureStats.slug ?? session.lureItemId ?? undefined;
+    const box = bag.find((r) => r.itemId === "bait-box");
+    const spoilMul = ((box?.item.stats ?? {}) as ItemStats).spoilMul ?? 1;
+    const invBait = bag.find((r) => r.itemId === session.baitItemId);
+    const quality = baitFreshness(invBait?.harvestedAt, baitStats.spoilHours ?? 24, Date.now(), spoilMul);
+    const now = Date.now();
+    const hours = pressureRow?.lastCastAt ? (now - pressureRow.lastCastAt.getTime()) / 3_600_000 : 8;
+    const pressure = decayPressure(pressureRow?.pressure ?? 0, hours);
+    const feedState = feedRow ? toFeedState(feedRow) : null;
+    const mix = feedState ? mixFor(feedState.mixItemId) : null;
+    const feedSample = feedState && mix ? sampleFeeding(feedState, now, "", mix.targetSpecies) : null;
+    const boilie = boilieFrom(baitStats);
+
+    const ctxBase: BiteContext = {
       method: session.method,
-      bait: session.baitItemId ?? undefined,
-      lure: session.lureItemId ?? undefined,
+      bait: baitKey,
+      lure: lureKey,
+      retrieve: session.retrieve ?? undefined,
       depthM: session.depthM ?? 1.5,
       season: clock.season,
       timeOfDay: timeOfDay(clock.minutes),
@@ -456,13 +598,80 @@ export class FishingService {
       pressureHpa: clock.pressureHpa,
       windKmh: clock.windKmh,
       waterClarity: clock.waterClarity,
+      waterTempC: clock.waterTempC,
       eventMultiplier: events.reduce((m, e) => {
         const mod = e.modifiers as { multiplier?: number };
         return m * (mod.multiplier ?? 1);
       }, 1),
-      skillBonus: 0.1,
-      baitQuality: 0.7,
+      skillBonus: 0.04 + skillLevelFromXp(skillRow?.xp ?? 0) * 0.015,
+      baitQuality: quality,
+      lureSizeMm: lureStats.sizeMm,
+      boilie,
+      groundbaitMix: feedState?.mixItemId,
+      groundbaitAttraction: feedSample?.attraction ?? 0,
+      groundbaitSaturation: feedSample?.saturation ?? 0,
+      fishingPressure: pressure,
     };
+
+    const pool: SpeciesForBite[] = links.map((l) => {
+      const diet = asDiet(l.species.diet) ?? SPECIES_DIETS[l.species.id];
+      return {
+        id: l.species.id,
+        slug: l.species.slug,
+        spotWeight: l.weight * eventBoost(l.speciesId, events),
+        baits: asStringArray(l.species.baits),
+        lures: asStringArray(l.species.lures),
+        methods: speciesMethods(asStringArray(l.species.baits), asStringArray(l.species.lures)),
+        activity: l.species.activity as SpeciesForBite["activity"],
+        legendary: l.species.legendary,
+        diet,
+      };
+    });
+
+    const debugRows = pool.map((s) => {
+      const row = fishInterest(s, {
+        ...ctxBase,
+        groundbaitFit: feedState && mix ? sampleFeeding(feedState, now, s.id, mix.targetSpecies).fit : undefined,
+      });
+      return {
+        speciesId: s.id,
+        name: links.find((l) => l.speciesId === s.id)?.species.name,
+        score: Number(row.score.toFixed(4)),
+        excluded: row.excluded,
+        weakest: row.weakest,
+        factors: row.factors,
+      };
+    });
+
+    return {
+      ctx: ctxBase,
+      pool,
+      debugRows,
+      pressure,
+      feedLabel: feedState
+        ? feedingLabel(feedState.saturation, feedSample?.attraction ?? 0, now, feedState.expiresAt, feedState.peakAt)
+        : "нет пятна",
+      clockView: {
+        season: clock.season,
+        timeOfDay: timeOfDay(clock.minutes),
+        weather: clock.weather,
+        temperatureC: clock.temperatureC,
+        waterTempC: clock.waterTempC,
+        pressureHpa: clock.pressureHpa,
+      },
+      spotKind: spot?.kind,
+    };
+  }
+
+  private async bumpPressure(spotId: string) {
+    const row = await this.prisma.spotPressure.findUnique({ where: { spotId } });
+    const hours = row?.lastCastAt ? (Date.now() - row.lastCastAt.getTime()) / 3_600_000 : 12;
+    const next = addCastPressure(decayPressure(row?.pressure ?? 0, hours));
+    await this.prisma.spotPressure.upsert({
+      where: { spotId },
+      update: { pressure: next, castCount: { increment: 1 }, lastCastAt: new Date() },
+      create: { spotId, pressure: next, castCount: 1, lastCastAt: new Date() },
+    });
   }
 
   private async equipped(userId: string, method: FishingMethod) {
@@ -505,12 +714,28 @@ export class FishingService {
   }
 }
 
+type SessionBite = {
+  id: string;
+  userId: string;
+  spotId: string;
+  method: FishingMethod;
+  baitItemId: string | null;
+  lureItemId: string | null;
+  retrieve?: string | null;
+  depthM: number | null;
+};
+
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }
 
 function asStringArray(value: Prisma.JsonValue): string[] {
   return Array.isArray(value) ? value.filter((x): x is string => typeof x === "string") : [];
+}
+
+function asDiet(value: Prisma.JsonValue | null | undefined): DietProfile | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as unknown as DietProfile;
 }
 
 function eventBoost(speciesId: string, events: Array<{ modifiers: Prisma.JsonValue }>): number {
@@ -527,4 +752,51 @@ function speciesMethods(baits: string[], lures: string[]): string[] {
   if (baits.length) methods.push("FLOAT", "BOTTOM", "FEEDER", "CARP");
   if (lures.length) methods.push("SPINNING", "TROLLING");
   return methods;
+}
+
+function boilieFrom(stats: ItemStats): BoilieStats | undefined {
+  if (stats.dietKey !== "boilies" && stats.slug !== "boilies" && !stats.buoyancy) return undefined;
+  const buoyancy = stats.buoyancy;
+  if (buoyancy !== "sinking" && buoyancy !== "popup" && buoyancy !== "wafter" && buoyancy !== "soluble") {
+    return { sizeMm: stats.sizeMm ?? 14, buoyancy: "sinking", aroma: stats.aroma ?? "sweet" };
+  }
+  return { sizeMm: stats.sizeMm ?? 14, buoyancy, aroma: stats.aroma ?? "sweet" };
+}
+
+function toFeedState(row: {
+  mixItemId: string;
+  intensity: number;
+  nutritionalValue: number;
+  attraction: number;
+  saturation: number;
+  createdAt: Date;
+  peakAt: Date;
+  expiresAt: Date;
+  current: number;
+}): FeedingState {
+  return {
+    mixItemId: row.mixItemId,
+    intensity: row.intensity,
+    nutritionalValue: row.nutritionalValue,
+    attraction: row.attraction,
+    saturation: row.saturation,
+    createdAt: row.createdAt.getTime(),
+    peakAt: row.peakAt.getTime(),
+    expiresAt: row.expiresAt.getTime(),
+    current: row.current,
+  };
+}
+
+function fromFeedState(state: FeedingState) {
+  return {
+    mixItemId: state.mixItemId,
+    intensity: state.intensity,
+    nutritionalValue: state.nutritionalValue,
+    attraction: state.attraction,
+    saturation: state.saturation,
+    createdAt: new Date(state.createdAt),
+    peakAt: new Date(state.peakAt),
+    expiresAt: new Date(state.expiresAt),
+    current: state.current,
+  };
 }

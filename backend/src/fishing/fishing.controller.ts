@@ -2,7 +2,7 @@ import { Body, Controller, Get, Inject, Post, UseGuards } from "@nestjs/common";
 import type { AuthUser } from "../auth/auth.types";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
-import { CastDto, DecideDto, HookDto, StartFishingDto, TickDto } from "./dto/fishing.dto";
+import { CastDto, DecideDto, FeedDto, HookDto, StartFishingDto, TickDto } from "./dto/fishing.dto";
 import { FishingService } from "./fishing.service";
 
 @Controller("fishing")
@@ -23,6 +23,16 @@ export class FishingController {
   @Post("cast")
   cast(@CurrentUser() user: AuthUser, @Body() dto: CastDto) {
     return this.fishing.cast(user.id, dto);
+  }
+
+  @Post("feed")
+  feed(@CurrentUser() user: AuthUser, @Body() dto: FeedDto) {
+    return this.fishing.feed(user.id, dto.mixItemId);
+  }
+
+  @Post("reel-in")
+  reelIn(@CurrentUser() user: AuthUser) {
+    return this.fishing.reelIn(user.id);
   }
 
   @Post("bite")

@@ -1,9 +1,16 @@
 import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
+import type { FishingMethod } from "@prisma/client";
+import { FishingService } from "../fishing/fishing.service";
+import { InventoryService } from "../inventory/inventory.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class AdminService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(FishingService) private readonly fishing: FishingService,
+    @Inject(InventoryService) private readonly inventory: InventoryService,
+  ) {}
 
   async assertAdmin(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -41,6 +48,28 @@ export class AdminService {
 
   shops() {
     return this.prisma.shop.findMany({ include: { offers: { include: { item: true } } } });
+  }
+
+  biteDebug(query: {
+    spotId?: string;
+    method?: FishingMethod;
+    bait?: string;
+    lure?: string;
+    retrieve?: string;
+    depthM?: number;
+  }) {
+    return this.fishing.explainBite({
+      spotId: query.spotId ?? "old-bridge",
+      method: query.method ?? "FLOAT",
+      bait: query.bait,
+      lure: query.lure,
+      retrieve: query.retrieve,
+      depthM: query.depthM,
+    });
+  }
+
+  harvestDebug() {
+    return this.inventory.debugPatches();
   }
 
   async compensate(actorId: string, userId: string, coins: number, reason: string) {

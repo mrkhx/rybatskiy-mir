@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Inject, Post, UseGuards } from "@nestjs/common";
-import { IsIn, IsString } from "class-validator";
+import { IsString } from "class-validator";
 import type { AuthUser } from "../auth/auth.types";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -14,8 +14,8 @@ class EquipDto {
 }
 
 class HarvestDto {
-  @IsIn(["worm", "bloodworm"])
-  kind!: "worm" | "bloodworm";
+  @IsString()
+  patchId!: string;
 }
 
 class CraftDto {
@@ -38,6 +38,11 @@ export class InventoryController {
     return this.inventory.list(user.id);
   }
 
+  @Get("patches")
+  patches(@CurrentUser() user: AuthUser) {
+    return this.inventory.listPatches(user.id);
+  }
+
   @Post("equip")
   equip(@CurrentUser() user: AuthUser, @Body() dto: EquipDto) {
     return this.inventory.equip(user.id, dto.inventoryId, dto.slot);
@@ -45,7 +50,7 @@ export class InventoryController {
 
   @Post("harvest")
   harvest(@CurrentUser() user: AuthUser, @Body() dto: HarvestDto) {
-    return this.inventory.harvest(user.id, dto.kind);
+    return this.inventory.harvest(user.id, dto.patchId);
   }
 
   @Post("craft")

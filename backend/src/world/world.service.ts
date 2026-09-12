@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { advanceClock, timeOfDay, type ClockState } from "../game/clock";
+import { feedingLabel, mixFor, sampleFeeding } from "../game/groundbait";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -30,10 +31,38 @@ export class WorldService {
       },
     });
     const events = await this.activeEvents("forest-lake");
+    const feedingRows = await this.prisma.feedingSpot.findMany({
+      where: { waterbodyId: "forest-lake", expiresAt: { gt: new Date() } },
+    });
+    const now = Date.now();
+    const feeding = feedingRows.map((row) => {
+      const mix = mixFor(row.mixItemId);
+      const sample = sampleFeeding(
+        {
+          mixItemId: row.mixItemId,
+          intensity: row.intensity,
+          nutritionalValue: row.nutritionalValue,
+          attraction: row.attraction,
+          saturation: row.saturation,
+          createdAt: row.createdAt.getTime(),
+          peakAt: row.peakAt.getTime(),
+          expiresAt: row.expiresAt.getTime(),
+          current: row.current,
+        },
+        now,
+        "",
+        mix.targetSpecies,
+      );
+      return {
+        spotId: row.spotId,
+        label: feedingLabel(row.saturation, sample.attraction, now, row.expiresAt.getTime(), row.peakAt.getTime()),
+      };
+    });
     return {
       clock: { ...clock, timeOfDay: timeOfDay(clock.minutes) },
       waterbody,
       events,
+      feeding,
     };
   }
 
