@@ -64,19 +64,139 @@ def apply_all(obj):
 
 def shade_smooth(obj):
     select_only([obj])
-    bpy.ops.object.shade_smooth()
+    try:
+        bpy.ops.object.shade_smooth_by_angle(angle=math.radians(60.0))
+    except Exception:
+        bpy.ops.object.shade_smooth()
     obj.select_set(False)
 
 
-def clean_mesh(obj):
+def _clear_custom_normals(me):
+    try:
+        if getattr(me, "has_custom_normals", False):
+            me.free_normals_split()
+    except Exception:
+        pass
+
+
+def finalize_mesh(obj, merge=0.0004):
+    """Production mesh hygiene. Unity must import these normals as-is.
+
+    Apply transforms, drop degenerates, triangulate, recalc outside,
+    mesh.validate(), write custom split normals so FBX LayerElementNormal
+    is populated. Do not rely on Unity recalculating.
+    """
+    if obj is None or obj.type != "MESH":
+        return {"name": "?", "validate": False, "zero_n": 0, "nontri": 0,
+                "verts": 0, "tris": 0}
+
+    sx, sy, sz = obj.scale
+    if min(sx, sy, sz) < 0:
+        log(f"  negative scale on {obj.name}: {(sx, sy, sz)} — abs + apply")
+        obj.scale = (abs(sx), abs(sy), abs(sz))
+    apply_all(obj)
+
+    me = obj.data
+    _clear_custom_normals(me)
+
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    if bm.verts:
+        bmesh.ops.remove_doubles(bm, verts=list(bm.verts), dist=merge)
+    try:
+        bmesh.ops.dissolve_degenerate(bm, dist=1e-5, edges=list(bm.edges))
+    except TypeError:
+        try:
+            bmesh.ops.dissolve_degenerate(bm, dist=1e-5)
+        except Exception:
+            pass
+    bm.faces.ensure_lookup_table()
+    dead = [f for f in bm.faces if f.calc_area() < 1e-12]
+    if dead:
+        bmesh.ops.delete(bm, geom=dead, context="FACES")
+    loose_e = [e for e in bm.edges if e.is_wire]
+    if loose_e:
+        bmesh.ops.delete(bm, geom=loose_e, context="EDGES")
+    loose_v = [v for v in bm.verts if not v.link_faces]
+    if loose_v:
+        bmesh.ops.delete(bm, geom=loose_v, context="VERTS")
+    if bm.faces:
+        bmesh.ops.triangulate(
+            bm, faces=list(bm.faces), quad_method="BEAUTY", ngon_method="BEAUTY")
+        bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    bm.normal_update()
+    bm.to_mesh(me)
+    bm.free()
+
+    validate_changed = bool(me.validate(verbose=True, clean_customdata=True))
+    me.validate(verbose=False, clean_customdata=True)
+
+    for p in me.polygons:
+        p.use_smooth = True
+    me.update()
+
     select_only([obj])
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.remove_doubles(threshold=0.0006)
     bpy.ops.mesh.normals_make_consistent(inside=False)
     bpy.ops.mesh.delete_loose()
+    bpy.ops.mesh.dissolve_degenerate(threshold=0.0001)
+    bpy.ops.mesh.quads_convert_to_tris(quad_method="BEAUTY", ngon_method="BEAUTY")
     bpy.ops.object.mode_set(mode="OBJECT")
-    obj.select_set(False)
+    try:
+        bpy.ops.object.shade_smooth_by_angle(angle=math.radians(60.0))
+    except Exception:
+        bpy.ops.object.shade_smooth()
+
+    me = obj.data
+    me.update()
+    me.calc_loop_triangles()
+
+    poly_of_loop = [None] * len(me.loops)
+    for p in me.polygons:
+        for i in range(p.loop_start, p.loop_start + p.loop_total):
+            poly_of_loop[i] = p
+
+    loop_nors = []
+    zero = 0
+    for i, loop in enumerate(me.loops):
+        n = me.vertices[loop.vertex_index].normal.copy()
+        if n.length_squared < 1e-16 or any(math.isnan(c) for c in n):
+            poly = poly_of_loop[i]
+            n = Vector(poly.normal) if poly is not None else Vector((0.0, 0.0, 1.0))
+            if n.length_squared < 1e-16 or any(math.isnan(c) for c in n):
+                n = Vector((0.0, 0.0, 1.0))
+            zero += 1
+        n.normalize()
+        loop_nors.append(n)
+    if loop_nors:
+        try:
+            _clear_custom_normals(me)
+            me.normals_split_custom_set(loop_nors)
+        except Exception as e:
+            log(f"  custom split normals failed on {obj.name}: {e}")
+    me.update()
+    me.calc_loop_triangles()
+
+    nontri = sum(1 for p in me.polygons if p.loop_total != 3)
+    tris = len(me.loop_triangles)
+    log(f"  finalize {obj.name}: verts={len(me.vertices)} tris={tris} "
+        f"nontri={nontri} zeroN={zero} validate_changed={validate_changed}")
+    if nontri:
+        log(f"  ERROR {obj.name} still has {nontri} non-triangle faces")
+    return {
+        "name": obj.name,
+        "validate": validate_changed,
+        "zero_n": zero,
+        "nontri": nontri,
+        "verts": len(me.vertices),
+        "tris": tris,
+    }
+
+
+def clean_mesh(obj):
+    """Kept as an alias so older call sites still run full hygiene."""
+    return finalize_mesh(obj)
 
 
 def smart_uv(obj):
@@ -155,6 +275,7 @@ def join_objects(name, objs):
 
 
 def bm_to_obj(name, bm):
+    bm.normal_update()
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
@@ -409,8 +530,8 @@ def make_clothes(body, st):
     ], segments=20))
     if jacket:
         jacket = join_objects("Jacket", [jacket, collar, zipper, hem] + pockets)
-        shade_smooth(jacket)
         smart_uv(jacket)
+        finalize_mesh(jacket)
 
     vest_bits = []
     for sx in (-1, 1):
@@ -419,8 +540,8 @@ def make_clothes(body, st):
     vest_bits.append(bm_to_obj("VZip", box((0, ymin + 0.02, 0.72 * h), (0.028, 0.012, 0.24))))
     if vest:
         vest = join_objects("Vest", [vest] + vest_bits)
-        shade_smooth(vest)
         smart_uv(vest)
+        finalize_mesh(vest)
 
     belt = bm_to_obj("Belt", lathe([
         (0.138, hip_z - 0.005),
@@ -429,8 +550,8 @@ def make_clothes(body, st):
     ], segments=20))
     buckle = bm_to_obj("Buckle", box((0, ymin + 0.055, hip_z + 0.014), (0.046, 0.016, 0.032)))
     pants = join_objects("Pants", [belt, buckle])
-    shade_smooth(pants)
     smart_uv(pants)
+    finalize_mesh(pants)
 
     boot_bits = []
     for sx in (-1, 1):
@@ -441,13 +562,15 @@ def make_clothes(body, st):
         cy = sum(p.y for p in foot) / len(foot)
         boot_bits.append(bm_to_obj(f"Shaft{sx}", lathe(
             [(0.055, 0.04), (0.058, 0.10), (0.052, 0.20)],
-            segments=14, origin=(cx, cy, 0))))
+            segments=16, cap_bottom=False, cap_top=True, origin=(cx, cy, 0))))
         boot_bits.append(bm_to_obj(f"Sole{sx}", box((cx, cy - 0.03, 0.016), (0.095, 0.24, 0.032))))
         boot_bits.append(bm_to_obj(f"Heel{sx}", box((cx, cy + 0.07, 0.028), (0.085, 0.07, 0.04))))
     boots = join_objects("Boots", boot_bits) if boot_bits else None
     if boots:
-        shade_smooth(boots)
         smart_uv(boots)
+        # Joined lathe shafts + box soles. A slightly larger weld kills
+        # T-junctions that produced Unity "invalid normals" on Boots.
+        finalize_mesh(boots, merge=0.0008)
 
     cap_z = 0.97 * h
     crown = bm_to_obj("Crown", lathe([
@@ -459,11 +582,11 @@ def make_clothes(body, st):
     ], segments=18, cap_bottom=True, cap_top=True, origin=(0, 0.00, 0)))
     visor = bm_to_obj("Visor", box((0, -0.11, cap_z - 0.008), (0.15, 0.09, 0.014)))
     cap = join_objects("Cap", [crown, visor])
-    shade_smooth(cap)
     smart_uv(cap)
+    finalize_mesh(cap)
     if hair:
         smart_uv(hair)
-        shade_smooth(hair)
+        finalize_mesh(hair)
 
     return jacket, vest, pants, boots, hair, cap
 
@@ -736,14 +859,18 @@ def assign(obj, mat):
 # Export
 # ---------------------------------------------------------------------------
 def export_fbx(path, objects):
+    """Write real normals/tangents. FACE smoothing groups made Unity report
+    'has no normals' and skip LayerElementNormal."""
     select_only(objects)
-    bpy.ops.export_scene.fbx(
+    kwargs = dict(
         filepath=path,
         use_selection=True,
         object_types={"ARMATURE", "MESH", "EMPTY"},
         use_mesh_modifiers=True,
-        mesh_smooth_type="FACE",
+        mesh_smooth_type="OFF",
+        use_tspace=True,
         add_leaf_bones=False,
+        use_armature_deform_only=True,
         primary_bone_axis="Y",
         secondary_bone_axis="X",
         armature_nodetype="NULL",
@@ -756,6 +883,12 @@ def export_fbx(path, objects):
         embed_textures=True,
         bake_space_transform=True,
     )
+    try:
+        bpy.ops.export_scene.fbx(**kwargs)
+    except Exception as e:
+        log("FBX tangents failed (" + str(e) + ") — retry without tspace")
+        kwargs["use_tspace"] = False
+        bpy.ops.export_scene.fbx(**kwargs)
 
 
 def export_glb(path, objects):
@@ -778,11 +911,13 @@ def decimate_copy(obj, ratio, name):
     d = obj.copy()
     d.data = obj.data.copy()
     d.name = name
+    d.data.name = name
     bpy.context.collection.objects.link(d)
     mod = d.modifiers.new("LOD", "DECIMATE")
     mod.ratio = ratio
     select_only([d])
     bpy.ops.object.modifier_apply(modifier="LOD")
+    finalize_mesh(d)
     return d
 
 
@@ -834,7 +969,7 @@ def preview_render(path, loc, rot, size=1024):
     bpy.ops.render.render(write_still=True)
 
 
-def write_report(tris0, tris1, tris2, st):
+def write_report(tris0, tris1, tris2, st, hygiene):
     path = os.path.join(DOC, "MODEL.md")
     with open(path, "w") as f:
         f.write("# SM_Fisherman\n\n")
@@ -847,9 +982,61 @@ def write_report(tris0, tris1, tris2, st):
         f.write(f"- LOD0 triangles: {tris0}\n")
         f.write(f"- LOD1 triangles: {tris1}\n")
         f.write(f"- LOD2 triangles: {tris2}\n")
+        f.write("- Files: `SM_Fisherman_LOD0.fbx`, `SM_Fisherman_LOD1.fbx`, `SM_Fisherman_LOD2.fbx`\n")
+        f.write("- Runtime: `Resources/SM_Fisherman.fbx` (copy of LOD0, no LOD siblings in that folder)\n")
+        f.write("- Export: triangulated, custom split normals, FBX `mesh_smooth_type=OFF`, tangents on, leaf bones off\n")
         f.write("- Sockets: RightHandGrip, LeftHandGrip, RodGrip, RodSupport, HeadLook, Chest, Hips, BackRodMount, BackpackMount, HipAccessoryMount\n")
         f.write("- Anim clips: none in this pass (rig is pose-ready; FishermanBody drives IDLE..LAND)\n")
         f.write("- Preview PNGs in this folder are **Blender Cycles**, not Unity Play Mode\n")
+        f.write("\n## mesh.validate / normals\n\n")
+        f.write("| Mesh | verts | tris | non-tri | zero/NaN normals substituted | validate() changed |\n")
+        f.write("|---|---:|---:|---:|---:|---|\n")
+        for h in hygiene:
+            f.write(f"| {h['name']} | {h['verts']} | {h['tris']} | {h['nontri']} | {h['zero_n']} | {h['validate']} |\n")
+
+
+def inspect_exported_fbx(path, expected_lod):
+    """Re-import FBX in a blank scene and fail on missing/invalid normals or LOD names."""
+    log("Inspect " + path)
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.import_scene.fbx(filepath=path)
+    issues = []
+    meshes = [o for o in bpy.data.objects if o.type == "MESH"]
+    if not meshes:
+        issues.append("no meshes")
+    suffix = None if expected_lod is None else "_" + expected_lod
+    for o in meshes:
+        me = o.data
+        if suffix and not o.name.endswith(suffix):
+            issues.append(f"{o.name}: expected suffix {suffix}")
+        nontri = sum(1 for p in me.polygons if p.loop_total != 3)
+        if nontri:
+            issues.append(f"{o.name}: {nontri} non-triangle faces")
+        me.update()
+        me.calc_loop_triangles()
+        bad = 0
+        for v in me.vertices:
+            n = v.normal
+            if n.length_squared < 1e-16 or any(math.isnan(c) for c in n):
+                bad += 1
+        if bad:
+            issues.append(f"{o.name}: {bad} vertices with invalid normals")
+        if len(me.polygons) == 0:
+            issues.append(f"{o.name}: empty mesh")
+        log(f"  import {o.name}: verts={len(me.vertices)} polys={len(me.polygons)} "
+            f"tris={len(me.loop_triangles)} custom_n={getattr(me, 'has_custom_normals', False)}")
+    if issues:
+        for i in issues:
+            log("  FAIL " + i)
+        raise RuntimeError("FBX inspect failed for " + path + ": " + "; ".join(issues))
+    log("  OK " + str(len(meshes)) + " meshes")
+
+
+def _lod_base(name):
+    for s in ("_LOD0", "_LOD1", "_LOD2"):
+        if name.endswith(s):
+            return name[:-len(s)]
+    return name
 
 
 def main():
@@ -892,13 +1079,26 @@ def main():
 
     lod0 = [o for o in [body] + eyes + [jacket, vest, pants, boots, hair, cap] if o]
 
+    log("Finalize LOD0…")
+    hygiene = [finalize_mesh(o) for o in lod0]
+
     log("Armature…")
     arm, joints = make_armature(body, st)
     sockets = make_sockets(arm, joints)
 
     log("LOD copies…")
-    lod1 = [decimate_copy(o, 0.50, o.name + "_LOD1") for o in lod0]
-    lod2 = [decimate_copy(o, 0.25, o.name + "_LOD2") for o in lod0]
+    lod1, lod2 = [], []
+    for o in lod0:
+        base = _lod_base(o.name)
+        lod1.append(decimate_copy(o, 0.50, base + "_LOD1"))
+        lod2.append(decimate_copy(o, 0.25, base + "_LOD2"))
+    for o in lod0:
+        base = _lod_base(o.name)
+        o.name = base + "_LOD0"
+        o.data.name = o.name
+    hygiene = [finalize_mesh(o) for o in lod0]
+    hygiene += [finalize_mesh(o) for o in lod1]
+    hygiene += [finalize_mesh(o) for o in lod2]
 
     log("Skinning…")
     skin(arm, lod0)
@@ -917,11 +1117,14 @@ def main():
     bpy.ops.wm.save_as_mainfile(filepath=blend_path)
     log("Saved " + blend_path)
 
-    fbx0 = os.path.join(MOD, "SM_Fisherman.fbx")
-    export_fbx(fbx0, [arm] + lod0 + sockets)
-    # Resources copy for runtime Resources.Load
+    fbx_lod0 = os.path.join(MOD, "SM_Fisherman_LOD0.fbx")
+    export_fbx(fbx_lod0, [arm] + lod0 + sockets)
     fbx_res = os.path.join(RES, "SM_Fisherman.fbx")
     export_fbx(fbx_res, [arm] + lod0 + sockets)
+    legacy = os.path.join(MOD, "SM_Fisherman.fbx")
+    if os.path.isfile(legacy):
+        os.remove(legacy)
+        log("Removed mixed-scheme " + legacy)
     glb0 = os.path.join(MOD, "SM_Fisherman.glb")
     try:
         export_glb(glb0, [arm] + lod0 + sockets)
@@ -943,22 +1146,32 @@ def main():
     for o in lod1 + lod2:
         o.hide_set(True)
 
-    write_report(tris0, tris1, tris2, st)
+    write_report(tris0, tris1, tris2, st, hygiene)
 
-    try:
-        preview_render(os.path.join(DOC, "preview_front.png"),
-                       (0.15, -2.55, 1.15),
-                       (math.radians(78), 0, math.radians(4)))
-        preview_render(os.path.join(DOC, "preview_threequarter.png"),
-                       (1.55, -2.15, 1.25),
-                       (math.radians(72), 0, math.radians(36)))
-        preview_render(os.path.join(DOC, "preview_side.png"),
-                       (2.6, 0.15, 1.15),
-                       (math.radians(82), 0, math.radians(90)))
-    except Exception as e:
-        log("Preview render skipped: " + str(e))
+    if os.environ.get("RM_SKIP_PREVIEW") != "1":
+        try:
+            preview_render(os.path.join(DOC, "preview_front.png"),
+                           (0.15, -2.55, 1.15),
+                           (math.radians(78), 0, math.radians(4)))
+            preview_render(os.path.join(DOC, "preview_threequarter.png"),
+                           (1.55, -2.15, 1.25),
+                           (math.radians(72), 0, math.radians(36)))
+            preview_render(os.path.join(DOC, "preview_side.png"),
+                           (2.6, 0.15, 1.15),
+                           (math.radians(82), 0, math.radians(90)))
+        except Exception as e:
+            log("Preview render skipped: " + str(e))
 
-    log("DONE " + fbx0 + " tris " + str(tris0))
+    inspect_exported_fbx(fbx_lod0, "LOD0")
+    inspect_exported_fbx(os.path.join(MOD, "SM_Fisherman_LOD1.fbx"), "LOD1")
+    inspect_exported_fbx(os.path.join(MOD, "SM_Fisherman_LOD2.fbx"), "LOD2")
+    inspect_exported_fbx(fbx_res, "LOD0")
+
+    failed = [h for h in hygiene if h["nontri"] or h["zero_n"]]
+    if failed:
+        log("WARN meshes needed normal substitution or had non-tris: " +
+            ", ".join(h["name"] for h in failed))
+    log("DONE " + fbx_lod0 + " tris " + str(tris0))
 
 
 if __name__ == "__main__":
