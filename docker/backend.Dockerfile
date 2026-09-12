@@ -11,7 +11,7 @@ RUN npm ci --workspace=backend --include-workspace-root --ignore-scripts
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json tsconfig.base.json ./
 COPY backend ./backend
 RUN npm run prisma:generate --workspace=backend
 RUN npm run build --workspace=backend
