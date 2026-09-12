@@ -1,0 +1,13 @@
+{
+  "name": "RybatskiyMir",
+  "rootNamespace": "RybatskiyMir",
+  "references": [
+    "Unity.InputSystem",
+    "Newtonsoft.Json"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "autoReferenced": true,
+  "noEngineReferences": false
+}
