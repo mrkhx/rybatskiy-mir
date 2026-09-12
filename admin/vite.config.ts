@@ -11,6 +11,8 @@ export default defineConfig({
       "/health": "http://127.0.0.1:3000",
       "/auth": "http://127.0.0.1:3000",
       "/players": "http://127.0.0.1:3000",
+      "/admin": "http://127.0.0.1:3000",
+      "/world": "http://127.0.0.1:3000",
     },
   },
   test: {

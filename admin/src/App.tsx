@@ -1,99 +1,67 @@
 import { useEffect, useState } from "react";
-import { fetchHealth, type HealthPayload } from "./api/health";
 
-type ConnectionState =
-  | { kind: "loading" }
-  | { kind: "online"; health: HealthPayload }
-  | { kind: "offline"; message: string };
-
-function tone(value: string): string {
-  if (value === "ok") return "ok";
-  if (value === "degraded") return "warn";
-  return "err";
-}
+type Tab = "overview" | "species" | "waters" | "items" | "players";
 
 export default function App() {
-  const [connection, setConnection] = useState<ConnectionState>({ kind: "loading" });
+  const [tab, setTab] = useState<Tab>("overview");
+  const [token, setTok] = useState(localStorage.getItem("rm_admin") ?? "");
+  const [data, setData] = useState<unknown>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const controller = new AbortController();
-
-    async function load() {
-      try {
-        const health = await fetchHealth(controller.signal);
-        setConnection({ kind: "online", health });
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        setConnection({
-          kind: "offline",
-          message: error instanceof Error ? error.message : "Нет соединения",
-        });
+    if (!token) return;
+    const path =
+      tab === "overview"
+        ? "/admin/overview"
+        : tab === "species"
+          ? "/admin/species"
+          : tab === "waters"
+            ? "/admin/waterbodies"
+            : tab === "items"
+              ? "/admin/items"
+              : "/admin/players";
+    void (async () => {
+      setError("");
+      const res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        setError(`HTTP ${res.status}`);
+        return;
       }
-    }
-
-    void load();
-    const timer = window.setInterval(() => void load(), 8000);
-    return () => {
-      controller.abort();
-      window.clearInterval(timer);
-    };
-  }, []);
+      setData(await res.json());
+    })();
+  }, [tab, token]);
 
   return (
     <div className="shell">
       <header>
         <h1>Рыбацкий Мир — Admin</h1>
-        <span>foundation</span>
+        <span>content</span>
       </header>
       <main>
         <section className="panel">
-          <h2>Связь с backend</h2>
-          {connection.kind === "loading" && (
-            <div className="row">
-              <span>Проверка</span>
-              <span className="pill warn">ожидание</span>
-            </div>
-          )}
-          {connection.kind === "offline" && (
-            <>
-              <div className="row">
-                <span>Backend</span>
-                <span className="pill err">нет связи</span>
-              </div>
-              <p className="note">{connection.message}</p>
-            </>
-          )}
-          {connection.kind === "online" && (
-            <>
-              <div className="row">
-                <span>status</span>
-                <span className={`pill ${tone(connection.health.status)}`}>
-                  {connection.health.status}
-                </span>
-              </div>
-              <div className="row">
-                <span>backend</span>
-                <span className={`pill ${tone(connection.health.backend)}`}>
-                  {connection.health.backend}
-                </span>
-              </div>
-              <div className="row">
-                <span>database</span>
-                <span className={`pill ${tone(connection.health.database)}`}>
-                  {connection.health.database}
-                </span>
-              </div>
-              <div className="row">
-                <span>redis</span>
-                <span className={`pill ${tone(connection.health.redis)}`}>
-                  {connection.health.redis}
-                </span>
-              </div>
-            </>
-          )}
-          <p className="note">
-            Управление игроками и контентом появится позже. Сейчас это только каркас панели.
-          </p>
+          <h2>Сессия</h2>
+          <p className="note">Нужен JWT игрока с isAdmin=true. Dev-токен с frontend не достаточно, пока пользователь не помечен админом в БД.</p>
+          <input
+            value={token}
+            onChange={(e) => {
+              setTok(e.target.value);
+              localStorage.setItem("rm_admin", e.target.value);
+            }}
+            placeholder="Bearer JWT"
+            style={{ width: "100%", minHeight: 40, marginTop: 8 }}
+          />
+        </section>
+        <nav style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "0 20px" }}>
+          {(["overview", "species", "waters", "items", "players"] as Tab[]).map((id) => (
+            <button key={id} type="button" onClick={() => setTab(id)}>
+              {id}
+            </button>
+          ))}
+        </nav>
+        {error && <p className="note">{error}</p>}
+        <section className="panel">
+          <h2>{tab}</h2>
+          <pre style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{data ? JSON.stringify(data, null, 2) : "нет данных"}</pre>
         </section>
       </main>
     </div>
