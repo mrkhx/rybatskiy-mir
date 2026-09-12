@@ -85,6 +85,7 @@ namespace RybatskiyMir.World
             _mat.SetVector("_RippleOrigin", _rippleOrigin);
             _mat.SetFloat("_Rain", RainAmount);
             _mat.SetFloat("_Amplitude", Amplitude);
+            if (_mat.HasProperty("_Wind")) _mat.SetFloat("_Wind", WindField.Strength);
         }
 
         void OnDestroy()

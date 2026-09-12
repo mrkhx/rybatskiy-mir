@@ -30,6 +30,7 @@ Shader "RybatskiyMir/Foliage"
                 half _Cutoff;
                 half _Wind;
             CBUFFER_END
+            float4 _RMWindDir;
 
             struct Attributes
             {
@@ -53,9 +54,11 @@ Shader "RybatskiyMir/Foliage"
                 Varyings o;
                 float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
                 float height = max(input.positionOS.y, 0);
-                float wind = sin(_Time.y * 1.35 + posWS.x * 0.35 + posWS.z * 0.28) * _Wind * height;
-                posWS.x += wind * 0.18;
-                posWS.z += cos(_Time.y * 1.1 + posWS.x * 0.2) * _Wind * height * 0.12;
+                float4 wd = _RMWindDir;
+                float windAmp = _Wind * height * max(wd.y, 0.15);
+                float wind = sin(_Time.y * 1.35 + posWS.x * 0.35 + posWS.z * 0.28 + wd.w);
+                posWS.x += (wd.x != 0 || wd.z != 0 ? wd.x : 1) * wind * 0.18 * windAmp;
+                posWS.z += (wd.z != 0 ? wd.z : 0.4) * cos(_Time.y * 1.1 + posWS.x * 0.2) * 0.12 * windAmp;
                 o.positionWS = posWS;
                 o.positionCS = TransformWorldToHClip(posWS);
                 o.normalWS = TransformObjectToWorldNormal(input.normalOS);

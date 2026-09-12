@@ -23,10 +23,12 @@ namespace RybatskiyMir.World
             BuildSkyDome(world.transform);
             BuildGround(world.transform);
             BuildWater(world.transform);
+            BuildUnderwater(world.transform);
             BuildMist(world.transform);
             BuildShoreBlockers(world.transform);
             BuildPier(world.transform);
             Vegetation.Scatter(world.transform);
+            world.AddComponent<WindField>();
             Sun = BuildLights();
             return world;
         }
@@ -55,22 +57,26 @@ namespace RybatskiyMir.World
                 var wx = u * size;
                 var wz = v * size;
                 var dist = DistToLake(wx, wz);
+                var shore = ShoreRadius(wx, wz);
                 float h;
-                if (dist < LakeRadius - 1.4f)
-                    h = -2.15f + Mathf.PerlinNoise(x * 0.07f, z * 0.07f) * 0.25f;
-                else if (dist < LakeRadius + 4.2f)
+                if (dist < shore - 1.6f)
+                    h = -2.35f + Mathf.PerlinNoise(x * 0.09f, z * 0.09f) * 0.55f
+                        + Mathf.PerlinNoise(x * 0.22f, z * 0.22f) * 0.18f;
+                else if (dist < shore + 5.2f)
                 {
-                    var t = Mathf.InverseLerp(LakeRadius - 1.4f, LakeRadius + 4.2f, dist);
-                    var shore = 0.18f + Mathf.PerlinNoise(x * 0.12f, z * 0.12f) * 0.22f;
-                    h = Mathf.Lerp(-2.15f, shore, Smooth(t));
+                    var t = Mathf.InverseLerp(shore - 1.6f, shore + 5.2f, dist);
+                    var wet = 0.10f + Mathf.PerlinNoise(x * 0.14f, z * 0.14f) * 0.18f;
+                    var bank = 0.22f + Mathf.PerlinNoise(x * 0.08f, z * 0.08f) * 0.35f;
+                    h = Mathf.Lerp(-2.05f, Mathf.Lerp(wet, bank, Smooth(t)), Smooth(t));
                 }
                 else
                     h = 0.22f
                         + Mathf.PerlinNoise(x * 0.09f, z * 0.09f) * 1.35f
                         + Mathf.PerlinNoise(x * 0.025f, z * 0.025f) * 3.1f
-                        + Mathf.PerlinNoise(x * 0.22f, z * 0.22f) * 0.28f;
+                        + Mathf.PerlinNoise(x * 0.22f, z * 0.22f) * 0.28f
+                        + Mathf.PerlinNoise(x * 0.45f, z * 0.45f) * 0.12f;
 
-                if (IsPath(wx, wz) && dist > LakeRadius - 0.5f) h = 0.20f;
+                if (IsPath(wx, wz) && dist > shore - 0.5f) h = 0.20f;
                 return new Vector3(wx, h, wz);
             }, (x, z) =>
             {
@@ -79,11 +85,14 @@ namespace RybatskiyMir.World
                 var wx = u * size;
                 var wz = v * size;
                 var dist = DistToLake(wx, wz);
-                if (IsPath(wx, wz) && dist > LakeRadius - 0.8f) return Palette.Dirt;
-                if (dist < LakeRadius + 0.6f) return Color.Lerp(Palette.Sand * 0.55f, Palette.Sand, Mathf.InverseLerp(LakeRadius - 3f, LakeRadius + 1f, dist));
-                if (dist < LakeRadius + 5f) return Color.Lerp(Palette.Sand, Palette.Grass, Mathf.InverseLerp(LakeRadius + 0.6f, LakeRadius + 5f, dist));
+                var shore = ShoreRadius(wx, wz);
+                if (IsPath(wx, wz) && dist > shore - 0.8f) return Palette.Dirt;
+                if (dist < shore - 2.4f) return Palette.Silt;
+                if (dist < shore + 0.4f) return Color.Lerp(Palette.Silt, Palette.Sand, Mathf.InverseLerp(shore - 2.4f, shore + 0.4f, dist));
+                if (dist < shore + 2.2f) return Color.Lerp(Palette.Sand, Palette.WetEarth, Mathf.InverseLerp(shore + 0.4f, shore + 2.2f, dist));
+                if (dist < shore + 6f) return Color.Lerp(Palette.WetEarth, Palette.Grass, Mathf.InverseLerp(shore + 2.2f, shore + 6f, dist));
                 var moss = Mathf.PerlinNoise(x * 0.18f, z * 0.18f);
-                return Color.Lerp(Palette.Grass, Palette.GrassDark, moss);
+                return Color.Lerp(Palette.Grass, moss > 0.62f ? Palette.Moss : Palette.GrassDark, moss);
             });
             var mat = MeshUtil.Lit(Color.white, 0.08f, false, TextureFactory.Ground);
             MeshUtil.MeshObj("Terrain", mesh, mat, parent, Vector3.zero, true);
@@ -91,8 +100,23 @@ namespace RybatskiyMir.World
 
         static bool IsPath(float wx, float wz) => Mathf.Abs(wx) < 2.15f && wz > -8.4f && wz < 1.2f;
 
-        static float DistToLake(float wx, float wz) =>
+        public static float DistToLake(float wx, float wz) =>
             Vector2.Distance(new Vector2(wx, wz), new Vector2(LakeCenter.x, LakeCenter.z));
+
+        public static float ShoreRadius(float wx, float wz)
+        {
+            var dx = wx - LakeCenter.x;
+            var dz = wz - LakeCenter.z;
+            var ang = Mathf.Atan2(dz, dx);
+            var r = LakeRadius
+                + 2.55f * Mathf.Sin(ang * 2f + 0.55f)
+                + 1.35f * Mathf.Cos(ang * 3.1f - 0.9f)
+                + 0.75f * Mathf.Sin(ang * 5.4f + 0.2f)
+                + (Mathf.PerlinNoise(wx * 0.032f + 8f, wz * 0.032f) - 0.5f) * 2.4f;
+            if (dz < -2f && Mathf.Abs(dx) < 6.5f)
+                r -= 1.8f * Mathf.SmoothStep(6.5f, 0f, Mathf.Abs(dx));
+            return r;
+        }
 
         static float Smooth(float t) => t * t * (3f - 2f * t);
 
@@ -101,6 +125,56 @@ namespace RybatskiyMir.World
             var waterGo = new GameObject("Water");
             waterGo.transform.SetParent(parent, false);
             waterGo.AddComponent<LakeWater>().Build(WaterY);
+        }
+
+        static void BuildUnderwater(Transform parent)
+        {
+            var silt = MeshUtil.Lit(Palette.Silt, 0.08f, false, TextureFactory.Ground);
+            var weed = MeshUtil.Foliage(new Color(0.16f, 0.32f, 0.22f), TextureFactory.Blade, 0.55f);
+            var rockM = MeshUtil.Lit(Palette.Rock, 0.12f, false, TextureFactory.Noise);
+            var rng = new System.Random(71);
+            int rocks = QualityTier.Current == QualityLevel.Low ? 10 : 22;
+            for (int i = 0; i < rocks; i++)
+            {
+                var ang = (float)rng.NextDouble() * Mathf.PI * 2f;
+                var rad = 3.5f + (float)rng.NextDouble() * (LakeRadius - 5f);
+                var p = LakeCenter + new Vector3(Mathf.Cos(ang) * rad, WaterY - 1.15f - (float)rng.NextDouble() * 0.7f, Mathf.Sin(ang) * rad);
+                var rock = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                rock.name = "BedRock_" + i;
+                rock.transform.SetParent(parent, false);
+                rock.transform.position = p;
+                rock.transform.localScale = new Vector3(
+                    0.4f + (float)rng.NextDouble() * 1.1f,
+                    0.18f + (float)rng.NextDouble() * 0.28f,
+                    0.35f + (float)rng.NextDouble() * 0.9f);
+                rock.transform.rotation = Quaternion.Euler(rng.Next(0, 40), rng.Next(0, 360), rng.Next(0, 30));
+                rock.GetComponent<MeshRenderer>().sharedMaterial = rockM;
+                Object.Destroy(rock.GetComponent<Collider>());
+            }
+            int weeds = QualityTier.Current == QualityLevel.Low ? 12 : 28;
+            for (int i = 0; i < weeds; i++)
+            {
+                var ang = (float)rng.NextDouble() * Mathf.PI * 2f;
+                var rad = LakeRadius - 2.8f + (float)rng.NextDouble() * 2.2f;
+                var p = LakeCenter + new Vector3(Mathf.Cos(ang) * rad, WaterY - 0.85f, Mathf.Sin(ang) * rad);
+                var go = new GameObject("Weed_" + i);
+                go.transform.SetParent(parent, false);
+                go.transform.position = p;
+                go.transform.rotation = Quaternion.Euler(0, rng.Next(0, 360), 0);
+                go.transform.localScale = new Vector3(0.35f, 0.7f + (float)rng.NextDouble() * 0.5f, 0.35f);
+                go.AddComponent<MeshFilter>().sharedMesh = MeshUtil.GrassCard();
+                var r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterial = weed;
+                r.shadowCastingMode = ShadowCastingMode.Off;
+                go.AddComponent<WindSway>().Amount = 6f;
+            }
+            var bed = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            bed.name = "SiltBed";
+            bed.transform.SetParent(parent, false);
+            bed.transform.position = new Vector3(LakeCenter.x, WaterY - 1.85f, LakeCenter.z);
+            bed.transform.localScale = new Vector3(LakeRadius * 1.55f, 0.08f, LakeRadius * 1.55f);
+            bed.GetComponent<MeshRenderer>().sharedMaterial = silt;
+            Object.Destroy(bed.GetComponent<Collider>());
         }
 
         static void BuildMist(Transform parent)
@@ -134,7 +208,8 @@ namespace RybatskiyMir.World
                 var ang = i / 20f * Mathf.PI * 2f;
                 // gap on the south bank for the pier approach (ang near -PI/2 relative to lake center)
                 var dir = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang));
-                var p = LakeCenter + dir * (LakeRadius + 0.6f);
+                var probe = LakeCenter + dir * 22f;
+                var p = LakeCenter + dir * (ShoreRadius(probe.x, probe.z) + 0.6f);
                 p.y = 0.55f;
                 if (p.z < 3.5f && Mathf.Abs(p.x) < 4.5f) continue;
                 var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -229,6 +304,42 @@ namespace RybatskiyMir.World
             crate.transform.localScale = new Vector3(0.38f, 0.28f, 0.32f);
             crate.transform.localRotation = Quaternion.Euler(0, 12f, 0);
             crate.GetComponent<MeshRenderer>().sharedMaterial = dry;
+
+            var contact = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            contact.name = "PierContactShadow";
+            contact.transform.SetParent(pier.transform, false);
+            contact.transform.localPosition = new Vector3(0f, -0.02f, 4.1f);
+            contact.transform.localRotation = Quaternion.Euler(90f, 0, 0);
+            contact.transform.localScale = new Vector3(2.35f, 8.6f, 1f);
+            Object.Destroy(contact.GetComponent<Collider>());
+            var shadowM = MeshUtil.Unlit(new Color(0.05f, 0.04f, 0.03f, 0.28f));
+            shadowM.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+            shadowM.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+            shadowM.SetInt("_ZWrite", 0);
+            shadowM.renderQueue = 2450;
+            MeshUtil.ApplyColor(shadowM, new Color(0.05f, 0.04f, 0.03f, 0.28f));
+            var shadowR = contact.GetComponent<MeshRenderer>();
+            shadowR.sharedMaterial = shadowM;
+            shadowR.shadowCastingMode = ShadowCastingMode.Off;
+
+            var mossM = MeshUtil.Lit(Palette.Moss, 0.08f);
+            for (int m = 0; m < 6; m++)
+            {
+                var patch = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                patch.name = "Moss_" + m;
+                patch.transform.SetParent(pier.transform, false);
+                patch.transform.localPosition = new Vector3((m % 2 == 0 ? -0.7f : 0.7f), 0.08f, 1.4f + m * 0.9f);
+                patch.transform.localScale = new Vector3(0.22f, 0.04f, 0.18f);
+                patch.GetComponent<MeshRenderer>().sharedMaterial = mossM;
+                Object.Destroy(patch.GetComponent<Collider>());
+            }
+            var ropeM = MeshUtil.Lit(new Color(0.45f, 0.38f, 0.22f), 0.12f);
+            for (int s = 0; s < 2; s++)
+            {
+                var rope = MeshUtil.TubeChild("Rope_" + s, pier.transform, new Vector3(s == 0 ? -0.92f : 0.92f, 0.55f, 2.1f), 0.012f, 0.012f, 3.6f, ropeM, 6);
+                rope.localRotation = Quaternion.Euler(90f, 0, 0);
+                rope.localScale = new Vector3(1f, 3.6f, 1f);
+            }
 
             var sitZ = (planks - 3) * plankStep;
             var sit = new GameObject("SitPoint");

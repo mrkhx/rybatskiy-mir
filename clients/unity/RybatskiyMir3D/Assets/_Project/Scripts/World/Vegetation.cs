@@ -36,6 +36,8 @@ namespace RybatskiyMir.World
             ScatterRocks(parent);
             ScatterLilies(parent);
             ScatterSnags(parent);
+            ScatterRoots(parent);
+            ScatterSaplings(parent);
         }
 
         static void ScatterNearTrees(Transform parent)
@@ -45,13 +47,17 @@ namespace RybatskiyMir.World
             for (int i = 0; i < count; i++)
             {
                 var ang = (float)rng.NextDouble() * Mathf.PI * 2f;
-                var rad = ForestLakeBuilder.LakeRadius + 4.5f + (float)rng.NextDouble() * 22f;
+                var rad = ForestLakeBuilder.ShoreRadius(
+                    ForestLakeBuilder.LakeCenter.x + Mathf.Cos(ang) * (ForestLakeBuilder.LakeRadius + 8f),
+                    ForestLakeBuilder.LakeCenter.z + Mathf.Sin(ang) * (ForestLakeBuilder.LakeRadius + 8f));
+                rad += 4.5f + (float)rng.NextDouble() * 22f;
                 var p = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang) * rad, 0, Mathf.Sin(ang) * rad);
                 if (p.z < 2f && Mathf.Abs(p.x) < 5.5f) continue;
                 p.y = 0.05f;
                 var kind = rng.NextDouble();
-                if (kind < 0.18) Birch(parent, p, rng, i);
-                else if (kind < 0.45) Spruce(parent, p, rng, i);
+                if (kind < 0.12) Sapling(parent, p, rng, i);
+                else if (kind < 0.30) Birch(parent, p, rng, i);
+                else if (kind < 0.55) Spruce(parent, p, rng, i);
                 else Pine(parent, p, rng, i, false);
             }
         }
@@ -74,6 +80,7 @@ namespace RybatskiyMir.World
             var tree = new GameObject((far ? "FarPine_" : "Pine_") + i);
             tree.transform.SetParent(parent, false);
             tree.transform.SetPositionAndRotation(p, Quaternion.Euler(0, rng.Next(0, 360), (float)(rng.NextDouble() - 0.5) * 4f));
+            tree.AddComponent<WindSway>().Amount = far ? 1.2f : 2.2f;
             var h = far ? 7f + (float)rng.NextDouble() * 4f : 5.2f + (float)rng.NextDouble() * 3.8f;
             var trunkR = far ? 0.28f : 0.18f + (float)rng.NextDouble() * 0.12f;
             var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -98,6 +105,7 @@ namespace RybatskiyMir.World
             tree.transform.SetParent(parent, false);
             tree.transform.position = p;
             tree.transform.rotation = Quaternion.Euler(0, rng.Next(0, 360), 0);
+            tree.AddComponent<WindSway>().Amount = 2.0f;
             var h = 6.4f + (float)rng.NextDouble() * 3.2f;
             var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             trunk.transform.SetParent(tree.transform, false);
@@ -117,6 +125,7 @@ namespace RybatskiyMir.World
             var tree = new GameObject("Birch_" + i);
             tree.transform.SetParent(parent, false);
             tree.transform.position = p;
+            tree.AddComponent<WindSway>().Amount = 1.8f;
             var h = 5.4f + (float)rng.NextDouble() * 2.4f;
             var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             trunk.transform.SetParent(tree.transform, false);
@@ -150,12 +159,14 @@ namespace RybatskiyMir.World
             for (int i = 0; i < count; i++)
             {
                 var ang = (float)rng.NextDouble() * Mathf.PI * 2f;
-                var rad = ForestLakeBuilder.LakeRadius - 1.2f + (float)rng.NextDouble() * 3.4f;
+                var probe = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (ForestLakeBuilder.LakeRadius + 4f);
+                var rad = ForestLakeBuilder.ShoreRadius(probe.x, probe.z) - 1.2f + (float)rng.NextDouble() * 3.4f;
                 var p = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang) * rad, ForestLakeBuilder.WaterY - 0.05f, Mathf.Sin(ang) * rad);
                 if (Mathf.Abs(p.x) < 2.2f && p.z < 10f) continue;
                 var cluster = new GameObject("Reed_" + i);
                 cluster.transform.SetParent(parent, false);
                 cluster.transform.position = p;
+                cluster.AddComponent<WindSway>().Amount = 5.5f;
                 int blades = 4 + rng.Next(0, 4);
                 for (int b = 0; b < blades; b++)
                 {
@@ -187,7 +198,8 @@ namespace RybatskiyMir.World
             for (int i = 0; i < count; i++)
             {
                 var ang = (float)rng.NextDouble() * Mathf.PI * 2f;
-                var rad = ForestLakeBuilder.LakeRadius + 0.8f + (float)rng.NextDouble() * 10f;
+                var probe = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (ForestLakeBuilder.LakeRadius + 6f);
+                var rad = ForestLakeBuilder.ShoreRadius(probe.x, probe.z) + 0.8f + (float)rng.NextDouble() * 10f;
                 var p = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang) * rad, 0.02f, Mathf.Sin(ang) * rad);
                 if (p.z < 1.5f && Mathf.Abs(p.x) < 3f) continue;
                 var go = new GameObject("Grass_" + i);
@@ -210,7 +222,8 @@ namespace RybatskiyMir.World
             for (int i = 0; i < count; i++)
             {
                 var ang = (float)rng.NextDouble() * Mathf.PI * 2f;
-                var rad = ForestLakeBuilder.LakeRadius + 2f + (float)rng.NextDouble() * 8f;
+                var probe = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (ForestLakeBuilder.LakeRadius + 6f);
+                var rad = ForestLakeBuilder.ShoreRadius(probe.x, probe.z) + 2f + (float)rng.NextDouble() * 8f;
                 var p = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang) * rad, 0.12f, Mathf.Sin(ang) * rad);
                 if (Mathf.Abs(p.x) < 3.5f && p.z < 3f) continue;
                 var bush = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -232,7 +245,8 @@ namespace RybatskiyMir.World
             for (int i = 0; i < 18; i++)
             {
                 var ang = (float)rng.NextDouble() * Mathf.PI * 2f;
-                var rad = ForestLakeBuilder.LakeRadius - 0.4f + (float)rng.NextDouble() * 5f;
+                var probe = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (ForestLakeBuilder.LakeRadius + 4f);
+                var rad = ForestLakeBuilder.ShoreRadius(probe.x, probe.z) - 0.4f + (float)rng.NextDouble() * 5f;
                 var p = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang) * rad, 0.08f, Mathf.Sin(ang) * rad);
                 var rock = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 rock.name = "Rock_" + i;
@@ -295,6 +309,65 @@ namespace RybatskiyMir.World
                 log.transform.rotation = Quaternion.Euler(6f, 24f + i * 48f, 82f);
                 log.transform.localScale = new Vector3(0.24f, 1.55f, 0.24f);
                 log.GetComponent<MeshRenderer>().sharedMaterial = wood;
+            }
+        }
+
+        static void Sapling(Transform parent, Vector3 p, System.Random rng, int i)
+        {
+            var tree = new GameObject("Sapling_" + i);
+            tree.transform.SetParent(parent, false);
+            tree.transform.SetPositionAndRotation(p, Quaternion.Euler(0, rng.Next(0, 360), (float)(rng.NextDouble() - 0.5) * 8f));
+            tree.AddComponent<WindSway>().Amount = 3.4f;
+            var h = 1.7f + (float)rng.NextDouble() * 1.4f;
+            var trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            trunk.transform.SetParent(tree.transform, false);
+            trunk.transform.localScale = new Vector3(0.12f, h * 0.45f, 0.12f);
+            trunk.transform.localPosition = new Vector3(0, h * 0.45f, 0);
+            trunk.GetComponent<MeshRenderer>().sharedMaterial = _trunkM;
+            Object.Destroy(trunk.GetComponent<Collider>());
+            for (int L = 0; L < 2; L++)
+            {
+                var y = h * 0.42f + L * (h * 0.28f);
+                var s = (2 - L) * 0.55f + 0.35f;
+                MeshUtil.MeshChild("Needles_" + L, _cone, tree.transform, new Vector3(0, y, 0), new Vector3(s, h * 0.32f, s), L == 0 ? _needleA : _needleB);
+            }
+        }
+
+        static void ScatterSaplings(Transform parent)
+        {
+            var rng = new System.Random(61);
+            int count = QualityTier.Current == QualityLevel.Low ? 4 : 10;
+            for (int i = 0; i < count; i++)
+            {
+                var ang = (float)rng.NextDouble() * Mathf.PI * 2f;
+                var probe = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (ForestLakeBuilder.LakeRadius + 6f);
+                var rad = ForestLakeBuilder.ShoreRadius(probe.x, probe.z) + 1.4f + (float)rng.NextDouble() * 5f;
+                var p = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang) * rad, 0.04f, Mathf.Sin(ang) * rad);
+                if (p.z < 2f && Mathf.Abs(p.x) < 5.5f) continue;
+                Sapling(parent, p, rng, 2000 + i);
+            }
+        }
+
+        static void ScatterRoots(Transform parent)
+        {
+            var wood = MeshUtil.Lit(new Color(0.28f, 0.20f, 0.12f), 0.08f, false, TextureFactory.Bark);
+            var rng = new System.Random(5);
+            int count = QualityTier.Current == QualityLevel.Low ? 5 : 10;
+            for (int i = 0; i < count; i++)
+            {
+                var ang = (float)rng.NextDouble() * Mathf.PI * 2f;
+                var probe = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (ForestLakeBuilder.LakeRadius + 4f);
+                var rad = ForestLakeBuilder.ShoreRadius(probe.x, probe.z) + 0.4f;
+                var p = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang) * rad, 0.06f, Mathf.Sin(ang) * rad);
+                if (Mathf.Abs(p.x) < 2.4f && p.z < 4f) continue;
+                var root = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                root.name = "Root_" + i;
+                root.transform.SetParent(parent, false);
+                root.transform.position = p;
+                root.transform.rotation = Quaternion.Euler(8f + rng.Next(0, 16), rng.Next(0, 360), 78f + rng.Next(0, 18));
+                root.transform.localScale = new Vector3(0.08f + (float)rng.NextDouble() * 0.06f, 0.7f + (float)rng.NextDouble() * 0.5f, 0.08f);
+                root.GetComponent<MeshRenderer>().sharedMaterial = wood;
+                Object.Destroy(root.GetComponent<Collider>());
             }
         }
     }

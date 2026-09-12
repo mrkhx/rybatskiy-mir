@@ -28,8 +28,11 @@ namespace RybatskiyMir.World
         public static readonly Color Grass = Hex("3A5534");
         public static readonly Color GrassDark = Hex("2A3E28");
         public static readonly Color Sand = new Color(0.58f, 0.52f, 0.38f);
+        public static readonly Color Silt = new Color(0.32f, 0.34f, 0.28f);
+        public static readonly Color WetEarth = new Color(0.40f, 0.32f, 0.20f);
         public static readonly Color Dirt = new Color(0.36f, 0.28f, 0.20f);
         public static readonly Color Rock = new Color(0.42f, 0.40f, 0.36f);
+        public static readonly Color Moss = new Color(0.22f, 0.32f, 0.18f);
         public static readonly Color Reed = new Color(0.40f, 0.46f, 0.24f);
         public static readonly Color ReedHead = new Color(0.48f, 0.36f, 0.18f);
         public static readonly Color SunDay = new Color(1f, 0.94f, 0.80f);
