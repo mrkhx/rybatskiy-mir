@@ -35,9 +35,10 @@ namespace RybatskiyMir.Player
         Quaternion _hipRestRot, _spineRest, _chestRest, _neckRest, _headRest;
         Quaternion _lURest, _lLRest, _rURest, _rLRest;
         Quaternion _lLegURest, _lLegLRest, _rLegURest, _rLegLRest;
+        Quaternion _lHang = Quaternion.identity;
+        Quaternion _rHang = Quaternion.identity;
         float _phase;
         float _breath;
-        const float ArmHang = 72f;
 
         public static FishermanBody Build(Transform root)
         {
@@ -113,6 +114,24 @@ namespace RybatskiyMir.Player
             _lLegLRest = _lLegL.localRotation;
             _rLegURest = _rLegU.localRotation;
             _rLegLRest = _rLegL.localRotation;
+            _lHang = HangDown(_lU, _lL);
+            _rHang = HangDown(_rU, _rL);
+        }
+
+        /// <summary>
+        /// T-pose arm → hanging at the side. Euler(0,0,±72) was twisting
+        /// around the bone (palms to camera), not dropping the arm.
+        /// </summary>
+        static Quaternion HangDown(Transform upper, Transform lower)
+        {
+            if (!upper || !lower || !upper.parent) return Quaternion.identity;
+            var along = lower.position - upper.position;
+            if (along.sqrMagnitude < 1e-8f) return Quaternion.identity;
+            along.Normalize();
+            if (Vector3.Dot(along, Vector3.down) > 0.92f) return Quaternion.identity;
+            var newWorld = Quaternion.FromToRotation(along, Vector3.down) * upper.rotation;
+            var newLocal = Quaternion.Inverse(upper.parent.rotation) * newWorld;
+            return Quaternion.Inverse(upper.localRotation) * newLocal;
         }
 
         static Transform FindBone(Transform root, params string[] names)
@@ -154,6 +173,156 @@ namespace RybatskiyMir.Player
             Quaternion rLegL = Quaternion.identity;
             Quaternion head = Quaternion.identity;
 
+            if (Authored)
+                PoseAuthored(walk, run, ref hip, ref spine, ref chest, ref neck, ref head,
+                    ref hipPos, ref lU, ref rU, ref lL, ref rL,
+                    ref lLegU, ref rLegU, ref lLegL, ref rLegL);
+            else
+                PosePrimitive(walk, run, ref hip, ref spine, ref chest, ref neck, ref head,
+                    ref hipPos, ref lU, ref rU, ref lL, ref rL,
+                    ref lLegU, ref rLegU, ref lLegL, ref rLegL);
+
+            float k = 1f - Mathf.Exp(-11f * dt);
+            ApplyBone(Hip, _hipRestRot, hip, k);
+            Hip.localPosition = Vector3.Lerp(Hip.localPosition, hipPos, k);
+            ApplyBone(_spine, _spineRest, spine, k);
+            if (_chest) ApplyBone(_chest, _chestRest, chest, k);
+            if (_neck) ApplyBone(_neck, _neckRest, neck, k);
+            if (_head) ApplyBone(_head, _headRest, head, k);
+            ApplyArm(_lU, _lURest, lU, _lHang, k);
+            ApplyArm(_rU, _rURest, rU, _rHang, k);
+            ApplyBone(_lL, _lLRest, lL, k);
+            ApplyBone(_rL, _rLRest, rL, k);
+            ApplyBone(_lLegU, _lLegURest, lLegU, k);
+            ApplyBone(_rLegU, _rLegURest, rLegU, k);
+            ApplyBone(_lLegL, _lLegLRest, lLegL, k);
+            ApplyBone(_rLegL, _rLegLRest, rLegL, k);
+        }
+
+        void PoseAuthored(float walk, float run,
+            ref Quaternion hip, ref Quaternion spine, ref Quaternion chest, ref Quaternion neck, ref Quaternion head,
+            ref Vector3 hipPos,
+            ref Quaternion lU, ref Quaternion rU, ref Quaternion lL, ref Quaternion rL,
+            ref Quaternion lLegU, ref Quaternion rLegU, ref Quaternion lLegL, ref Quaternion rLegL)
+        {
+            // Deltas are AFTER hang-to-down. X swings the arm forward/back.
+            if (Pose is FishermanPose.Idle or FishermanPose.Walk or FishermanPose.Run)
+            {
+                var amp = Mathf.Lerp(4f, 24f, walk) + run * 10f;
+                var swing = Mathf.Sin(_phase) * amp;
+                var knee = Mathf.Max(0f, Mathf.Sin(_phase));
+                lLegU = Quaternion.Euler(swing, 0, 0);
+                rLegU = Quaternion.Euler(-swing, 0, 0);
+                lLegL = Quaternion.Euler(-knee * 0.85f * amp, 0, 0);
+                rLegL = Quaternion.Euler(-Mathf.Max(0f, -Mathf.Sin(_phase)) * 0.85f * amp, 0, 0);
+                lU = Quaternion.Euler(-swing * 0.7f, 6f, 0);
+                rU = Quaternion.Euler(swing * 0.7f, -6f, 0);
+                lL = Quaternion.Euler(16f + Mathf.Max(0, -swing) * 0.3f, 0, 0);
+                rL = Quaternion.Euler(16f + Mathf.Max(0, swing) * 0.3f, 0, 0);
+                hip = Quaternion.Euler(walk * 3f, swing * 0.12f, 0);
+                spine = Quaternion.Euler(walk * 5f + Mathf.Sin(_breath * 1.5f) * 1.4f, 0, 0);
+                hipPos.y += Mathf.Abs(Mathf.Sin(_phase * 2f)) * walk * 0.035f;
+                if (walk < 0.05f)
+                {
+                    var shift = Mathf.Sin(_breath * 0.7f) * 1.8f;
+                    spine = Quaternion.Euler(Mathf.Sin(_breath * 1.35f) * 2.0f, 0, shift * 0.3f);
+                    hip = Quaternion.Euler(0, 0, shift * 0.4f);
+                    lU = Quaternion.Euler(10f, 8f, 4f);
+                    rU = Quaternion.Euler(10f, -8f, -4f);
+                    lL = Quaternion.Euler(18f, 0, 0);
+                    rL = Quaternion.Euler(18f, 0, 0);
+                    lLegU = Quaternion.Euler(2f, -3f, 0);
+                    rLegU = Quaternion.Euler(4f, 3f, 0);
+                }
+                neck = Quaternion.Euler(-walk * 2f, 0, 0);
+                return;
+            }
+
+            ApplySitBase(ref hipPos, ref hip, ref lLegU, ref rLegU, ref lLegL, ref rLegL, ref spine);
+            lU = Quaternion.Euler(28f, 22f, 8f);
+            lL = Quaternion.Euler(58f, 0, 0);
+            rU = Quaternion.Euler(26f, -18f, -8f);
+            rL = Quaternion.Euler(54f, 0, 0);
+            chest = Quaternion.Euler(6f, 8f, 0);
+            neck = Quaternion.Euler(-6f, 6f, 0);
+            head = Quaternion.Euler(-8f, 8f, 0);
+
+            if (Pose == FishermanPose.Aim)
+            {
+                rU = Quaternion.Euler(-70f, -10f, 0);
+                rL = Quaternion.Euler(28f, 0, 0);
+                lU = Quaternion.Euler(18f, 16f, 6f);
+                lL = Quaternion.Euler(48f, 0, 0);
+                chest = Quaternion.Euler(8f, 12f, 0);
+                head = Quaternion.Euler(-10f, 10f, 0);
+            }
+            else if (Pose == FishermanPose.Cast)
+            {
+                var t = Mathf.Clamp01(CastT);
+                float back = t < 0.38f ? t / 0.38f : Mathf.Clamp01(1f - (t - 0.38f) / 0.62f * 1.35f);
+                float fwd = t < 0.38f ? 0 : Mathf.Clamp01((t - 0.38f) / 0.18f);
+                rU = Quaternion.Euler(Mathf.Lerp(-20f, -110f, back) + fwd * -8f, -8f, 0);
+                rL = Quaternion.Euler(Mathf.Lerp(20f, 8f, fwd), 0, 0);
+                chest = Quaternion.Euler(Mathf.Lerp(8f, -10f, back) + fwd * 18f, fwd * 12f, 0);
+                spine = Quaternion.Euler(12f, 0, 0);
+                lU = Quaternion.Euler(16f, 14f, 6f);
+                head = Quaternion.Euler(fwd * -8f, fwd * 6f, 0);
+            }
+            else if (Pose == FishermanPose.Hook)
+            {
+                rU = Quaternion.Euler(-88f, -8f, 0);
+                rL = Quaternion.Euler(12f, 0, 0);
+                chest = Quaternion.Euler(-8f, 8f, 0);
+                spine = Quaternion.Euler(4f, 0, 0);
+                lU = Quaternion.Euler(14f, 12f, 6f);
+                head = Quaternion.Euler(-12f, 8f, 0);
+            }
+            else if (Pose == FishermanPose.Fight)
+            {
+                var yank = Mathf.Sin(Time.time * (2.1f + Tension * 2.8f)) * (7f + Tension * 12f);
+                hip = Quaternion.Euler(12f, yank * 0.35f, 0);
+                lLegU = Quaternion.Euler(-80f, -10f, 0);
+                rLegU = Quaternion.Euler(-88f, 10f, 0);
+                rU = Quaternion.Euler(-58f + yank, -10f, 0);
+                rL = Quaternion.Euler(22f, 0, 0);
+                lU = Quaternion.Euler(12f + yank * 0.35f, 14f, 6f);
+                lL = Quaternion.Euler(40f, 0, 0);
+                chest = Quaternion.Euler(12f + yank * 0.28f, 8f + yank * 0.45f, 0);
+                spine = Quaternion.Euler(16f, 0, 0);
+                head = Quaternion.Euler(-8f, 8f + yank * 0.2f, 0);
+            }
+            else if (Pose == FishermanPose.Land)
+            {
+                hipPos = _hipRest + new Vector3(0, -0.42f, 0.04f);
+                hip = Quaternion.Euler(8f, 0, 0);
+                lLegU = Quaternion.Euler(-72f, -8f, 0);
+                rLegU = Quaternion.Euler(-72f, 8f, 0);
+                lLegL = Quaternion.Euler(66f, 0, 0);
+                rLegL = Quaternion.Euler(66f, 0, 0);
+                rU = Quaternion.Euler(8f, -12f, -6f);
+                rL = Quaternion.Euler(40f, 0, 0);
+                lU = Quaternion.Euler(10f, 16f, 6f);
+                lL = Quaternion.Euler(38f, 0, 0);
+                chest = Quaternion.Euler(10f, 8f, 0);
+                head = Quaternion.Euler(4f, 6f, 0);
+            }
+            else if (Pose == FishermanPose.Wait)
+            {
+                rU = Quaternion.Euler(-62f, -8f, 0);
+                rL = Quaternion.Euler(32f, 0, 0);
+                lU = Quaternion.Euler(16f, 14f, 6f);
+                lL = Quaternion.Euler(46f, 0, 0);
+                chest = Quaternion.Euler(8f + Mathf.Sin(_breath * 1.2f) * 1.5f, 8f, 0);
+                head = Quaternion.Euler(-6f, 8f, 0);
+            }
+        }
+
+        void PosePrimitive(float walk, float run,
+            ref Quaternion hip, ref Quaternion spine, ref Quaternion chest, ref Quaternion neck, ref Quaternion head,
+            ref Vector3 hipPos,
+            ref Quaternion lU, ref Quaternion rU, ref Quaternion lL, ref Quaternion rL,
+            ref Quaternion lLegU, ref Quaternion rLegU, ref Quaternion lLegL, ref Quaternion rLegL)
+        {
             if (Pose is FishermanPose.Idle or FishermanPose.Walk or FishermanPose.Run)
             {
                 var amp = Mathf.Lerp(4f, 24f, walk) + run * 10f;
@@ -183,103 +352,86 @@ namespace RybatskiyMir.Player
                     rLegU = Quaternion.Euler(4f, 3f, 0);
                 }
                 neck = Quaternion.Euler(-walk * 2f, 0, 0);
+                return;
             }
-            else
+
+            ApplySitBase(ref hipPos, ref hip, ref lLegU, ref rLegU, ref lLegL, ref rLegL, ref spine);
+            lU = Quaternion.Euler(-36f, 22f, 28f);
+            lL = Quaternion.Euler(-42f, 0, 0);
+            rU = Quaternion.Euler(-58f, -8f, -22f);
+            rL = Quaternion.Euler(-52f, 4f, 8f);
+            chest = Quaternion.Euler(6f, 8f, 0);
+            neck = Quaternion.Euler(-6f, 6f, 0);
+            head = Quaternion.Euler(-8f, 8f, 0);
+
+            if (Pose == FishermanPose.Aim)
             {
-                ApplySitBase(ref hipPos, ref hip, ref lLegU, ref rLegU, ref lLegL, ref rLegL, ref spine);
-                lU = Quaternion.Euler(-36f, 22f, 28f);
-                lL = Quaternion.Euler(-42f, 0, 0);
-                rU = Quaternion.Euler(-58f, -8f, -22f);
-                rL = Quaternion.Euler(-52f, 4f, 8f);
-                chest = Quaternion.Euler(6f, 8f, 0);
-                neck = Quaternion.Euler(-6f, 6f, 0);
-                head = Quaternion.Euler(-8f, 8f, 0);
-
-                if (Pose == FishermanPose.Aim)
-                {
-                    rU = Quaternion.Euler(-70f, -4f, -16f);
-                    rL = Quaternion.Euler(-40f, 4f, 6f);
-                    lU = Quaternion.Euler(-44f, 18f, 26f);
-                    lL = Quaternion.Euler(-48f, 0, 0);
-                    chest = Quaternion.Euler(8f, 12f, 0);
-                    head = Quaternion.Euler(-10f, 10f, 0);
-                }
-                else if (Pose == FishermanPose.Cast)
-                {
-                    var t = Mathf.Clamp01(CastT);
-                    float back = t < 0.38f ? t / 0.38f : Mathf.Clamp01(1f - (t - 0.38f) / 0.62f * 1.35f);
-                    float fwd = t < 0.38f ? 0 : Mathf.Clamp01((t - 0.38f) / 0.18f);
-                    rU = Quaternion.Euler(Mathf.Lerp(-20f, -108f, back) + fwd * -12f, -6f, -12f);
-                    rL = Quaternion.Euler(Mathf.Lerp(-28f, -18f, fwd), 0, 0);
-                    chest = Quaternion.Euler(Mathf.Lerp(8f, -10f, back) + fwd * 18f, fwd * 12f, 0);
-                    spine = Quaternion.Euler(12f, 0, 0);
-                    lU = Quaternion.Euler(-28f, 18f, 22f);
-                    head = Quaternion.Euler(fwd * -8f, fwd * 6f, 0);
-                }
-                else if (Pose == FishermanPose.Hook)
-                {
-                    rU = Quaternion.Euler(-96f, -4f, -10f);
-                    rL = Quaternion.Euler(-18f, 0, 4f);
-                    chest = Quaternion.Euler(-8f, 8f, 0);
-                    spine = Quaternion.Euler(4f, 0, 0);
-                    lU = Quaternion.Euler(-38f, 14f, 20f);
-                    head = Quaternion.Euler(-12f, 8f, 0);
-                }
-                else if (Pose == FishermanPose.Fight)
-                {
-                    var yank = Mathf.Sin(Time.time * (2.1f + Tension * 2.8f)) * (7f + Tension * 12f);
-                    hip = Quaternion.Euler(12f, yank * 0.35f, 0);
-                    lLegU = Quaternion.Euler(-80f, -10f, 0);
-                    rLegU = Quaternion.Euler(-88f, 10f, 0);
-                    rU = Quaternion.Euler(-64f + yank, -8f, -16f);
-                    rL = Quaternion.Euler(-38f, 0, 6f);
-                    lU = Quaternion.Euler(-48f + yank * 0.35f, 16f, 22f);
-                    lL = Quaternion.Euler(-36f, 0, 0);
-                    chest = Quaternion.Euler(12f + yank * 0.28f, 8f + yank * 0.45f, 0);
-                    spine = Quaternion.Euler(16f, 0, 0);
-                    head = Quaternion.Euler(-8f, 8f + yank * 0.2f, 0);
-                }
-                else if (Pose == FishermanPose.Land)
-                {
-                    hipPos = _hipRest + new Vector3(0, -0.42f, 0.04f);
-                    hip = Quaternion.Euler(8f, 0, 0);
-                    lLegU = Quaternion.Euler(-72f, -8f, 0);
-                    rLegU = Quaternion.Euler(-72f, 8f, 0);
-                    lLegL = Quaternion.Euler(66f, 0, 0);
-                    rLegL = Quaternion.Euler(66f, 0, 0);
-                    rU = Quaternion.Euler(-36f, -12f, -14f);
-                    rL = Quaternion.Euler(-48f, 8f, 6f);
-                    lU = Quaternion.Euler(-32f, 22f, 12f);
-                    lL = Quaternion.Euler(-40f, 0, 0);
-                    chest = Quaternion.Euler(10f, 8f, 0);
-                    head = Quaternion.Euler(4f, 6f, 0);
-                }
-                else if (Pose == FishermanPose.Wait)
-                {
-                    rU = Quaternion.Euler(-62f, -6f, -18f);
-                    rL = Quaternion.Euler(-46f, 4f, 6f);
-                    lU = Quaternion.Euler(-40f, 16f, 24f);
-                    lL = Quaternion.Euler(-44f, 0, 0);
-                    chest = Quaternion.Euler(8f + Mathf.Sin(_breath * 1.2f) * 1.5f, 8f, 0);
-                    head = Quaternion.Euler(-6f, 8f, 0);
-                }
+                rU = Quaternion.Euler(-70f, -4f, -16f);
+                rL = Quaternion.Euler(-40f, 4f, 6f);
+                lU = Quaternion.Euler(-44f, 18f, 26f);
+                lL = Quaternion.Euler(-48f, 0, 0);
+                chest = Quaternion.Euler(8f, 12f, 0);
+                head = Quaternion.Euler(-10f, 10f, 0);
             }
-
-            float k = 1f - Mathf.Exp(-11f * dt);
-            ApplyBone(Hip, _hipRestRot, hip, k);
-            Hip.localPosition = Vector3.Lerp(Hip.localPosition, hipPos, k);
-            ApplyBone(_spine, _spineRest, spine, k);
-            if (_chest) ApplyBone(_chest, _chestRest, chest, k);
-            if (_neck) ApplyBone(_neck, _neckRest, neck, k);
-            if (_head) ApplyBone(_head, _headRest, head, k);
-            ApplyArm(_lU, _lURest, lU, ArmHang, k);
-            ApplyArm(_rU, _rURest, rU, -ArmHang, k);
-            ApplyBone(_lL, _lLRest, lL, k);
-            ApplyBone(_rL, _rLRest, rL, k);
-            ApplyBone(_lLegU, _lLegURest, lLegU, k);
-            ApplyBone(_rLegU, _rLegURest, rLegU, k);
-            ApplyBone(_lLegL, _lLegLRest, lLegL, k);
-            ApplyBone(_rLegL, _rLegLRest, rLegL, k);
+            else if (Pose == FishermanPose.Cast)
+            {
+                var t = Mathf.Clamp01(CastT);
+                float back = t < 0.38f ? t / 0.38f : Mathf.Clamp01(1f - (t - 0.38f) / 0.62f * 1.35f);
+                float fwd = t < 0.38f ? 0 : Mathf.Clamp01((t - 0.38f) / 0.18f);
+                rU = Quaternion.Euler(Mathf.Lerp(-20f, -108f, back) + fwd * -12f, -6f, -12f);
+                rL = Quaternion.Euler(Mathf.Lerp(-28f, -18f, fwd), 0, 0);
+                chest = Quaternion.Euler(Mathf.Lerp(8f, -10f, back) + fwd * 18f, fwd * 12f, 0);
+                spine = Quaternion.Euler(12f, 0, 0);
+                lU = Quaternion.Euler(-28f, 18f, 22f);
+                head = Quaternion.Euler(fwd * -8f, fwd * 6f, 0);
+            }
+            else if (Pose == FishermanPose.Hook)
+            {
+                rU = Quaternion.Euler(-96f, -4f, -10f);
+                rL = Quaternion.Euler(-18f, 0, 4f);
+                chest = Quaternion.Euler(-8f, 8f, 0);
+                spine = Quaternion.Euler(4f, 0, 0);
+                lU = Quaternion.Euler(-38f, 14f, 20f);
+                head = Quaternion.Euler(-12f, 8f, 0);
+            }
+            else if (Pose == FishermanPose.Fight)
+            {
+                var yank = Mathf.Sin(Time.time * (2.1f + Tension * 2.8f)) * (7f + Tension * 12f);
+                hip = Quaternion.Euler(12f, yank * 0.35f, 0);
+                lLegU = Quaternion.Euler(-80f, -10f, 0);
+                rLegU = Quaternion.Euler(-88f, 10f, 0);
+                rU = Quaternion.Euler(-64f + yank, -8f, -16f);
+                rL = Quaternion.Euler(-38f, 0, 6f);
+                lU = Quaternion.Euler(-48f + yank * 0.35f, 16f, 22f);
+                lL = Quaternion.Euler(-36f, 0, 0);
+                chest = Quaternion.Euler(12f + yank * 0.28f, 8f + yank * 0.45f, 0);
+                spine = Quaternion.Euler(16f, 0, 0);
+                head = Quaternion.Euler(-8f, 8f + yank * 0.2f, 0);
+            }
+            else if (Pose == FishermanPose.Land)
+            {
+                hipPos = _hipRest + new Vector3(0, -0.42f, 0.04f);
+                hip = Quaternion.Euler(8f, 0, 0);
+                lLegU = Quaternion.Euler(-72f, -8f, 0);
+                rLegU = Quaternion.Euler(-72f, 8f, 0);
+                lLegL = Quaternion.Euler(66f, 0, 0);
+                rLegL = Quaternion.Euler(66f, 0, 0);
+                rU = Quaternion.Euler(-36f, -12f, -14f);
+                rL = Quaternion.Euler(-48f, 8f, 6f);
+                lU = Quaternion.Euler(-32f, 22f, 12f);
+                lL = Quaternion.Euler(-40f, 0, 0);
+                chest = Quaternion.Euler(10f, 8f, 0);
+                head = Quaternion.Euler(4f, 6f, 0);
+            }
+            else if (Pose == FishermanPose.Wait)
+            {
+                rU = Quaternion.Euler(-62f, -6f, -18f);
+                rL = Quaternion.Euler(-46f, 4f, 6f);
+                lU = Quaternion.Euler(-40f, 16f, 24f);
+                lL = Quaternion.Euler(-44f, 0, 0);
+                chest = Quaternion.Euler(8f + Mathf.Sin(_breath * 1.2f) * 1.5f, 8f, 0);
+                head = Quaternion.Euler(-6f, 8f, 0);
+            }
         }
 
         void ApplyBone(Transform t, Quaternion rest, Quaternion delta, float k)
@@ -289,11 +441,11 @@ namespace RybatskiyMir.Player
             t.localRotation = Quaternion.Slerp(t.localRotation, target, k);
         }
 
-        void ApplyArm(Transform t, Quaternion rest, Quaternion hangingDelta, float hangZ, float k)
+        void ApplyArm(Transform t, Quaternion rest, Quaternion hangingDelta, Quaternion hang, float k)
         {
             if (!t) return;
             var target = Authored
-                ? rest * Quaternion.Euler(0f, 0f, hangZ) * hangingDelta
+                ? rest * hang * hangingDelta
                 : hangingDelta;
             t.localRotation = Quaternion.Slerp(t.localRotation, target, k);
         }
