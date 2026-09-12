@@ -159,3 +159,6 @@ vite.config.ts.timestamp-*
 backups/
 *.dump
 *.sql.gz
+
+# Blender backups
+tools/fisherman/source/*.blend1
