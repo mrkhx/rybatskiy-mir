@@ -4,7 +4,7 @@
 
 Файлы `.env`, `.env.staging`, `.env.production` в `.gitignore`.
 
-Первый staging: [staging-first-deploy.md](staging-first-deploy.md).
+Первый staging: [staging-first-deploy.md](staging-first-deploy.md). Домен/HTTPS: [staging-domain-https.md](staging-domain-https.md).
 
 ## Где что живёт
 
@@ -25,6 +25,7 @@
 | `STAGING_APP_DIR` | нет | по умолчанию `/opt/rybatskiy-mir` |
 | `GHCR_USERNAME` | нет | по умолчанию `mrkhx` |
 | `GHCR_TOKEN` | да | PAT, **pull на VPS** |
+| `STAGING_PUBLIC_URL` | нет | после рабочего HTTPS: `https://domain` без `/`; иначе health идёт на `http://STAGING_HOST` |
 
 ### GITHUB_TOKEN или GHCR_TOKEN?
 

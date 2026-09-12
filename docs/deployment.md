@@ -1,6 +1,7 @@
 # Развёртывание на одном VPS
 
 Первый staging (Selectel, HTTP по IP, пользователь `deploy`): **[staging-first-deploy.md](staging-first-deploy.md)**.
+Домен и HTTPS (после покупки имени): **[staging-domain-https.md](staging-domain-https.md)**.
 
 Не запускать GitHub deploy без отдельного подтверждения.
 
@@ -117,20 +118,14 @@ echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 - WebSocket: `Upgrade` / `Connection` для `/socket.io/`
 - `client_max_body_size 2m`
 - timeouts: connect 5s, read/send 60s, WS read 86400s
-- security headers: `nosniff`, `SAMEORIGIN`, `Referrer-Policy`, `Permissions-Policy`
-- SPA fallback остаётся на контейнерах frontend/admin
+- security headers: `nosniff`, `Referrer-Policy`, `Permissions-Policy`, CSP `frame-ancestors` (VK iframe). **Нет** `X-Frame-Options: DENY/SAMEORIGIN`.
+- HSTS только на HTTPS-сервере, после появления сертификата
 
-HTTPS: шаблон `docker/nginx/reverse-proxy.https.conf.example`. Пока домена нет — только порт 80. Дальше Certbot или Caddy перед/вместо nginx.
+HTTPS: [staging-domain-https.md](staging-domain-https.md). Пока домена нет — HTTP :80. Proxy сам включает :443, когда на диске есть Let's Encrypt cert.
 
 ## 8. HTTPS
 
-Когда появится домен:
-
-1. Выпустить сертификат (Let's Encrypt).
-2. Смонтировать `fullchain.pem` / `privkey.pem`.
-3. Включить 443 и редирект 80→443.
-4. Добавить HSTS только на HTTPS-сервере.
-5. Прописать `FRONTEND_ORIGIN`/`ADMIN_ORIGIN` как `https://...`.
+Пошагово: [staging-domain-https.md](staging-domain-https.md). Кратко: A-запись на VPS → `STAGING_DOMAIN` + `LETSENCRYPT_EMAIL` в `.env.staging` → `scripts/staging-issue-cert.sh` → origin на `https://…` → cron `staging-renew-cert.sh`. HTTP по IP не отключается.
 
 ## 9. Миграции
 

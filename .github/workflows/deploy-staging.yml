@@ -208,7 +208,7 @@ jobs:
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
           port: ${{ secrets.STAGING_PORT || 22 }}
-          source: "docker-compose.staging.yml,scripts/staging-remote-deploy.sh"
+          source: "docker-compose.staging.yml,scripts/staging-remote-deploy.sh,scripts/staging-issue-cert.sh,scripts/staging-renew-cert.sh"
           target: ${{ secrets.STAGING_APP_DIR || '/opt/rybatskiy-mir' }}
           overwrite: true
 
@@ -240,13 +240,19 @@ jobs:
       - name: Public health check
         env:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_PUBLIC_URL: ${{ secrets.STAGING_PUBLIC_URL }}
         run: |
           set -euo pipefail
+          if [ -n "${STAGING_PUBLIC_URL:-}" ]; then
+            BASE_URL="${STAGING_PUBLIC_URL%/}"
+          else
+            BASE_URL="http://${STAGING_HOST}"
+          fi
           curl -fsS --retry 10 --retry-delay 3 --retry-all-errors \
-            "http://${STAGING_HOST}/health/live"
+            "${BASE_URL}/health/live"
           echo
           ready_code="$(curl -sS -o /tmp/public-ready.json -w '%{http_code}' \
-            --retry 10 --retry-delay 3 "http://${STAGING_HOST}/health/ready" || true)"
+            --retry 10 --retry-delay 3 "${BASE_URL}/health/ready" || true)"
           if [ "$ready_code" != "200" ]; then
             echo "public readiness failed: HTTP ${ready_code}"
             cat /tmp/public-ready.json || true
@@ -254,6 +260,6 @@ jobs:
           fi
           cat /tmp/public-ready.json
           echo
-          curl -fsS -o /dev/null "http://${STAGING_HOST}/"
-          curl -fsS -o /dev/null "http://${STAGING_HOST}/admin/"
-          curl -fsS -o /dev/null "http://${STAGING_HOST}/api/health"
+          curl -fsS -o /dev/null "${BASE_URL}/"
+          curl -fsS -o /dev/null "${BASE_URL}/admin/"
+          curl -fsS -o /dev/null "${BASE_URL}/api/health"

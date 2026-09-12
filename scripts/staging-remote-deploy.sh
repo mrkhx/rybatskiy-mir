@@ -67,3 +67,12 @@ curl -fsS -o /dev/null -w "GET /socket.io -> %{http_code}\n" \
   "http://127.0.0.1/socket.io/?EIO=4&transport=polling"
 
 echo "Staging deploy OK IMAGE_TAG=${IMAGE_TAG}"
+
+DOMAIN="$(grep -E '^STAGING_DOMAIN=' .env.staging | tail -n1 | cut -d= -f2- | tr -d '[:space:]' || true)"
+if [ -n "$DOMAIN" ] && [ -f "letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
+  echo "Checking HTTPS locally via SNI ${DOMAIN}"
+  curl -fsS --retry 5 --retry-delay 2 \
+    --resolve "${DOMAIN}:443:127.0.0.1" \
+    "https://${DOMAIN}/health/live"
+  echo
+fi

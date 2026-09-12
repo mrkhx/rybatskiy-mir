@@ -162,6 +162,7 @@ Production deploy из CI пока не делается.
 Документация:
 
 - [docs/staging-first-deploy.md](docs/staging-first-deploy.md)
+- [docs/staging-domain-https.md](docs/staging-domain-https.md)
 - [docs/deployment.md](docs/deployment.md)
 - [docs/secrets.md](docs/secrets.md)
 - [docs/backups.md](docs/backups.md)
