@@ -9,6 +9,7 @@ import { APP_ENV, type AppEnv } from "../config/env";
 import { PrismaService } from "../prisma/prisma.service";
 import type { AuthSession, AuthUser } from "./auth.types";
 import type { DevSessionDto } from "./dto/dev-session.dto";
+import { placeholderNick } from "../game/nick";
 import { VK_AUTH_PROVIDER, type VkAuthProvider, type VkLaunchParams } from "./vk/vk-auth.types";
 
 @Injectable()
@@ -25,7 +26,7 @@ export class AuthService {
       throw new ForbiddenException("Dev authentication is disabled");
     }
 
-    const user = await this.upsertUser(dto.vkId, dto.nickname);
+    const user = await this.upsertUser(dto.vkId, placeholderNick(dto.vkId));
     return this.issueSession(user);
   }
 
@@ -37,7 +38,7 @@ export class AuthService {
     }
 
     const identity = await this.vkAuth.verifyLaunchParams(params);
-    const user = await this.upsertUser(identity.vkId, identity.nickname);
+    const user = await this.upsertUser(identity.vkId, placeholderNick(identity.vkId));
     return this.issueSession(user);
   }
 
@@ -45,11 +46,11 @@ export class AuthService {
     return { configured: this.vkAuth.isConfigured() };
   }
 
-  private async upsertUser(vkId: string, nickname: string): Promise<AuthUser> {
+  private async upsertUser(vkId: string, fallbackNick: string): Promise<AuthUser> {
     const user = await this.prisma.user.upsert({
       where: { vkId },
-      update: { nickname },
-      create: { vkId, nickname },
+      update: {},
+      create: { vkId, nickname: fallbackNick, nicknameSet: false },
     });
 
     return { id: user.id, vkId: user.vkId, nickname: user.nickname };

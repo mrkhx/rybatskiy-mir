@@ -7,5 +7,6 @@ import { PlayerService } from "./player.service";
   imports: [AuthModule],
   controllers: [PlayerController],
   providers: [PlayerService],
+  exports: [PlayerService],
 })
 export class PlayerModule {}
