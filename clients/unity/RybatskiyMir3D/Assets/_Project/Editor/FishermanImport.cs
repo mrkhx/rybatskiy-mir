@@ -14,7 +14,8 @@ namespace RybatskiyMir.Editor
             if (assetPath.IndexOf("/Characters/Fisherman/") < 0) return;
             if (!assetPath.EndsWith(".fbx") && !assetPath.EndsWith(".FBX")) return;
             var imp = (ModelImporter)assetImporter;
-            imp.animationType = ModelImporterAnimationType.Humanoid;
+            // Inspector label is "Humanoid"; the enum value is Human.
+            imp.animationType = ModelImporterAnimationType.Human;
             imp.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
             imp.globalScale = 1f;
             imp.useFileScale = true;
@@ -29,8 +30,9 @@ namespace RybatskiyMir.Editor
         {
             foreach (var path in imported)
             {
-                if (!path.EndsWith("SM_Fisherman.fbx")) continue;
                 if (path.IndexOf("/Characters/Fisherman/") < 0) continue;
+                if (!path.EndsWith("SM_Fisherman.fbx") && !path.EndsWith("SM_Fisherman_LOD0.fbx"))
+                    continue;
                 var model = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 if (model == null) continue;
                 var prefabDir = "Assets/_Project/Characters/Fisherman/Prefabs";

@@ -86,7 +86,7 @@ namespace RybatskiyMir.Editor
             if (target == BuildTarget.WebGL)
             {
                 PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.FullWithStacktrace;
-                PlayerSettings.WebGL.debugSymbols = true;
+                PlayerSettings.WebGL.debugSymbolMode = WebGLDebugSymbolMode.External;
             }
         }
 
