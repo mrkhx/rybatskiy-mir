@@ -1,0 +1,17 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Минимальная учётная запись игрока. Игровая модель будет расширяться отдельными таблицами.
+model User {
+  id        String   @id @default(cuid())
+  vkId      String   @unique
+  nickname  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
