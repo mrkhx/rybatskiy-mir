@@ -10,11 +10,11 @@
 | `frontend` | Клиент VK Mini App / браузера. React + Vite. |
 | `admin` | Служебная панель. React + Vite. |
 
-Инфраструктура: PostgreSQL (Prisma), Redis, Socket.IO, Docker Compose.
+Инфраструктура: PostgreSQL (Prisma), Redis, Socket.IO, Docker Compose, Nginx reverse proxy (staging/production).
 
 ## Модули backend (сейчас)
 
-- `health` — живость процесса, PostgreSQL, Redis
+- `health` — liveness (`/health/live`), readiness (`/health/ready`), сводный `/health`
 - `auth` — сессия игрока, контракт VK-провайдера
 - `player` — профиль игрока на основе `User`
 - `realtime` — инфраструктурный Socket.IO handshake (не чат)
@@ -28,6 +28,12 @@
 ## Realtime
 
 Socket.IO подключён как транспорт. Игровые события, чат и синхронизация мира появятся позже. Клиенты не должны считать клиентское состояние источником истины.
+
+## Staging / production (один VPS)
+
+Публичная точка входа — Nginx reverse proxy. PostgreSQL, Redis и backend во внутреннюю Docker-сеть, без публикации портов на хост.
+
+Подробности: [deployment.md](deployment.md), [secrets.md](secrets.md), [backups.md](backups.md).
 
 ## Будущее расширение
 

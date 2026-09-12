@@ -11,6 +11,16 @@ export type HealthResponse = {
   redis: HealthStatus;
 };
 
+export type LiveResponse = {
+  status: "ok";
+  backend: "ok";
+};
+
+export type ReadinessResult = {
+  ready: boolean;
+  body: HealthResponse;
+};
+
 @Injectable()
 export class HealthService {
   private readonly logger = new Logger(HealthService.name);
@@ -19,6 +29,10 @@ export class HealthService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(RedisService) private readonly redis: RedisService,
   ) {}
+
+  live(): LiveResponse {
+    return { status: "ok", backend: "ok" };
+  }
 
   async check(): Promise<HealthResponse> {
     const [database, redis] = await Promise.all([
@@ -32,6 +46,11 @@ export class HealthService {
       database: database ? "ok" : "error",
       redis: redis ? "ok" : "error",
     };
+  }
+
+  async readiness(): Promise<ReadinessResult> {
+    const body = await this.check();
+    return { ready: body.status === "ok", body };
   }
 
   private async safePing(name: string, ping: () => Promise<boolean>): Promise<boolean> {

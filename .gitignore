@@ -2,9 +2,14 @@
 .env
 .env.*
 !.env.example
+!.env.staging.example
+!.env.production.example
 *.pem
 *.key
 *.p12
+id_rsa
+id_rsa.pub
+certs/
 
 # OS / editor
 .DS_Store
@@ -149,3 +154,8 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Backups created on a server — never commit
+backups/
+*.dump
+*.sql.gz

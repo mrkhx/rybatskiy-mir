@@ -1,3 +1,7 @@
+# Local development stack. Host ports stay published for DX.
+# Staging/production: docker-compose.staging.yml / docker-compose.production.yml
+# (reverse proxy, no public PostgreSQL/Redis/backend).
+
 services:
   postgres:
     image: postgres:16-alpine

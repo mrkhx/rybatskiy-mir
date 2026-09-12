@@ -25,6 +25,11 @@ function read(name: string, fallback?: string): string {
 export function loadEnv(): AppEnv {
   const nodeEnv = process.env.NODE_ENV ?? "development";
   const isProduction = nodeEnv === "production";
+
+  if (isProduction && process.env.ALLOW_DEV_AUTH === "true") {
+    throw new Error("ALLOW_DEV_AUTH=true is forbidden when NODE_ENV=production");
+  }
+
   const jwtSecret = read(
     "JWT_SECRET",
     isProduction ? undefined : "change-me-local-dev-only",

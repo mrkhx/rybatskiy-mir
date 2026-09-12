@@ -28,4 +28,30 @@ describe("HealthService", () => {
       redis: "error",
     });
   });
+
+  it("reports liveness without checking dependencies", () => {
+    const service = new HealthService(
+      { ping: async () => false } as never,
+      { ping: async () => false } as never,
+    );
+
+    expect(service.live()).toEqual({ status: "ok", backend: "ok" });
+  });
+
+  it("marks readiness failed when a dependency is down", async () => {
+    const service = new HealthService(
+      { ping: async () => false } as never,
+      { ping: async () => true } as never,
+    );
+
+    await expect(service.readiness()).resolves.toEqual({
+      ready: false,
+      body: {
+        status: "degraded",
+        backend: "ok",
+        database: "error",
+        redis: "ok",
+      },
+    });
+  });
 });

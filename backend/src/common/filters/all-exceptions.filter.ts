@@ -21,6 +21,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const status = isHttp
       ? exception.getStatus()
       : HttpStatus.INTERNAL_SERVER_ERROR;
+    const isProduction = process.env.NODE_ENV === "production";
 
     const publicMessage = isHttp ? exception.message : "Internal server error";
     const details = exception instanceof Error ? exception.message : "unknown error";
@@ -34,6 +35,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       statusCode: status,
       message: publicMessage,
       path: request.url,
+      ...(isProduction || isHttp
+        ? {}
+        : { error: details }),
     });
   }
 }
