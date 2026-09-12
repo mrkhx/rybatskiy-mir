@@ -1,3 +1,4 @@
+using RybatskiyMir.Audio;
 using RybatskiyMir.Input;
 using UnityEngine;
 
@@ -25,6 +26,7 @@ namespace RybatskiyMir.Player
         float _vy;
         float _coyote;
         float _buffer;
+        float _stepAcc;
         public Vector3 PlanarVelocity { get; private set; }
         public float Speed => PlanarVelocity.magnitude;
         public bool Grounded { get; private set; }
@@ -105,6 +107,20 @@ namespace RybatskiyMir.Player
             _vy += Gravity * dt;
             var flags = _cc.Move((PlanarVelocity + Vector3.up * _vy) * dt);
             if ((flags & CollisionFlags.Above) != 0 && _vy > 0f) _vy = 0f;
+            if (Grounded && Speed > 0.45f)
+            {
+                _stepAcc += Speed * dt;
+                var stride = Input != null && Input.Sprint ? 0.38f : 0.48f;
+                if (_stepAcc >= stride)
+                {
+                    _stepAcc = 0f;
+                    var p = transform.position;
+                    WorldAudio.I?.PlayStep(p);
+                    if (Mathf.Abs(p.x) < 1.15f && p.z > -1.4f && p.z < 8.2f)
+                        WorldAudio.I?.PlayCreak(p);
+                }
+            }
+            else _stepAcc = 0f;
         }
 
         public void Teleport(Vector3 pos, Quaternion rot)

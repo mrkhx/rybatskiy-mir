@@ -110,6 +110,27 @@ namespace RybatskiyMir.Input
                 }
                 ZoomDelta = mouse.scroll.ReadValue().y / 120f;
             }
+
+            var ts = Touchscreen.current;
+            if (ts != null)
+            {
+                foreach (var t in ts.touches)
+                {
+                    if (!t.press.isPressed) continue;
+                    var p = t.position.ReadValue();
+                    var d = t.delta.ReadValue();
+                    if (p.x < Screen.width * 0.42f)
+                    {
+                        var origin = new Vector2(Screen.width * 0.18f, Screen.height * 0.22f);
+                        var stick = (p - origin) / (Screen.height * 0.12f);
+                        move += Vector2.ClampMagnitude(stick, 1f);
+                    }
+                    else
+                    {
+                        look += new Vector2(d.x * LookSensitivity * 1.15f, d.y * LookSensitivity * 1.15f);
+                    }
+                }
+            }
 #else
             move = new Vector2(UnityEngine.Input.GetAxisRaw("Horizontal"), UnityEngine.Input.GetAxisRaw("Vertical"));
             look = new Vector2(UnityEngine.Input.GetAxis("Mouse X"), UnityEngine.Input.GetAxis("Mouse Y"));

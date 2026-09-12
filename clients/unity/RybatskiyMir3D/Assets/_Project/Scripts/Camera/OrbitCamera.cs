@@ -4,10 +4,8 @@ using UnityEngine;
 namespace RybatskiyMir.Cam
 {
     /// <summary>
-    /// Explore: orbit around the fisherman.
-    /// Fishing: over-shoulder, high, off-axis. Water and cast zone fill the frame.
-    /// Blends with SmoothDamp — no snap.
-    /// Character is assumed to face the water (FishingDirector.FaceWater).
+    /// Explore: free mouse orbit. Fishing: over-shoulder with limited orbit + zoom.
+    /// SmoothDamp blend. SphereCast collision. Impulse for fight yanks.
     /// </summary>
     [DefaultExecutionOrder(250)]
     public class OrbitCamera : MonoBehaviour
@@ -26,7 +24,6 @@ namespace RybatskiyMir.Cam
         public bool FishingFraming;
         public Camera Cam;
 
-        // Over-right-shoulder fishing shot. Character stays ~20% of frame.
         public float FishBack = 6.2f;
         public float FishHeight = 2.55f;
         public float FishSide = 2.35f;
@@ -35,6 +32,9 @@ namespace RybatskiyMir.Cam
         public float FishFov = 58f;
         public float ExploreFov = 56f;
         public float BlendTime = 0.55f;
+        public float FishYawLimit = 32f;
+        public float FishMinBack = 4.4f;
+        public float FishMaxBack = 7.6f;
 
         float _yaw;
         float _pitch = 16f;
@@ -45,6 +45,9 @@ namespace RybatskiyMir.Cam
         Vector3 _lookPoint;
         float _fovVel;
         bool _lookInit;
+        float _fishYaw;
+        float _fishPitch;
+        Vector3 _impulse;
 
         public void SnapBehind()
         {
@@ -56,12 +59,19 @@ namespace RybatskiyMir.Cam
         public void EnterFishing()
         {
             FishingFraming = true;
+            _fishYaw = 0f;
+            _fishPitch = 0f;
         }
 
         public void ExitFishing()
         {
             FishingFraming = false;
             if (Target) _yaw = Target.eulerAngles.y;
+        }
+
+        public void AddImpulse(Vector3 world)
+        {
+            _impulse += world;
         }
 
         void LateUpdate()
@@ -77,12 +87,23 @@ namespace RybatskiyMir.Cam
                 _yaw += Input.Look.x;
                 _pitch = Mathf.Clamp(_pitch - Input.Look.y, MinPitch, MaxPitch);
             }
+            else
+            {
+                _fishYaw = Mathf.Clamp(_fishYaw + Input.Look.x * 0.55f, -FishYawLimit, FishYawLimit);
+                _fishPitch = Mathf.Clamp(_fishPitch - Input.Look.y * 0.45f, -10f, 22f);
+                if (Mathf.Abs(Input.ZoomDelta) > 0.01f)
+                    FishBack = Mathf.Clamp(FishBack - Input.ZoomDelta * 0.55f, FishMinBack, FishMaxBack);
+            }
 
             ExplorePose(out var explorePos, out var exploreLook);
             FishingPose(out var fishPos, out var fishLook);
 
             var desired = Vector3.Lerp(explorePos, fishPos, _fishing);
             var lookTarget = Vector3.Lerp(exploreLook, fishLook, _fishing);
+
+            _impulse = Vector3.Lerp(_impulse, Vector3.zero, 1f - Mathf.Exp(-6f * Time.deltaTime));
+            desired += _impulse;
+            lookTarget += _impulse * 0.35f;
 
             var colStart = Target.position + Vector3.up * Mathf.Lerp(Height, 1.7f, _fishing);
             var dir = desired - colStart;
@@ -121,12 +142,13 @@ namespace RybatskiyMir.Cam
         void FishingPose(out Vector3 pos, out Vector3 look)
         {
             var origin = Target.position;
-            var fwd = Target.forward;
-            var right = Target.right;
-            // Right-shoulder, raised, not glued to the back.
-            pos = origin - fwd * FishBack + right * FishSide + Vector3.up * FishHeight;
+            var yaw = (Target ? Target.eulerAngles.y : 0f) + _fishYaw;
+            var rot = Quaternion.Euler(8f + _fishPitch, yaw, 0);
+            var fwd = rot * Vector3.forward;
+            var right = rot * Vector3.right;
+            pos = origin - fwd * FishBack + right * FishSide * 0.85f + Vector3.up * FishHeight;
             if (FishingLook)
-                look = FishingLook.position;
+                look = FishingLook.position + right * (_fishYaw * 0.04f) + Vector3.up * (_fishPitch * 0.03f);
             else
                 look = origin + fwd * FishLookAhead + Vector3.up * FishLookHeight;
         }
