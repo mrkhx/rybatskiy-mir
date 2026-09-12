@@ -22,7 +22,6 @@ namespace RybatskiyMir
         PlayerInputReader _input;
         FishermanController _mover;
         HudOverlay _hud;
-        Transform _prompt;
         Atmosphere _atmo;
 
         async void Start()
@@ -80,6 +79,7 @@ namespace RybatskiyMir
             _fishing.LookOut = ForestLakeBuilder.LookOut;
             _fishing.WaterY = ForestLakeBuilder.WaterY;
             _fishing.Splash = BuildSplash();
+            orbit.FishingLook = ForestLakeBuilder.LookOut;
 
             _hud = gameObject.AddComponent<HudOverlay>();
             _hud.Fishing = _fishing;
@@ -90,9 +90,6 @@ namespace RybatskiyMir
 
             _atmo = gameObject.AddComponent<Atmosphere>();
             _atmo.Build(ForestLakeBuilder.Sun);
-
-            if (ForestLakeBuilder.SitPoint)
-                _prompt = ForestLakeBuilder.SitPoint.Find("InteractPrompt");
 
             try
             {
@@ -110,7 +107,6 @@ namespace RybatskiyMir
             if (_fishing.Active)
             {
                 if (_hud) _hud.NearSpot = false;
-                if (_prompt) _prompt.gameObject.SetActive(false);
                 return;
             }
 
@@ -118,12 +114,6 @@ namespace RybatskiyMir
             if (!sit) return;
             var near = Vector3.Distance(_mover.transform.position, sit.position) < 2.6f;
             if (_hud) _hud.NearSpot = near;
-            if (_prompt)
-            {
-                _prompt.gameObject.SetActive(near);
-                if (near && Camera.main)
-                    _prompt.rotation = Quaternion.LookRotation(_prompt.position - Camera.main.transform.position);
-            }
             if (near && _input.InteractPressed) _ = _fishing.Begin();
         }
 

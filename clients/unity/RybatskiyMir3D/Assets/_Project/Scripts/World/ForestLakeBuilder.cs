@@ -239,19 +239,8 @@ namespace RybatskiyMir.World
 
             var look = new GameObject("LookOut");
             look.transform.SetParent(pier.transform, false);
-            look.transform.localPosition = new Vector3(0, 1.05f, sitZ + 3.4f);
+            look.transform.localPosition = new Vector3(0.4f, 0.22f, sitZ + 11.2f);
             LookOut = look.transform;
-
-            var prompt = new GameObject("InteractPrompt");
-            prompt.transform.SetParent(sit.transform, false);
-            prompt.transform.localPosition = new Vector3(0, 1.45f, 0);
-            var tm = prompt.AddComponent<TextMesh>();
-            tm.text = "Е  ·  ловить";
-            tm.fontSize = 32;
-            tm.characterSize = 0.055f;
-            tm.anchor = TextAnchor.MiddleCenter;
-            tm.alignment = TextAlignment.Center;
-            tm.color = new Color(0.92f, 0.93f, 0.88f);
 
             var trigger = pier.AddComponent<BoxCollider>();
             trigger.isTrigger = true;

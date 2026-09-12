@@ -55,8 +55,11 @@ namespace RybatskiyMir.Fishing
                 _standRot = Mover.transform.rotation;
                 Mover.Locked = true;
                 Mover.Teleport(SitPoint.position, SitPoint.rotation);
-                Cam.FishingFraming = true;
-                Cam.SnapBehind();
+                if (Cam)
+                {
+                    Cam.FishingLook = LookOut;
+                    Cam.EnterFishing();
+                }
                 Gear.SetVisible(true, false, false, false);
                 Gear.BendRod(0.05f);
                 if (Body) Body.Pose = FishermanPose.Sit;
@@ -77,7 +80,7 @@ namespace RybatskiyMir.Fishing
             Active = false;
             Mover.Locked = false;
             Mover.Teleport(_standPos, _standRot);
-            Cam.FishingFraming = false;
+            if (Cam) Cam.ExitFishing();
             Gear.SetVisible(false, false, false, false);
             if (Body) Body.Pose = FishermanPose.Idle;
             Status = "Свободное перемещение.";

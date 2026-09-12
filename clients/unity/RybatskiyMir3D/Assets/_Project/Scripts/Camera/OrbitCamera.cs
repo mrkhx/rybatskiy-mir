@@ -3,28 +3,46 @@ using UnityEngine;
 
 namespace RybatskiyMir.Cam
 {
+    /// <summary>
+    /// Explore: orbit around the fisherman.
+    /// Fishing: over-shoulder, high, off-axis. Water and cast zone fill the frame.
+    /// Blends with SmoothDamp — no snap.
+    /// </summary>
     public class OrbitCamera : MonoBehaviour
     {
         public Transform Target;
+        public Transform FishingLook;
         public PlayerInputReader Input;
-        public float Distance = 4.6f;
-        public float Height = 1.55f;
-        public float MinDistance = 2.4f;
-        public float MaxDistance = 8.0f;
+        public float Distance = 4.8f;
+        public float Height = 1.62f;
+        public float MinDistance = 2.6f;
+        public float MaxDistance = 8.2f;
         public float MinPitch = -22f;
         public float MaxPitch = 58f;
-        public float FishingDistance = 3.05f;
-        public float FishingHeight = 1.28f;
         public float CollisionRadius = 0.22f;
         public LayerMask CollisionMask = ~0;
         public bool FishingFraming;
         public Camera Cam;
 
+        // Over-right-shoulder fishing shot. Character stays ~20% of frame.
+        public float FishBack = 6.2f;
+        public float FishHeight = 2.55f;
+        public float FishSide = 2.35f;
+        public float FishLookAhead = 11.5f;
+        public float FishLookHeight = 0.25f;
+        public float FishFov = 58f;
+        public float ExploreFov = 56f;
+        public float BlendTime = 0.55f;
+
         float _yaw;
         float _pitch = 16f;
         float _fishing;
+        float _fishingVel;
         Vector3 _posVel;
+        Vector3 _lookVel;
+        Vector3 _lookPoint;
         float _fovVel;
+        bool _lookInit;
 
         public void SnapBehind()
         {
@@ -33,42 +51,82 @@ namespace RybatskiyMir.Cam
             _pitch = 14f;
         }
 
+        public void EnterFishing()
+        {
+            FishingFraming = true;
+        }
+
+        public void ExitFishing()
+        {
+            FishingFraming = false;
+            if (Target) _yaw = Target.eulerAngles.y;
+        }
+
         void LateUpdate()
         {
             if (!Target || Input == null) return;
 
-            if (Mathf.Abs(Input.ZoomDelta) > 0.01f && !FishingFraming)
-                Distance = Mathf.Clamp(Distance - Input.ZoomDelta * 0.85f, MinDistance, MaxDistance);
+            _fishing = Mathf.SmoothDamp(_fishing, FishingFraming ? 1f : 0f, ref _fishingVel, BlendTime);
 
-            _yaw += Input.Look.x;
-            _pitch = Mathf.Clamp(_pitch - Input.Look.y, MinPitch, MaxPitch);
+            if (!FishingFraming)
+            {
+                if (Mathf.Abs(Input.ZoomDelta) > 0.01f)
+                    Distance = Mathf.Clamp(Distance - Input.ZoomDelta * 0.85f, MinDistance, MaxDistance);
+                _yaw += Input.Look.x;
+                _pitch = Mathf.Clamp(_pitch - Input.Look.y, MinPitch, MaxPitch);
+            }
 
-            _fishing = Mathf.MoveTowards(_fishing, FishingFraming ? 1f : 0f, Time.deltaTime * 2.4f);
+            ExplorePose(out var explorePos, out var exploreLook);
+            FishingPose(out var fishPos, out var fishLook);
 
-            var dist = Mathf.Lerp(Distance, FishingDistance, _fishing);
-            var height = Mathf.Lerp(Height, FishingHeight, _fishing);
-            var rot = Quaternion.Euler(_pitch, _yaw, 0);
-            var pivot = Target.position + Vector3.up * height;
-            if (_fishing > 0.01f)
-                pivot += Target.forward * (1.55f * _fishing);
+            var desired = Vector3.Lerp(explorePos, fishPos, _fishing);
+            var lookTarget = Vector3.Lerp(exploreLook, fishLook, _fishing);
 
-            var desired = pivot - rot * Vector3.forward * dist;
-            var dir = desired - pivot;
+            var colStart = Target.position + Vector3.up * Mathf.Lerp(Height, 1.7f, _fishing);
+            var dir = desired - colStart;
             var mag = dir.magnitude;
-            if (mag > 0.001f && Physics.SphereCast(pivot, CollisionRadius, dir.normalized, out var hit, mag, CollisionMask, QueryTriggerInteraction.Ignore))
-                desired = hit.point + hit.normal * (CollisionRadius + 0.04f);
+            var radius = Mathf.Lerp(CollisionRadius, 0.14f, _fishing);
+            if (mag > 0.05f && Physics.SphereCast(colStart, radius, dir.normalized, out var hit, mag, CollisionMask, QueryTriggerInteraction.Ignore))
+                desired = hit.point + hit.normal * (radius + 0.05f);
 
-            transform.position = Vector3.SmoothDamp(transform.position, desired, ref _posVel, 0.07f);
-            var lookPt = pivot + Vector3.up * 0.08f;
-            var look = Quaternion.LookRotation(lookPt - transform.position, Vector3.up);
-            transform.rotation = Quaternion.Slerp(transform.rotation, look, 1f - Mathf.Exp(-14f * Time.deltaTime));
+            var posSmooth = Mathf.Lerp(0.08f, BlendTime, _fishing);
+            transform.position = Vector3.SmoothDamp(transform.position, desired, ref _posVel, posSmooth);
+
+            if (!_lookInit)
+            {
+                _lookPoint = lookTarget;
+                _lookInit = true;
+            }
+            _lookPoint = Vector3.SmoothDamp(_lookPoint, lookTarget, ref _lookVel, Mathf.Lerp(0.07f, BlendTime, _fishing));
+            var lookRot = Quaternion.LookRotation(_lookPoint - transform.position, Vector3.up);
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, 1f - Mathf.Exp(-9f * Time.deltaTime));
 
             if (!Cam) Cam = GetComponent<Camera>();
             if (Cam)
             {
-                var fov = Mathf.Lerp(56f, 50f, _fishing);
-                Cam.fieldOfView = Mathf.SmoothDamp(Cam.fieldOfView, fov, ref _fovVel, 0.18f);
+                var fov = Mathf.Lerp(ExploreFov, FishFov, _fishing);
+                Cam.fieldOfView = Mathf.SmoothDamp(Cam.fieldOfView, fov, ref _fovVel, BlendTime);
             }
+        }
+
+        void ExplorePose(out Vector3 pos, out Vector3 look)
+        {
+            var rot = Quaternion.Euler(_pitch, _yaw, 0);
+            look = Target.position + Vector3.up * Height;
+            pos = look - rot * Vector3.forward * Distance;
+        }
+
+        void FishingPose(out Vector3 pos, out Vector3 look)
+        {
+            var origin = Target.position;
+            var fwd = Target.forward;
+            var right = Target.right;
+            // Right-shoulder, raised, not glued to the back.
+            pos = origin - fwd * FishBack + right * FishSide + Vector3.up * FishHeight;
+            if (FishingLook)
+                look = FishingLook.position;
+            else
+                look = origin + fwd * FishLookAhead + Vector3.up * FishLookHeight;
         }
     }
 }
