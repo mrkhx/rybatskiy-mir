@@ -77,6 +77,7 @@ body {
   --wash: transparent;
   --wash-op: 0;
   --fog-op: 0;
+  --wind: 0;
 }
 .lake[data-tod="NIGHT"] {
   --sky-top: #0a1624;
@@ -242,14 +243,15 @@ body {
   top: 58%;
   width: 11%;
   filter: saturate(0.82) brightness(0.94) drop-shadow(0 5px 6px rgba(0,20,24,0.28));
+  transform: translate3d(calc(var(--px) * -10px + var(--wind, 0) * 6px), calc(var(--py) * -5px), 0);
 }
 .lilies-b {
   right: 9%;
   top: 54%;
   width: 9%;
   opacity: 0.9;
-  transform: translate3d(calc(var(--px) * -10px), calc(var(--py) * -5px), 0) scaleX(-1);
   filter: saturate(0.82) brightness(0.94);
+  transform: translate3d(calc(var(--px) * -10px + var(--wind, 0) * -5px), calc(var(--py) * -5px), 0) scaleX(-1);
 }
 .rocks {
   left: 1%;
@@ -312,18 +314,29 @@ body {
   pointer-events: none;
 }
 .play-rig .angler {
-  left: 24%;
+  left: 21%;
   top: 8%;
-  width: 9.2%;
-  aspect-ratio: 360 / 583;
+  width: 13.5%;
+  aspect-ratio: 80 / 130;
   z-index: 3;
-  background: url("/scene/forest-lake/angler-idle.webp?v=5") 0 0 / 200% 100% no-repeat;
-  animation: anglerIdle 2.8s steps(1) infinite;
-  filter: saturate(0.68) brightness(0.9) contrast(1.06) drop-shadow(0 5px 5px rgba(0,0,0,0.4));
+  background: none;
+  animation: none;
+  filter: saturate(0.86) brightness(1.02) contrast(1.05);
 }
-@keyframes anglerIdle {
-  0%, 49% { background-position: 0 0; }
-  50%, 100% { background-position: 100% 0; }
+.angler-rig {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 6px 5px rgba(0,0,0,0.4));
+}
+.live-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
 }
 
 .reeds-l {
@@ -334,6 +347,7 @@ body {
   transform-origin: 50% 100%;
   z-index: 4;
   filter: saturate(0.76) brightness(0.88) contrast(1.08);
+  transform: translate3d(calc(var(--px) * -28px), calc(var(--py) * -12px), 0) rotate(calc(var(--wind, 0) * 8deg));
 }
 .reeds-r {
   right: -3%;
@@ -343,13 +357,16 @@ body {
   transform-origin: 70% 100%;
   z-index: 4;
   filter: saturate(0.76) brightness(0.88) contrast(1.08);
+  transform: translate3d(calc(var(--px) * -28px), calc(var(--py) * -12px), 0) scaleX(-1) rotate(calc(var(--wind, 0) * -6.5deg));
 }
 .branch {
   left: -4%;
   top: -6%;
   width: 34%;
   z-index: 5;
+  transform-origin: 0 0;
   filter: saturate(0.7) brightness(0.88) contrast(1.04) drop-shadow(0 8px 10px rgba(0,0,0,0.2));
+  transform: translate3d(calc(var(--px) * -28px), calc(var(--py) * -12px), 0) rotate(calc(var(--wind, 0) * 3.5deg));
 }
 
 .tackle {

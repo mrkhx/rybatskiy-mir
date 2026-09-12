@@ -288,6 +288,8 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   const [retrieve, setRetrieve] = useState("even");
   const [patches, setPatches] = useState<PatchRow[]>([]);
   const [harvestNote, setHarvestNote] = useState("");
+  const [castNonce, setCastNonce] = useState(0);
+  const [hookNonce, setHookNonce] = useState(0);
   const canSpin = hasSpinningRod(bag);
 
   const applySession = useCallback((s: Session, extra?: string) => {
@@ -382,12 +384,12 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   const tod = world?.clock.timeOfDay ?? "DAY";
   const wx = world?.clock.weather ?? "CLEAR";
   const fighting = session?.state === "FIGHTING" || session?.state === "HOOKED";
-  const floatOn = session && ["WAITING_BITE", "BITE", "CAST"].includes(session.state);
   const shownSpotId = session?.spotId ?? spotId;
   const shownMethod: Method = session?.method === "SPINNING" ? "SPINNING" : session?.method === "FLOAT" ? "FLOAT" : method;
   const spot = world?.waterbody.spots.find((s) => s.id === shownSpotId);
 
   async function cast() {
+    setCastNonce((n) => n + 1);
     try {
       const s = await api<Session>("/fishing/cast", {
         method: "POST",
@@ -400,6 +402,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   }
 
   async function hook() {
+    setHookNonce((n) => n + 1);
     try {
       const s = await api<Session>("/fishing/hook", {
         method: "POST",
@@ -554,7 +557,15 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
 
   return (
     <div className="app">
-      <Lake tod={tod} wx={wx} bite={session?.state === "BITE"} float={Boolean(floatOn)} rod={fighting ? -12 : -28} feeding={Boolean(world?.feeding?.some((f) => f.spotId === shownSpotId))} />
+      <Lake
+        tod={tod}
+        wx={wx}
+        session={session}
+        force={force}
+        feeding={Boolean(world?.feeding?.some((f) => f.spotId === shownSpotId))}
+        castNonce={castNonce}
+        hookNonce={hookNonce}
+      />
       <div className="ui">
         <header className="topbar">
           <div className="brand">
