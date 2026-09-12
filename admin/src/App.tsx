@@ -10,6 +10,53 @@ const LABELS: Record<Tab, string> = {
   players: "Игроки",
 };
 
+const RARITY: Record<string, string> = {
+  COMMON: "обычная",
+  UNCOMMON: "необычная",
+  RARE: "редкая",
+  EPIC: "эпическая",
+  LEGENDARY: "легендарная",
+  LARGE: "крупная",
+  TROPHY: "трофей",
+  RECORD: "рекорд",
+};
+
+const KIND: Record<string, string> = {
+  ROD: "удилище",
+  REEL: "катушка",
+  LINE: "леска",
+  HOOK: "крючок",
+  FLOAT: "поплавок",
+  SINKER: "грузило",
+  LEADER: "поводок",
+  FEEDER: "фидер",
+  BAIT: "наживка",
+  LURE: "приманка",
+  CLOTHING: "одежда",
+  TENT: "палатка",
+  FOOD: "еда",
+  DRINK: "питьё",
+  TOOL: "инструмент",
+  MATERIAL: "материал",
+  CONSUMABLE: "расходник",
+  BOAT: "лодка",
+  VEHICLE: "транспорт",
+  COSMETIC: "косметика",
+  RECIPE: "рецепт",
+};
+
+const SPOT_KIND: Record<string, string> = {
+  hole: "яма",
+  reeds: "камыш",
+  snags: "коряжник",
+  sand: "песок",
+  bridge: "мостик",
+};
+
+function ru(map: Record<string, string>, value: string): string {
+  return map[value] ?? value;
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("overview");
   const [token, setTok] = useState(localStorage.getItem("rm_admin") ?? "");
@@ -128,7 +175,7 @@ function Catalog({ data, tab }: { data: unknown; tab: Tab }) {
             {(w.spots ?? []).map((s) => (
               <div className="row" key={s.name}>
                 <span>{s.name}</span>
-                <span className="note">{s.kind}</span>
+                <span className="note">{ru(SPOT_KIND, s.kind)}</span>
               </div>
             ))}
           </div>
@@ -142,7 +189,7 @@ function Catalog({ data, tab }: { data: unknown; tab: Tab }) {
         {data.map((s: { id: string; name: string; rarity: string; minWeightG: number; maxWeightG: number }) => (
           <div className="row" key={s.id}>
             <span>{s.name}</span>
-            <span className="note">{s.rarity} · {s.minWeightG}–{s.maxWeightG} г</span>
+            <span className="note">{ru(RARITY, s.rarity)} · {s.minWeightG}–{s.maxWeightG} г</span>
           </div>
         ))}
       </>
@@ -154,7 +201,7 @@ function Catalog({ data, tab }: { data: unknown; tab: Tab }) {
         {data.map((s: { id: string; name: string; kind: string; value: number }) => (
           <div className="row" key={s.id}>
             <span>{s.name}</span>
-            <span className="note">{s.kind} · {s.value}</span>
+            <span className="note">{ru(KIND, s.kind)} · {s.value}</span>
           </div>
         ))}
       </>

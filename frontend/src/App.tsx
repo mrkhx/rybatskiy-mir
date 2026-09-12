@@ -32,7 +32,13 @@ type WorldSnap = {
   events: Array<{ title: string; description: string }>;
 };
 type CatchRow = { id: string; kept: boolean; weightG: number; species: { name: string } };
-type BagRow = { id: string; qty: number; slot: string | null; equipped: boolean; item: { name: string; kind: string } };
+type BagRow = {
+  id: string;
+  qty: number;
+  slot: string | null;
+  equipped: boolean;
+  item: { id: string; name: string; kind: string; stats?: { method?: string } };
+};
 type ShopRow = { name: string; offers: Array<{ id: string; price: number; item: { name: string } }> };
 
 const TOD: Record<string, string> = {
@@ -222,6 +228,17 @@ function fishName(speciesName: Record<string, string>, id: string | null) {
   return speciesName[id ?? ""] ?? "рыба";
 }
 
+function hasSpinningRod(bag: BagRow[]) {
+  return bag.some((row) => {
+    if (row.item.kind !== "ROD") return false;
+    if (row.item.id === "rod-spin-light") return true;
+    return row.item.stats?.method === "SPINNING";
+  });
+}
+
+const SPIN_HINT =
+  "Спиннинг — обычная снасть. Купите «Лёгкий спиннинг» в лавке у озера, наденьте его в снастях и ловите у камыша или коряжника.";
+
 function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => void }) {
   const [world, setWorld] = useState<WorldSnap | null>(null);
   const [tab, setTab] = useState<Tab>("fish");
@@ -237,6 +254,8 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   const [shopNote, setShopNote] = useState("");
   const [log, setLog] = useState<Array<{ summary: string }>>([]);
   const [speciesName, setSpeciesName] = useState<Record<string, string>>({});
+  const [spinHint, setSpinHint] = useState(false);
+  const canSpin = hasSpinningRod(bag);
 
   const applySession = useCallback((s: Session, extra?: string) => {
     setSession(s);
@@ -259,6 +278,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
     void api<Array<{ id: string; name: string }>>("/world/species").then((rows) => {
       setSpeciesName(Object.fromEntries(rows.map((s) => [s.id, s.name])));
     });
+    void api<BagRow[]>("/inventory").then(setBag);
     void api<Session>("/fishing/start", {
       method: "POST",
       body: JSON.stringify({ spotId: "old-bridge", method: "FLOAT" }),
@@ -377,6 +397,23 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
     }
   }
 
+  function startMethod(nextSpot: string, nextMethod: Method, label?: string) {
+    if (nextMethod === "SPINNING" && !hasSpinningRod(bag)) {
+      setMethod("SPINNING");
+      setSpinHint(true);
+      return;
+    }
+    setSpinHint(false);
+    void begin(nextSpot, nextMethod, label).catch((e: Error) => {
+      if (e.message.includes("Удилище не подходит") || e.message.includes("Нужна приманка")) {
+        setMethod("SPINNING");
+        setSpinHint(true);
+        return;
+      }
+      setStatus(e.message);
+    });
+  }
+
   const hud = (() => {
     if (!session) return null;
     if (session.state === "WAITING_BITE") {
@@ -407,7 +444,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
     }
     if (session.state === "LOST" || session.state === "BROKEN") {
       return (
-        <button className="btn primary" type="button" onClick={() => void begin(spotId, method).catch((e: Error) => setStatus(e.message))}>
+        <button className="btn primary" type="button" onClick={() => startMethod(spotId, method)}>
           Ещё раз
         </button>
       );
@@ -439,7 +476,8 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
             <span className="chip">{player.nickname}</span>
             <span className="chip">ур. {player.stats?.level ?? 1}</span>
             <span className="chip">{player.stats?.coins ?? 0} монет</span>
-            <span className="chip">{TOD[tod] ?? tod} · {WX[wx] ?? wx}</span>
+            <span className="chip wx">{TOD[tod] ?? tod}</span>
+            <span className="chip wx">{WX[wx] ?? wx}</span>
           </div>
         </header>
         <div />
@@ -448,7 +486,10 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
             <div className="hud">
               <div className="panel" style={{ padding: 14, borderRadius: 22 }}>
                 <p className="muted">{spot?.name} · {shownMethod === "FLOAT" ? "Поплавок" : "Спиннинг"}</p>
-                <p>{status}</p>
+                {spinHint ? <p className="muted">{SPIN_HINT}</p> : <p>{status}</p>}
+                {spinHint && (
+                  <button className="btn primary" type="button" onClick={() => setTab("shop")}>Открыть лавку</button>
+                )}
                 {session && (fighting || session.state === "LANDED") && (
                   <>
                     <p className="muted">Натяжение</p>
@@ -461,7 +502,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
                 )}
                 {hud}
                 {!session && (
-                  <button className="btn primary" type="button" onClick={() => void begin(spotId, method).catch((e: Error) => setStatus(e.message))}>
+                  <button className="btn primary" type="button" onClick={() => startMethod(spotId, method)}>
                     Начать ловлю
                   </button>
                 )}
@@ -472,7 +513,13 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
             <section className="sheet panel">
               <h2>Карта глубин</h2>
               <p className="muted">{world.waterbody.description}</p>
-              {status && <p className={status.includes("не ") || status.includes("Нужна") || status.includes("Соберите") ? "warn" : "muted"}>{status}</p>}
+              {spinHint && (
+                <div className="hint">
+                  <p className="muted">{SPIN_HINT}</p>
+                  <button className="btn primary" type="button" onClick={() => setTab("shop")}>Открыть лавку</button>
+                </div>
+              )}
+              {!spinHint && status && <p className="muted">{status}</p>}
               {world.events.map((e) => (
                 <p key={e.title} className="warn">{e.title}</p>
               ))}
@@ -488,7 +535,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
                       onClick={() => {
                         if (s.secret || !allowed) return;
                         setTab("fish");
-                        void begin(s.id, method, `${s.name}. Прицельтесь и забросьте.`).catch((e: Error) => setStatus(e.message));
+                        startMethod(s.id, method, `${s.name}. Прицельтесь и забросьте.`);
                       }}
                     >
                       {s.name}{s.secret ? " · закрыто" : !allowed ? " · другой метод" : ""} · {s.depthMinM}–{s.depthMaxM} м
@@ -504,11 +551,12 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
                     const next = world.waterbody.spots.find((s) => !s.secret && s.methods.includes("FLOAT") && s.id === spotId)
                       ?? world.waterbody.spots.find((s) => !s.secret && s.methods.includes("FLOAT"));
                     setMethod("FLOAT");
+                    setSpinHint(false);
                     if (!next) {
                       setStatus("Нет открытой точки для поплавка");
                       return;
                     }
-                    void begin(next.id, "FLOAT", `${next.name}. Поплавок.`).catch((e: Error) => setStatus(e.message));
+                    startMethod(next.id, "FLOAT", `${next.name}. Поплавок.`);
                   }}
                 >
                   Поплавок
@@ -520,11 +568,15 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
                     const next = world.waterbody.spots.find((s) => !s.secret && s.methods.includes("SPINNING") && s.id === spotId)
                       ?? world.waterbody.spots.find((s) => !s.secret && s.methods.includes("SPINNING"));
                     setMethod("SPINNING");
+                    if (!canSpin) {
+                      setSpinHint(true);
+                      return;
+                    }
                     if (!next) {
                       setStatus("Нет открытой точки для спиннинга");
                       return;
                     }
-                    void begin(next.id, "SPINNING", `${next.name}. Спиннинг.`).catch((e: Error) => setStatus(e.message));
+                    startMethod(next.id, "SPINNING", `${next.name}. Спиннинг.`);
                   }}
                 >
                   Спиннинг
@@ -576,6 +628,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
           {tab === "shop" && (
             <section className="sheet panel">
               <h2>Лавки</h2>
+              {spinHint && !canSpin && <p className="muted">{SPIN_HINT}</p>}
               {shops.map((shop) => (
                 <div key={shop.name}>
                   <h3>{shop.name}</h3>
@@ -590,7 +643,10 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
                           void api("/shops/buy", { method: "POST", body: JSON.stringify({ offerId: o.id, qty: 1 }) })
                             .then(async () => {
                               onPlayer(await api<Player>("/players/me"));
+                              const nextBag = await api<BagRow[]>("/inventory");
+                              setBag(nextBag);
                               setShopNote(`Куплено: ${o.item.name}`);
+                              if (hasSpinningRod(nextBag)) setSpinHint(false);
                             })
                             .catch((e: Error) => setShopNote(e.message));
                         }}

@@ -194,10 +194,11 @@ body {
   padding: 10px 14px;
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px 16px;
   align-items: center;
+  flex-wrap: wrap;
 }
-.brand { display: flex; flex-direction: column; gap: 2px; }
+.brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .brand small, .kicker {
   color: var(--accent);
   letter-spacing: 0.14em;
@@ -205,7 +206,14 @@ body {
   font-size: 0.68rem;
 }
 .brand strong { font-size: 1.05rem; letter-spacing: -0.02em; }
-.meta { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 1 1 220px;
+  min-width: 0;
+}
 .chip {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -213,6 +221,12 @@ body {
   font-size: 0.75rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hint {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 12px;
 }
 
 .dock {
@@ -323,6 +337,16 @@ body {
   .topbar { width: min(1080px, calc(100% - 48px)); margin-left: auto; margin-right: auto; }
   .dock { width: min(1080px, calc(100% - 48px)); margin-left: auto; margin-right: auto; }
   .sheet { width: min(420px, 40vw); left: auto; right: 24px; }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .meta { justify-content: flex-start; flex: 1 1 auto; }
+  .chip { padding: 4px 8px; font-size: 0.72rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
