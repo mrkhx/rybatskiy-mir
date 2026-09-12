@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, setToken, token, type Player, type Session } from "./api/client";
+import { Lake } from "./scene/Lake";
 import { isVkMiniApp } from "./vk/mini-app";
 
 type Tab = "fish" | "map" | "bag" | "shop" | "log" | "profile";
@@ -563,7 +564,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
         <div>
           {tab === "fish" && (
             <div className="hud">
-              <div className="panel" style={{ padding: 14, borderRadius: 22 }}>
+              <div className="panel hud-panel">
                 <p className="muted">{spot?.name} · {shownMethod === "FLOAT" ? "Поплавок" : "Спиннинг"}</p>
                 {world?.feeding?.find((f) => f.spotId === shownSpotId) && (
                   <p className="ok">{world.feeding.find((f) => f.spotId === shownSpotId)?.label}</p>
@@ -824,29 +825,6 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
           </nav>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Lake({ tod, wx, bite, float, rod, feeding }: { tod: string; wx: string; bite?: boolean; float?: boolean; rod?: number; feeding?: boolean }) {
-  return (
-    <div className="lake" data-tod={tod} data-wx={wx} style={{ ["--rod-angle" as string]: `${rod ?? -28}deg` }}>
-      <div className="layer far-pines" />
-      <div className="layer mid-shore" />
-      <div className="layer water-sheet" />
-      <div className="layer water-glint" />
-      <div className="layer lilies" />
-      <div className="layer reeds-left" />
-      <div className="layer reeds-right" />
-      <div className="layer birds" />
-      <div className="layer pier" />
-      <div className="layer angler" />
-      <div className="layer rod" />
-      <div className={`layer float ${float ? "on" : ""} ${bite ? "bite" : ""}`} />
-      {feeding && <div className="layer feed-ring" />}
-      {bite && <div className="layer splash" />}
-      <div className="weather-rain" />
-      <div className="weather-snow" />
     </div>
   );
 }
