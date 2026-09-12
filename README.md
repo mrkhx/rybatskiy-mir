@@ -1,6 +1,6 @@
 # Рыбацкий Мир
 
-Онлайн-симулятор рыбалки. Многопользовательская браузерная игра для VK Mini Apps.
+Онлайн-симулятор рыбалки. Мультиплатформенная игра: web-прототип + Unity 3D-клиент.
 
 Слоган: **Лови. Исследуй. Соревнуйся.**
 
@@ -18,13 +18,15 @@
 - Cache / realtime infrastructure: Redis
 - Realtime: Socket.IO
 - Infra: Docker, Docker Compose, GitHub Actions
+- 3D client: Unity 6 LTS + URP (`clients/unity/RybatskiyMir3D`)
 - Nginx — reverse proxy в staging/production; локально SPA-контейнеры сами раздают статику
 
 ## Структура
 
 ```text
 /
-  frontend/              клиент игры
+  frontend/              LEGACY 2.5D web / VK prototype
+  clients/unity/         3D-клиент (vertical slice Лесное озеро)
   backend/               NestJS API
   admin/                 админ-панель
   docker/                Dockerfile, nginx SPA и reverse proxy
@@ -38,6 +40,8 @@
   .env.staging.example
   .env.production.example
 ```
+
+3D vertical slice (Unity 6): открывать `clients/unity/RybatskiyMir3D`. Документы: [docs/UNITY_CLIENT.md](docs/UNITY_CLIENT.md), [docs/3D_ART_BIBLE.md](docs/3D_ART_BIBLE.md). Текущий React frontend не удалять.
 
 ## Требования для локального запуска
 
