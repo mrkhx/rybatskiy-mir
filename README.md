@@ -155,12 +155,13 @@ GitHub Actions (`.github/workflows/ci.yml`) на push и pull request:
 - тесты
 - сборка frontend, backend и admin
 
-Шаблон будущего деплоя: `.github/workflows/deploy-staging.yml` (вручную, без SSH пока не заданы secrets).
+Шаблон staging deploy: `.github/workflows/deploy-staging.yml` (вручную). Первый выкат: [docs/staging-first-deploy.md](docs/staging-first-deploy.md).
 
 Production deploy из CI пока не делается.
 
 Документация:
 
+- [docs/staging-first-deploy.md](docs/staging-first-deploy.md)
 - [docs/deployment.md](docs/deployment.md)
 - [docs/secrets.md](docs/secrets.md)
 - [docs/backups.md](docs/backups.md)

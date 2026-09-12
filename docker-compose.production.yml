@@ -1,8 +1,8 @@
-# Production stack for a single VPS. Public entry is the reverse proxy only.
+# Production stack for a single VPS. Images come from GHCR — no source tree required.
 # Usage:
-#   docker compose --env-file .env.production -f docker-compose.production.yml up -d
-# Do not publish PostgreSQL, Redis or backend ports.
-# Rollback: set IMAGE_TAG to a previous digest/SHA and `compose up -d`.
+#   IMAGE_TAG=<sha> docker compose --env-file .env.production -f docker-compose.production.yml up -d --wait
+# Rollback: IMAGE_TAG=<previous-sha> then pull && up -d --wait.
+# Public: only HTTP_PORT (80). PostgreSQL, Redis and backend stay on internal networks.
 
 name: rybatskiy-mir-production
 
@@ -15,9 +15,7 @@ x-logging: &default-logging
 services:
   proxy:
     image: ${PROXY_IMAGE:-ghcr.io/mrkhx/rybatskiy-mir-proxy}:${IMAGE_TAG:-production}
-    build:
-      context: .
-      dockerfile: docker/proxy.Dockerfile
+    pull_policy: always
     ports:
       - "${HTTP_PORT:-80}:80"
     depends_on:
@@ -42,15 +40,14 @@ services:
 
   frontend:
     image: ${FRONTEND_IMAGE:-ghcr.io/mrkhx/rybatskiy-mir-frontend}:${IMAGE_TAG:-production}
-    build:
-      context: .
-      dockerfile: docker/frontend.Dockerfile
-      args:
-        VITE_API_URL: /api
-        VITE_WS_URL: /
-        VITE_BASE: /
+    pull_policy: always
     networks:
       - front
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
     restart: always
     logging: *default-logging
     security_opt:
@@ -58,14 +55,14 @@ services:
 
   admin:
     image: ${ADMIN_IMAGE:-ghcr.io/mrkhx/rybatskiy-mir-admin}:${IMAGE_TAG:-production}
-    build:
-      context: .
-      dockerfile: docker/admin.Dockerfile
-      args:
-        VITE_ADMIN_API_URL: /api
-        VITE_BASE: /admin/
+    pull_policy: always
     networks:
       - front
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
     restart: always
     logging: *default-logging
     security_opt:
@@ -73,9 +70,7 @@ services:
 
   backend:
     image: ${BACKEND_IMAGE:-ghcr.io/mrkhx/rybatskiy-mir-backend}:${IMAGE_TAG:-production}
-    build:
-      context: .
-      dockerfile: docker/backend.Dockerfile
+    pull_policy: always
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -102,7 +97,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 40s
     restart: always
     logging: *default-logging
     security_opt:

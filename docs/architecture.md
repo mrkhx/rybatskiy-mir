@@ -33,7 +33,7 @@ Socket.IO подключён как транспорт. Игровые собы�
 
 Публичная точка входа — Nginx reverse proxy. PostgreSQL, Redis и backend во внутреннюю Docker-сеть, без публикации портов на хост.
 
-Подробности: [deployment.md](deployment.md), [secrets.md](secrets.md), [backups.md](backups.md).
+Подробности: [deployment.md](deployment.md), [staging-first-deploy.md](staging-first-deploy.md), [secrets.md](secrets.md), [backups.md](backups.md).
 
 ## Будущее расширение
 

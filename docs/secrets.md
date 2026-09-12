@@ -4,57 +4,57 @@
 
 Файлы `.env`, `.env.staging`, `.env.production` в `.gitignore`.
 
+Первый staging: [staging-first-deploy.md](staging-first-deploy.md).
+
 ## Где что живёт
 
 | Место | Что хранить |
 |---|---|
-| GitHub Actions Secrets | доступ к staging-серверу и GHCR для pull на VPS |
-| `.env.staging` / `.env.production` на сервере | пароли PostgreSQL/Redis, JWT, VK |
+| GitHub Actions Secrets | SSH на VPS + PAT для pull образов с GHCR |
+| `/opt/rybatskiy-mir/.env.staging` | PostgreSQL, Redis, JWT, VK, публичный origin |
 | Локальный `.env` | только development |
 
-Production secrets в GitHub можно не дублировать, если workflow не записывает `.env` на сервер.
+## GitHub Secrets (staging)
 
-## GitHub Secrets для будущего staging deploy
+| Secret | Обязателен | Зачем |
+|---|---|---|
+| `STAGING_HOST` | да | IPv4 VPS без схемы |
+| `STAGING_USER` | да | `deploy` |
+| `STAGING_SSH_KEY` | да | приватный ключ пользователя `deploy` |
+| `STAGING_PORT` | нет | по умолчанию `22` |
+| `STAGING_APP_DIR` | нет | по умолчанию `/opt/rybatskiy-mir` |
+| `GHCR_USERNAME` | нет | по умолчанию `mrkhx` |
+| `GHCR_TOKEN` | да | PAT, **pull на VPS** |
 
-Задаются в Settings → Secrets and variables → Actions, когда появится VPS.
+### GITHUB_TOKEN или GHCR_TOKEN?
 
-| Secret | Назначение |
-|---|---|
-| `STAGING_HOST` | IP или hostname VPS |
-| `STAGING_USER` | SSH-пользователь |
-| `STAGING_SSH_KEY` | приватный ключ (без passphrase или с ssh-agent на runner — лучше без passphrase, отдельный deploy-ключ) |
-| `STAGING_PORT` | SSH-порт, обычно `22` |
-| `STAGING_APP_DIR` | каталог приложения, по умолчанию `/opt/rybatskiy-mir` |
-| `GHCR_USERNAME` | пользователь GitHub для `docker login ghcr.io` на VPS |
-| `GHCR_TOKEN` | PAT с `read:packages` (для приватных образов GHCR) |
+- **Push образов из Actions → GHCR:** встроенный `GITHUB_TOKEN` (`packages: write`). Отдельный secret не нужен.
+- **Pull образов на VPS:** `GITHUB_TOKEN` туда нельзя (короткоживущий, не покидает GitHub). Нужен `GHCR_TOKEN`.
+- Classic PAT: `read:packages` + `repo` (пакеты из приватного репозитория). Fine-grained: read packages + доступ к `mrkhx/rybatskiy-mir`.
 
-Workflow `.github/workflows/deploy-staging.yml` **не подключается к серверу**, пока не выставлен `STAGING_HOST` и не включён input `deploy`.
-
-Образы на GHCR пушатся тем же workflow только при `push_images=true` или по git-тегу `staging-*`. Для push на GHCR достаточно `GITHUB_TOKEN` (packages: write).
+Workflow не подключается по SSH, пока input `deploy=true` и заданы `STAGING_HOST` / `STAGING_USER` / `STAGING_SSH_KEY` / `GHCR_TOKEN`.
 
 ## Секреты приложения на сервере
 
-Копируются из примеров, значения генерируются на месте:
+Генерировать на VPS:
 
 ```bash
-openssl rand -base64 32
+openssl rand -hex 32
 ```
 
 | Переменная | Зачем |
 |---|---|
-| `POSTGRES_PASSWORD` | пароль роли PostgreSQL |
-| `REDIS_PASSWORD` | `requirepass` Redis |
-| `JWT_SECRET` | подпись сессий, **не короче 32 символов** |
-| `VK_APP_SECRET` | только на backend, никогда во frontend |
-| `FRONTEND_ORIGIN` / `ADMIN_ORIGIN` | CORS; при path-based proxy это публичный origin |
+| `POSTGRES_PASSWORD` | роль PostgreSQL; volume `postgres_data` |
+| `REDIS_PASSWORD` | `requirepass`; Redis без volume, данные кэша можно потерять |
+| `JWT_SECRET` | ≥ 32 символа; `openssl rand -hex 32` даёт 64 |
+| `VK_APP_SECRET` | пусто до VK Mini App; не попадает во frontend |
+| `FRONTEND_ORIGIN` / `ADMIN_ORIGIN` | CORS = `http://<PUBLIC_IP>` без хвоста `/` |
 
-Пароли должны быть URL-safe (`A-Za-z0-9-_+`), потому что они подставляются в `DATABASE_URL` и `REDIS_URL`.
+`DATABASE_URL` / `REDIS_URL` собирает `docker-compose.staging.yml` из `POSTGRES_*` и `REDIS_PASSWORD` (хосты `postgres` и `redis`).
 
 ## Правила
 
-- Не коммитить `.env`, ключи, дампы, сертификаты.
-- Не логировать `JWT_SECRET`, `Authorization`, `VK_APP_SECRET`, `DATABASE_URL`.
-- `ALLOW_DEV_AUTH=true` в `NODE_ENV=production` **останавливает запуск backend**.
-- Dev-секрет `change-me-local-dev-only` в production тоже останавливает запуск.
-- Frontend/admin получают только `VITE_*` на этапе сборки. Секреты туда не передавать.
-- После утечки секрета — ротация паролей БД/Redis/JWT и инвалидация сессий.
+- Не коммитить `.env`, ключи, дампы, сертификаты, IP в репозиторий.
+- Не логировать `JWT_SECRET`, `Authorization`, `VK_APP_SECRET`, `DATABASE_URL`, `GHCR_TOKEN`.
+- `ALLOW_DEV_AUTH=true` при `NODE_ENV=production` останавливает backend.
+- После утечки — ротация паролей и JWT, перевыпуск PAT и SSH-ключа.

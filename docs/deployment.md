@@ -1,8 +1,10 @@
 # Развёртывание на одном VPS
 
-Реального сервера, домена и секретов пока нет. Этот документ — целевая схема. Ничего не деплоить, пока не появятся SSH credentials.
+Первый staging (Selectel, HTTP по IP, пользователь `deploy`): **[staging-first-deploy.md](staging-first-deploy.md)**.
 
-Локальная разработка по-прежнему: `docker compose up --build` (файл `docker-compose.yml`, порты 5173/5174/3000/5432/6379).
+Не запускать GitHub deploy без отдельного подтверждения.
+
+Локальная разработка по-прежнему: `docker compose up --build` (файл `docker-compose.yml`, порты 5173/5174/3000/5432/6379). Не использовать локальный compose на staging VPS.
 
 ## Схема staging / production
 
@@ -189,9 +191,9 @@ Production — то же с `docker-compose.production.yml` и `.env.production`
 ## GitHub Actions
 
 - `CI` (`.github/workflows/ci.yml`) — typecheck, lint, tests, builds. Без деплоя.
-- `Deploy staging` — вручную. По умолчанию только verify + сборка образов. Push в GHCR и SSH нужно явно включить inputs.
+- `Deploy staging` — вручную. `deploy=true` дополнительно пушит образы (GITHUB_TOKEN) и по SSH тянет их на VPS (GHCR_TOKEN).
 
-Пока секретов нет, SSH-job завершится с понятной ошибкой и сервер не трогает.
+Чеклист человека: [staging-first-deploy.md](staging-first-deploy.md).
 
 ## Безопасность (чеклист)
 
