@@ -50,6 +50,23 @@ export function skillXpForCatch(tier: FishTier, kept: boolean): number {
   return kept ? base : Math.round(base * 1.1);
 }
 
+export function skillLevelFromXp(xp: number): number {
+  return Math.min(20, 1 + Math.floor(Math.max(0, xp) / 40));
+}
+
+export function harvestSkillXp(itemId: string): number {
+  const map: Record<string, number> = {
+    worm: 6,
+    maggot: 7,
+    crawler: 10,
+    bloodworm: 12,
+    "chafer-larva": 16,
+    "may-beetle": 20,
+    "mole-cricket": 22,
+  };
+  return map[itemId] ?? 8;
+}
+
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }

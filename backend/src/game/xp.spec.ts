@@ -1,4 +1,4 @@
-import { applyXp, catchCoins, catchXp, xpToNextLevel } from "./xp";
+import { applyXp, catchCoins, catchXp, skillLevelFromXp, xpToNextLevel } from "./xp";
 
 describe("xp and economy", () => {
   it("grants more xp for trophy weight and release", () => {
@@ -35,5 +35,13 @@ describe("xp and economy", () => {
     const base = catchCoins(10, 300, 300, 0);
     const prem = catchCoins(10, 300, 300, 0.1);
     expect(prem).toBe(Math.round(base * 1.1));
+  });
+
+  it("maps harvest xp to a gated skill level", () => {
+    expect(skillLevelFromXp(0)).toBe(1);
+    expect(skillLevelFromXp(39)).toBe(1);
+    expect(skillLevelFromXp(40)).toBe(2);
+    expect(skillLevelFromXp(400)).toBe(11);
+    expect(skillLevelFromXp(9000)).toBe(20);
   });
 });

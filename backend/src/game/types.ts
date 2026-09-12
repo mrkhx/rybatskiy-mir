@@ -30,6 +30,9 @@ export type WeatherKind =
   | "CALM"
   | "SNOW";
 
+export const RETRIEVE_KINDS = ["even", "slow", "fast", "stepped", "twitch", "pause"] as const;
+export type RetrieveKind = (typeof RETRIEVE_KINDS)[number];
+
 export type FightProfile = {
   pull: number;
   directionChange: number;
@@ -45,6 +48,28 @@ export type ActivityWindow = {
   depthMaxM: number;
   tempMinC: number;
   tempMaxC: number;
+};
+
+export type DietProfile = {
+  baits: Record<string, number>;
+  lures: Record<string, number>;
+  lureSizeMm?: { min: number; max: number };
+  retrieves: Record<string, number>;
+  preferredDepthMin: number;
+  preferredDepthMax: number;
+  toleratedDepthMin: number;
+  toleratedDepthMax: number;
+  times: Partial<Record<TimeOfDay, number>>;
+  seasons: Partial<Record<Season, number>>;
+  weather: Partial<Record<WeatherKind, number>>;
+  groundbait: Record<string, number>;
+};
+
+export type BoilieStats = {
+  sizeMm: number;
+  buoyancy: "sinking" | "popup" | "wafter" | "soluble";
+  aroma: string;
+  protein?: number;
 };
 
 export type BiteContext = {
@@ -63,6 +88,14 @@ export type BiteContext = {
   eventMultiplier: number;
   skillBonus: number;
   baitQuality: number;
+  lureSizeMm?: number;
+  waterTempC?: number;
+  boilie?: BoilieStats;
+  groundbaitMix?: string;
+  groundbaitAttraction?: number;
+  groundbaitSaturation?: number;
+  groundbaitFit?: number;
+  fishingPressure?: number;
 };
 
 export type SpeciesForBite = {
@@ -74,6 +107,7 @@ export type SpeciesForBite = {
   methods: string[];
   activity: ActivityWindow;
   legendary: boolean;
+  diet?: DietProfile;
 };
 
 export type Specimen = {
