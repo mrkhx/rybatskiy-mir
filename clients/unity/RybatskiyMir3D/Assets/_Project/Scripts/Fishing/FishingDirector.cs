@@ -67,7 +67,7 @@ namespace RybatskiyMir.Fishing
                     Cam.FishingLook = LookOut;
                     Cam.EnterFishing();
                 }
-                Gear.SetVisible(true, false, false, false);
+                Gear.Equip(Body ? Body.RightHand : null);
                 Gear.BendRod(0.05f);
                 var hold = CastTarget(1.2f);
                 _floatPos = hold;
@@ -93,7 +93,7 @@ namespace RybatskiyMir.Fishing
             Mover.Teleport(_standPos, _standRot);
             if (Cam) Cam.ExitFishing();
             Gear.ClearAim();
-            Gear.SetVisible(false, false, false, false);
+            Gear.Holster(Body ? Body.Spine : null);
             if (Body) Body.Pose = FishermanPose.Idle;
             Status = "Свободное перемещение.";
             Session = null;

@@ -161,7 +161,7 @@ namespace RybatskiyMir.World
             RenderSettings.ambientSkyColor = sky;
             RenderSettings.ambientEquatorColor = Color.Lerp(sky, new Color(0.32f, 0.40f, 0.30f), 0.45f);
             RenderSettings.ambientGroundColor = new Color(0.12f, 0.11f, 0.08f);
-            if (Camera.main) Camera.main.backgroundColor = fog;
+            if (Camera.main) Camera.main.backgroundColor = zenith;
 
             if (_skyMat)
             {
@@ -172,7 +172,16 @@ namespace RybatskiyMir.World
                 if (_skyMat.HasProperty("_SunColor")) _skyMat.SetColor("_SunColor", sunCol);
             }
 
-            if (LakeWater.Instance) LakeWater.Instance.RainAmount = rain ? (storm ? 1f : 0.55f) : 0f;
+            if (LakeWater.Instance)
+            {
+                LakeWater.Instance.RainAmount = rain ? (storm ? 1f : 0.55f) : 0f;
+                var wmat = LakeWater.Instance.GetComponent<MeshRenderer>()?.sharedMaterial;
+                if (wmat)
+                {
+                    if (wmat.HasProperty("_SkyColor")) wmat.SetColor("_SkyColor", horizon);
+                    if (wmat.HasProperty("_ForestColor")) wmat.SetColor("_ForestColor", Palette.FarForest);
+                }
+            }
 
             if (_rain)
             {

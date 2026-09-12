@@ -52,7 +52,7 @@ namespace RybatskiyMir.World
                     ForestLakeBuilder.LakeCenter.z + Mathf.Sin(ang) * (ForestLakeBuilder.LakeRadius + 8f));
                 rad += 4.5f + (float)rng.NextDouble() * 22f;
                 var p = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang) * rad, 0, Mathf.Sin(ang) * rad);
-                if (p.z < 2f && Mathf.Abs(p.x) < 5.5f) continue;
+                if (p.z < 8f && Mathf.Abs(p.x) < 8f) continue;
                 p.y = 0.05f;
                 var kind = rng.NextDouble();
                 if (kind < 0.12) Sapling(parent, p, rng, i);
@@ -343,7 +343,7 @@ namespace RybatskiyMir.World
                 var probe = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (ForestLakeBuilder.LakeRadius + 6f);
                 var rad = ForestLakeBuilder.ShoreRadius(probe.x, probe.z) + 1.4f + (float)rng.NextDouble() * 5f;
                 var p = ForestLakeBuilder.LakeCenter + new Vector3(Mathf.Cos(ang) * rad, 0.04f, Mathf.Sin(ang) * rad);
-                if (p.z < 2f && Mathf.Abs(p.x) < 5.5f) continue;
+                if (p.z < 8f && Mathf.Abs(p.x) < 8f) continue;
                 Sapling(parent, p, rng, 2000 + i);
             }
         }

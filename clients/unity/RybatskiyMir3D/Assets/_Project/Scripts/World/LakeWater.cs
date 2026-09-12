@@ -11,7 +11,7 @@ namespace RybatskiyMir.World
         public static LakeWater Instance { get; private set; }
 
         public float Size = 52f;
-        public float Amplitude = 0.042f;
+        public float Amplitude = 0.085f;
         public float Speed = 0.62f;
         public float RainAmount;
         Material _mat;
@@ -41,6 +41,8 @@ namespace RybatskiyMir.World
             _mat.SetFloat("_Amplitude", Amplitude);
             _mat.SetFloat("_Speed", Speed);
             _mat.SetVector("_LakeCenter", new Vector4(ForestLakeBuilder.LakeCenter.x, 0, ForestLakeBuilder.LakeCenter.z, ForestLakeBuilder.LakeRadius));
+            if (_mat.HasProperty("_SkyColor")) _mat.SetColor("_SkyColor", Palette.SkyDay);
+            if (_mat.HasProperty("_ForestColor")) _mat.SetColor("_ForestColor", Palette.FarForest);
             var f = gameObject.AddComponent<MeshFilter>();
             f.sharedMesh = mesh;
             var r = gameObject.AddComponent<MeshRenderer>();

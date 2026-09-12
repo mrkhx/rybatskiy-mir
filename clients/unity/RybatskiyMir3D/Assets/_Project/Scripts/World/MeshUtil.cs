@@ -192,6 +192,8 @@ namespace RybatskiyMir.World
             if (m.HasProperty("_ShallowColor")) m.SetColor("_ShallowColor", Palette.WaterShallow);
             if (m.HasProperty("_DeepColor")) m.SetColor("_DeepColor", Palette.WaterDeep);
             if (m.HasProperty("_FoamColor")) m.SetColor("_FoamColor", Palette.Foam);
+            if (m.HasProperty("_SkyColor")) m.SetColor("_SkyColor", Palette.SkyDay);
+            if (m.HasProperty("_ForestColor")) m.SetColor("_ForestColor", Palette.FarForest);
             ApplyColor(m, Palette.WaterDeep);
             if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.9f);
             m.renderQueue = 3000;

@@ -50,9 +50,9 @@ namespace RybatskiyMir
             var cam = camGo.AddComponent<Camera>();
             cam.tag = "MainCamera";
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = Palette.FogDay;
+            cam.backgroundColor = Palette.SkyZenith;
             cam.nearClipPlane = 0.12f;
-            cam.farClipPlane = QualityTier.ViewDistance;
+            cam.farClipPlane = Mathf.Max(QualityTier.ViewDistance, 260f);
             cam.fieldOfView = 56f;
             cam.allowMSAA = true;
             cam.allowHDR = true;
@@ -68,6 +68,7 @@ namespace RybatskiyMir
 
             var body = player.GetComponent<FishermanBody>();
             var gear = FishingGear.Build(body.RightHand);
+            gear.Holster(body.Spine);
             _fishing = gameObject.AddComponent<FishingDirector>();
             _fishing.Client = fishing;
             _fishing.Input = _input;

@@ -86,6 +86,7 @@ namespace RybatskiyMir.Hud
         void DrawTouchHints()
         {
             if (Input == null) return;
+            if (!Application.isMobilePlatform) return;
 #if ENABLE_INPUT_SYSTEM
             if (UnityEngine.InputSystem.Touchscreen.current == null) return;
             GUI.color = new Color(1, 1, 1, 0.12f);

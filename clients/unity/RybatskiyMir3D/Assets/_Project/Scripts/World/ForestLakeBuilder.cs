@@ -24,7 +24,6 @@ namespace RybatskiyMir.World
             BuildGround(world.transform);
             BuildWater(world.transform);
             BuildUnderwater(world.transform);
-            BuildMist(world.transform);
             BuildShoreBlockers(world.transform);
             BuildPier(world.transform);
             Vegetation.Scatter(world.transform);
@@ -38,7 +37,7 @@ namespace RybatskiyMir.World
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             go.name = "SkyDome";
             go.transform.SetParent(parent, false);
-            go.transform.localScale = Vector3.one * 360f;
+            go.transform.localScale = Vector3.one * 420f;
             Object.Destroy(go.GetComponent<Collider>());
             var sunDir = Quaternion.Euler(38f, 128f, 0) * Vector3.forward;
             go.GetComponent<MeshRenderer>().sharedMaterial = MeshUtil.Sky(Palette.SkyDay, Palette.SkyZenith, sunDir);
@@ -76,7 +75,10 @@ namespace RybatskiyMir.World
                         + Mathf.PerlinNoise(x * 0.22f, z * 0.22f) * 0.28f
                         + Mathf.PerlinNoise(x * 0.45f, z * 0.45f) * 0.12f;
 
-                if (IsPath(wx, wz) && dist > shore - 0.5f) h = 0.20f;
+                // Dry path to the pier — flat, no hills through the boards.
+                if (Mathf.Abs(wx) < 2.2f && wz > -8.6f && wz < 0.2f) h = 0.20f;
+                // Under the pier the ground stays underwater. Never poke through the deck.
+                if (Mathf.Abs(wx) < 1.8f && wz >= 0.2f && wz < 9.0f) h = Mathf.Min(h, -1.2f);
                 return new Vector3(wx, h, wz);
             }, (x, z) =>
             {
@@ -113,8 +115,7 @@ namespace RybatskiyMir.World
                 + 1.35f * Mathf.Cos(ang * 3.1f - 0.9f)
                 + 0.75f * Mathf.Sin(ang * 5.4f + 0.2f)
                 + (Mathf.PerlinNoise(wx * 0.032f + 8f, wz * 0.032f) - 0.5f) * 2.4f;
-            if (dz < -2f && Mathf.Abs(dx) < 6.5f)
-                r -= 1.8f * Mathf.SmoothStep(6.5f, 0f, Mathf.Abs(dx));
+            // South: keep water under the pier. Shrinking r pulled land through the boards.
             return r;
         }
 
@@ -305,34 +306,6 @@ namespace RybatskiyMir.World
             crate.transform.localRotation = Quaternion.Euler(0, 12f, 0);
             crate.GetComponent<MeshRenderer>().sharedMaterial = dry;
 
-            var contact = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            contact.name = "PierContactShadow";
-            contact.transform.SetParent(pier.transform, false);
-            contact.transform.localPosition = new Vector3(0f, -0.02f, 4.1f);
-            contact.transform.localRotation = Quaternion.Euler(90f, 0, 0);
-            contact.transform.localScale = new Vector3(2.35f, 8.6f, 1f);
-            Object.Destroy(contact.GetComponent<Collider>());
-            var shadowM = MeshUtil.Unlit(new Color(0.05f, 0.04f, 0.03f, 0.28f));
-            shadowM.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
-            shadowM.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
-            shadowM.SetInt("_ZWrite", 0);
-            shadowM.renderQueue = 2450;
-            MeshUtil.ApplyColor(shadowM, new Color(0.05f, 0.04f, 0.03f, 0.28f));
-            var shadowR = contact.GetComponent<MeshRenderer>();
-            shadowR.sharedMaterial = shadowM;
-            shadowR.shadowCastingMode = ShadowCastingMode.Off;
-
-            var mossM = MeshUtil.Lit(Palette.Moss, 0.08f);
-            for (int m = 0; m < 6; m++)
-            {
-                var patch = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                patch.name = "Moss_" + m;
-                patch.transform.SetParent(pier.transform, false);
-                patch.transform.localPosition = new Vector3((m % 2 == 0 ? -0.7f : 0.7f), 0.08f, 1.4f + m * 0.9f);
-                patch.transform.localScale = new Vector3(0.22f, 0.04f, 0.18f);
-                patch.GetComponent<MeshRenderer>().sharedMaterial = mossM;
-                Object.Destroy(patch.GetComponent<Collider>());
-            }
             var ropeM = MeshUtil.Lit(new Color(0.45f, 0.38f, 0.22f), 0.12f);
             for (int s = 0; s < 2; s++)
             {

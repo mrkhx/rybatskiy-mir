@@ -2,8 +2,8 @@ Shader "RybatskiyMir/Sky"
 {
     Properties
     {
-        _Horizon ("Horizon", Color) = (0.78, 0.86, 0.90, 1)
-        _Zenith ("Zenith", Color) = (0.38, 0.64, 0.80, 1)
+        _Horizon ("Horizon", Color) = (0.77, 0.86, 0.90, 1)
+        _Zenith ("Zenith", Color) = (0.16, 0.38, 0.55, 1)
         _SunColor ("Sun", Color) = (1, 0.93, 0.78, 1)
         _SunDir ("Sun Dir", Vector) = (0.35, 0.72, -0.45, 0)
     }
@@ -15,6 +15,7 @@ Shader "RybatskiyMir/Sky"
             ZWrite Off
             ZTest LEqual
             Cull Front
+            Fog { Mode Off }
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -41,12 +42,12 @@ Shader "RybatskiyMir/Sky"
             half4 frag(Varyings i) : SV_Target
             {
                 float3 d = normalize(i.dir);
-                float h = saturate(d.y * 0.5 + 0.5);
-                half3 col = lerp(_Horizon.rgb, _Zenith.rgb, pow(h, 1.15));
-                float sun = pow(saturate(dot(d, normalize(_SunDir.xyz))), 48.0);
-                col += _SunColor.rgb * sun * 0.85;
-                float glow = pow(saturate(dot(d, normalize(_SunDir.xyz))), 4.0);
-                col += _SunColor.rgb * glow * 0.12;
+                float h = saturate(d.y * 0.72 + 0.28);
+                half3 col = lerp(_Horizon.rgb, _Zenith.rgb, pow(h, 0.85));
+                float3 sun = normalize(_SunDir.xyz);
+                float sunDot = saturate(dot(d, sun));
+                col += _SunColor.rgb * pow(sunDot, 96.0) * 1.35;
+                col += _SunColor.rgb * pow(sunDot, 6.0) * 0.18;
                 return half4(col, 1);
             }
             ENDHLSL

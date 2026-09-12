@@ -9,8 +9,9 @@ namespace RybatskiyMir.Player
     }
 
     /// <summary>
-    /// Stylized semi-realistic fisherman. Organic meshes on a humanoid bone rig.
-    /// Not cubes, not a capsule. Authored FBX is the next art pass.
+    /// Stylized fisherman. Capsule/sphere parts on a humanoid bone rig so the
+    /// silhouette reads as a person from fishing-camera distance.
+    /// Authored FBX is the next art pass.
     /// </summary>
     [DefaultExecutionOrder(50)]
     public class FishermanBody : MonoBehaviour
@@ -22,6 +23,7 @@ namespace RybatskiyMir.Player
         public Transform RightHand { get; private set; }
         public Transform LeftHand { get; private set; }
         public Transform Hip { get; private set; }
+        public Transform Spine => _spine;
 
         Transform _spine, _chest, _head, _neck;
         Transform _lU, _lL, _rU, _rL;
@@ -32,13 +34,13 @@ namespace RybatskiyMir.Player
 
         public static FishermanBody Build(Transform root)
         {
-            var jacket = MeshUtil.Lit(Palette.Jacket, 0.16f, false, TextureFactory.Cloth);
-            var vest = MeshUtil.Lit(Palette.Vest, 0.14f, false, TextureFactory.Cloth);
-            var pants = MeshUtil.Lit(Palette.Pants, 0.12f, false, TextureFactory.Cloth);
+            var jacket = MeshUtil.Lit(Palette.Jacket, 0.18f, false, TextureFactory.Cloth);
+            var vest = MeshUtil.Lit(Palette.Vest, 0.16f, false, TextureFactory.Cloth);
+            var pants = MeshUtil.Lit(Palette.Pants, 0.14f, false, TextureFactory.Cloth);
             var boot = MeshUtil.Lit(Palette.Boots, 0.22f);
-            var skin = MeshUtil.Lit(Palette.Skin, 0.32f);
-            var cap = MeshUtil.Lit(Palette.Cap, 0.14f, false, TextureFactory.Cloth);
-            var shirt = MeshUtil.Lit(Palette.Shirt, 0.14f, false, TextureFactory.Cloth);
+            var skin = MeshUtil.Lit(Palette.Skin, 0.35f);
+            var cap = MeshUtil.Lit(Palette.Cap, 0.16f, false, TextureFactory.Cloth);
+            var shirt = MeshUtil.Lit(Palette.Shirt, 0.16f, false, TextureFactory.Cloth);
             var dark = MeshUtil.Lit(new Color(0.12f, 0.10f, 0.08f), 0.2f);
             var strap = MeshUtil.Lit(new Color(0.28f, 0.18f, 0.10f), 0.18f);
 
@@ -48,45 +50,36 @@ namespace RybatskiyMir.Player
 
             body.Hip = Bone("Hips", rig.transform, new Vector3(0, 0.94f, 0));
             body._hipRest = body.Hip.localPosition;
-            var hips = MeshUtil.TubeChild("HipsM", body.Hip, new Vector3(0, -0.10f, 0.01f), 0.16f, 0.15f, 0.16f, pants, 14);
-            hips.localScale = new Vector3(1.05f, 0.16f, 0.72f);
-            MeshUtil.TubeChild("Belt", body.Hip, new Vector3(0, 0.04f, 0.01f), 0.17f, 0.17f, 0.05f, strap, 14)
-                .localScale = new Vector3(1.08f, 0.05f, 0.78f);
+            MeshUtil.Prim("Pelvis", PrimitiveType.Capsule, body.Hip, new Vector3(0, -0.02f, 0.01f), new Vector3(0.34f, 0.11f, 0.20f), pants);
+            MeshUtil.Prim("Belt", PrimitiveType.Cylinder, body.Hip, new Vector3(0, 0.06f, 0.01f), new Vector3(0.36f, 0.025f, 0.22f), strap);
 
             body._spine = Bone("Spine", body.Hip, new Vector3(0, 0.14f, 0.01f));
             body._chest = Bone("Chest", body._spine, new Vector3(0, 0.20f, 0.02f));
-            var jacketT = MeshUtil.TubeChild("Jacket", body._chest, new Vector3(0, -0.16f, 0), 0.20f, 0.17f, 0.50f, jacket, 16);
-            jacketT.localScale = new Vector3(1.12f, 0.50f, 0.78f);
-            var hem = MeshUtil.TubeChild("JacketHem", body._chest, new Vector3(0, -0.20f, 0), 0.21f, 0.20f, 0.10f, jacket, 16);
-            hem.localScale = new Vector3(1.16f, 0.10f, 0.82f);
-            var vestT = MeshUtil.TubeChild("Vest", body._chest, new Vector3(0, -0.10f, 0.04f), 0.14f, 0.13f, 0.38f, vest, 14);
-            vestT.localScale = new Vector3(1.0f, 0.38f, 0.62f);
-            MeshUtil.BallChild("PocketL", body._chest, new Vector3(-0.08f, -0.02f, 0.12f), new Vector3(0.055f, 0.05f, 0.03f), vest, 8);
-            MeshUtil.BallChild("PocketR", body._chest, new Vector3(0.08f, -0.02f, 0.12f), new Vector3(0.055f, 0.05f, 0.03f), vest, 8);
-            var collar = MeshUtil.TubeChild("Collar", body._chest, new Vector3(0, 0.28f, 0.01f), 0.10f, 0.12f, 0.08f, jacket, 12);
-            collar.localScale = new Vector3(1.05f, 0.08f, 0.85f);
+            MeshUtil.Prim("Torso", PrimitiveType.Capsule, body._chest, new Vector3(0, -0.04f, 0.02f), new Vector3(0.40f, 0.28f, 0.26f), jacket);
+            MeshUtil.Prim("Hem", PrimitiveType.Cylinder, body._chest, new Vector3(0, -0.28f, 0.02f), new Vector3(0.42f, 0.035f, 0.28f), jacket);
+            MeshUtil.Prim("Vest", PrimitiveType.Cube, body._chest, new Vector3(0, -0.04f, 0.12f), new Vector3(0.26f, 0.34f, 0.07f), vest);
+            MeshUtil.Prim("PocketL", PrimitiveType.Cube, body._chest, new Vector3(-0.08f, -0.08f, 0.16f), new Vector3(0.07f, 0.08f, 0.03f), vest);
+            MeshUtil.Prim("PocketR", PrimitiveType.Cube, body._chest, new Vector3(0.08f, -0.08f, 0.16f), new Vector3(0.07f, 0.08f, 0.03f), vest);
 
-            body._neck = Bone("Neck", body._chest, new Vector3(0, 0.36f, 0.02f));
-            MeshUtil.TubeChild("NeckM", body._neck, new Vector3(0, -0.02f, 0), 0.045f, 0.05f, 0.10f, skin, 10);
+            body._neck = Bone("Neck", body._chest, new Vector3(0, 0.34f, 0.02f));
+            MeshUtil.Prim("NeckM", PrimitiveType.Cylinder, body._neck, new Vector3(0, 0.02f, 0), new Vector3(0.09f, 0.055f, 0.09f), skin);
 
-            body._head = Bone("Head", body._neck, new Vector3(0, 0.12f, 0.01f));
-            MeshUtil.BallChild("Skull", body._head, new Vector3(0, 0.02f, 0.01f), new Vector3(0.105f, 0.12f, 0.11f), skin, 16);
-            MeshUtil.BallChild("Jaw", body._head, new Vector3(0, -0.05f, 0.03f), new Vector3(0.08f, 0.05f, 0.08f), skin, 12);
-            MeshUtil.BallChild("Nose", body._head, new Vector3(0, -0.01f, 0.105f), Vector3.one * 0.022f, skin, 8);
-            MeshUtil.BallChild("EarL", body._head, new Vector3(-0.10f, 0.01f, 0.01f), new Vector3(0.018f, 0.032f, 0.022f), skin, 8);
-            MeshUtil.BallChild("EarR", body._head, new Vector3(0.10f, 0.01f, 0.01f), new Vector3(0.018f, 0.032f, 0.022f), skin, 8);
-            MeshUtil.BallChild("EyeL", body._head, new Vector3(-0.035f, 0.03f, 0.092f), new Vector3(0.018f, 0.014f, 0.012f), dark, 8);
-            MeshUtil.BallChild("EyeR", body._head, new Vector3(0.035f, 0.03f, 0.092f), new Vector3(0.018f, 0.014f, 0.012f), dark, 8);
-            MeshUtil.BallChild("Brow", body._head, new Vector3(0, 0.055f, 0.09f), new Vector3(0.08f, 0.012f, 0.018f), dark, 8);
-            MeshUtil.BallChild("Hair", body._head, new Vector3(0, 0.08f, -0.02f), new Vector3(0.10f, 0.055f, 0.09f), dark, 12);
-            var capT = MeshUtil.TubeChild("Cap", body._head, new Vector3(0, 0.08f, 0), 0.10f, 0.08f, 0.07f, cap, 14);
-            capT.localScale = new Vector3(1f, 0.07f, 1f);
-            MeshUtil.BallChild("Brim", body._head, new Vector3(0, 0.055f, 0.10f), new Vector3(0.10f, 0.012f, 0.07f), cap, 10);
+            body._head = Bone("Head", body._neck, new Vector3(0, 0.14f, 0.01f));
+            MeshUtil.Prim("Skull", PrimitiveType.Sphere, body._head, new Vector3(0, 0.02f, 0.01f), Vector3.one * 0.22f, skin);
+            MeshUtil.Prim("Jaw", PrimitiveType.Sphere, body._head, new Vector3(0, -0.05f, 0.03f), new Vector3(0.16f, 0.10f, 0.16f), skin);
+            MeshUtil.Prim("Nose", PrimitiveType.Sphere, body._head, new Vector3(0, 0f, 0.11f), Vector3.one * 0.04f, skin);
+            MeshUtil.Prim("EarL", PrimitiveType.Sphere, body._head, new Vector3(-0.11f, 0.02f, 0.01f), new Vector3(0.03f, 0.05f, 0.025f), skin);
+            MeshUtil.Prim("EarR", PrimitiveType.Sphere, body._head, new Vector3(0.11f, 0.02f, 0.01f), new Vector3(0.03f, 0.05f, 0.025f), skin);
+            MeshUtil.Prim("EyeL", PrimitiveType.Sphere, body._head, new Vector3(-0.04f, 0.03f, 0.095f), new Vector3(0.035f, 0.026f, 0.022f), dark);
+            MeshUtil.Prim("EyeR", PrimitiveType.Sphere, body._head, new Vector3(0.04f, 0.03f, 0.095f), new Vector3(0.035f, 0.026f, 0.022f), dark);
+            MeshUtil.Prim("Hair", PrimitiveType.Sphere, body._head, new Vector3(0, 0.07f, -0.02f), new Vector3(0.20f, 0.10f, 0.18f), dark);
+            MeshUtil.Prim("Cap", PrimitiveType.Sphere, body._head, new Vector3(0, 0.08f, 0), new Vector3(0.21f, 0.08f, 0.21f), cap);
+            MeshUtil.Prim("Brim", PrimitiveType.Cylinder, body._head, new Vector3(0, 0.05f, 0.09f), new Vector3(0.18f, 0.012f, 0.14f), cap);
 
-            var lClav = Bone("LeftShoulder", body._chest, new Vector3(-0.23f, 0.24f, 0));
-            var rClav = Bone("RightShoulder", body._chest, new Vector3(0.23f, 0.24f, 0));
-            MeshUtil.BallChild("L_Shoulder", lClav, Vector3.zero, Vector3.one * 0.07f, jacket, 12);
-            MeshUtil.BallChild("R_Shoulder", rClav, Vector3.zero, Vector3.one * 0.07f, jacket, 12);
+            var lClav = Bone("LeftShoulder", body._chest, new Vector3(-0.22f, 0.22f, 0));
+            var rClav = Bone("RightShoulder", body._chest, new Vector3(0.22f, 0.22f, 0));
+            MeshUtil.Prim("L_Shoulder", PrimitiveType.Sphere, lClav, Vector3.zero, Vector3.one * 0.13f, jacket);
+            MeshUtil.Prim("R_Shoulder", PrimitiveType.Sphere, rClav, Vector3.zero, Vector3.one * 0.13f, jacket);
             body._lU = Bone("LeftUpperArm", lClav, new Vector3(-0.04f, -0.05f, 0));
             body._lL = Bone("LeftLowerArm", body._lU, new Vector3(0, -0.30f, 0));
             body.LeftHand = Bone("LeftHand", body._lL, new Vector3(0, -0.25f, 0));
@@ -94,42 +87,28 @@ namespace RybatskiyMir.Player
             body._rL = Bone("RightLowerArm", body._rU, new Vector3(0, -0.30f, 0));
             body.RightHand = Bone("RightHand", body._rL, new Vector3(0, -0.25f, 0));
 
-            MeshUtil.TubeChild("L_UArmM", body._lU, new Vector3(0, -0.30f, 0), 0.055f, 0.048f, 0.30f, jacket, 10);
-            MeshUtil.TubeChild("L_LArmM", body._lL, new Vector3(0, -0.24f, 0), 0.042f, 0.034f, 0.24f, shirt, 10);
-            MeshUtil.BallChild("L_HandM", body.LeftHand, Vector3.zero, new Vector3(0.038f, 0.045f, 0.028f), skin, 10);
-            Fingers(body.LeftHand, skin, -1f);
-            MeshUtil.TubeChild("R_UArmM", body._rU, new Vector3(0, -0.30f, 0), 0.055f, 0.048f, 0.30f, jacket, 10);
-            MeshUtil.TubeChild("R_LArmM", body._rL, new Vector3(0, -0.24f, 0), 0.042f, 0.034f, 0.24f, shirt, 10);
-            MeshUtil.BallChild("R_HandM", body.RightHand, Vector3.zero, new Vector3(0.038f, 0.045f, 0.028f), skin, 10);
-            Fingers(body.RightHand, skin, 1f);
+            MeshUtil.Prim("L_UArmM", PrimitiveType.Capsule, body._lU, new Vector3(0, -0.15f, 0), new Vector3(0.10f, 0.15f, 0.10f), jacket);
+            MeshUtil.Prim("L_LArmM", PrimitiveType.Capsule, body._lL, new Vector3(0, -0.12f, 0), new Vector3(0.08f, 0.12f, 0.08f), shirt);
+            MeshUtil.Prim("L_HandM", PrimitiveType.Sphere, body.LeftHand, Vector3.zero, new Vector3(0.07f, 0.085f, 0.055f), skin);
+            MeshUtil.Prim("R_UArmM", PrimitiveType.Capsule, body._rU, new Vector3(0, -0.15f, 0), new Vector3(0.10f, 0.15f, 0.10f), jacket);
+            MeshUtil.Prim("R_LArmM", PrimitiveType.Capsule, body._rL, new Vector3(0, -0.12f, 0), new Vector3(0.08f, 0.12f, 0.08f), shirt);
+            MeshUtil.Prim("R_HandM", PrimitiveType.Sphere, body.RightHand, Vector3.zero, new Vector3(0.07f, 0.085f, 0.055f), skin);
 
-            body._lLegU = Bone("LeftUpperLeg", body.Hip, new Vector3(-0.11f, -0.08f, 0));
+            body._lLegU = Bone("LeftUpperLeg", body.Hip, new Vector3(-0.10f, -0.08f, 0));
             body._lLegL = Bone("LeftLowerLeg", body._lLegU, new Vector3(0, -0.42f, 0));
             var lFoot = Bone("LeftFoot", body._lLegL, new Vector3(0, -0.40f, 0.04f));
-            body._rLegU = Bone("RightUpperLeg", body.Hip, new Vector3(0.11f, -0.08f, 0));
+            body._rLegU = Bone("RightUpperLeg", body.Hip, new Vector3(0.10f, -0.08f, 0));
             body._rLegL = Bone("RightLowerLeg", body._rLegU, new Vector3(0, -0.42f, 0));
             var rFoot = Bone("RightFoot", body._rLegL, new Vector3(0, -0.40f, 0.04f));
 
-            MeshUtil.TubeChild("L_Thigh", body._lLegU, new Vector3(0, -0.42f, 0), 0.075f, 0.058f, 0.42f, pants, 12);
-            MeshUtil.TubeChild("L_Calf", body._lLegL, new Vector3(0, -0.38f, 0), 0.052f, 0.042f, 0.38f, pants, 12);
-            MeshUtil.TubeChild("L_BootTop", lFoot, new Vector3(0, 0.02f, 0), 0.048f, 0.055f, 0.10f, boot, 10);
-            MeshUtil.BallChild("L_Boot", lFoot, new Vector3(0, 0.02f, 0.08f), new Vector3(0.055f, 0.045f, 0.12f), boot, 10);
-            MeshUtil.TubeChild("R_Thigh", body._rLegU, new Vector3(0, -0.42f, 0), 0.075f, 0.058f, 0.42f, pants, 12);
-            MeshUtil.TubeChild("R_Calf", body._rLegL, new Vector3(0, -0.38f, 0), 0.052f, 0.042f, 0.38f, pants, 12);
-            MeshUtil.TubeChild("R_BootTop", rFoot, new Vector3(0, 0.02f, 0), 0.048f, 0.055f, 0.10f, boot, 10);
-            MeshUtil.BallChild("R_Boot", rFoot, new Vector3(0, 0.02f, 0.08f), new Vector3(0.055f, 0.045f, 0.12f), boot, 10);
+            MeshUtil.Prim("L_Thigh", PrimitiveType.Capsule, body._lLegU, new Vector3(0, -0.21f, 0), new Vector3(0.14f, 0.21f, 0.14f), pants);
+            MeshUtil.Prim("L_Calf", PrimitiveType.Capsule, body._lLegL, new Vector3(0, -0.20f, 0), new Vector3(0.11f, 0.20f, 0.11f), pants);
+            MeshUtil.Prim("L_Boot", PrimitiveType.Cube, lFoot, new Vector3(0, 0.02f, 0.06f), new Vector3(0.10f, 0.09f, 0.22f), boot);
+            MeshUtil.Prim("R_Thigh", PrimitiveType.Capsule, body._rLegU, new Vector3(0, -0.21f, 0), new Vector3(0.14f, 0.21f, 0.14f), pants);
+            MeshUtil.Prim("R_Calf", PrimitiveType.Capsule, body._rLegL, new Vector3(0, -0.20f, 0), new Vector3(0.11f, 0.20f, 0.11f), pants);
+            MeshUtil.Prim("R_Boot", PrimitiveType.Cube, rFoot, new Vector3(0, 0.02f, 0.06f), new Vector3(0.10f, 0.09f, 0.22f), boot);
 
             return body;
-        }
-
-        static void Fingers(Transform hand, Material skin, float side)
-        {
-            for (int i = 0; i < 4; i++)
-            {
-                var x = (i - 1.5f) * 0.018f;
-                var t = MeshUtil.TubeChild("F" + i, hand, new Vector3(x, 0f, 0.012f), 0.007f, 0.005f, 0.052f, skin, 6);
-                t.localRotation = Quaternion.Euler(180f, 0, side * (i - 1.5f) * 6f);
-            }
         }
 
         void LateUpdate()

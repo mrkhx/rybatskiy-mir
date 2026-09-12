@@ -21,6 +21,7 @@ namespace RybatskiyMir.Fishing
         Vector3[] _line = new Vector3[10];
         Quaternion[] _boneRest;
         Quaternion _gripLocal = Quaternion.Euler(180f, 0f, 0f);
+        Vector3 _gripPos = new Vector3(0.015f, -0.045f, 0.02f);
         Vector3 _aimPoint;
         bool _aimWater;
 
@@ -34,7 +35,7 @@ namespace RybatskiyMir.Fishing
             var root = new GameObject("Rod").transform;
             root.SetParent(rightHand, false);
             // Palm offset. World aim in LateUpdate overrides rotation.
-            root.localPosition = new Vector3(0.015f, -0.045f, 0.02f);
+            root.localPosition = gear._gripPos;
             root.localRotation = gear._gripLocal;
             gear.Hand = root;
             gear.Bones = new Transform[6];
@@ -133,6 +134,25 @@ namespace RybatskiyMir.Fishing
         {
             _aimWater = false;
             if (Hand) Hand.localRotation = _gripLocal;
+        }
+
+        public void Holster(Transform spine)
+        {
+            ClearAim();
+            if (!Hand || !spine) return;
+            Hand.SetParent(spine, false);
+            Hand.localPosition = new Vector3(0.16f, 0.04f, -0.18f);
+            Hand.localRotation = Quaternion.Euler(18f, 6f, -32f);
+            SetVisible(true, false, false, false);
+        }
+
+        public void Equip(Transform rightHand)
+        {
+            if (!Hand || !rightHand) return;
+            Hand.SetParent(rightHand, false);
+            Hand.localPosition = _gripPos;
+            Hand.localRotation = _gripLocal;
+            SetVisible(true, false, false, false);
         }
 
         public void SetVisible(bool rod, bool line, bool bobber, bool fish)

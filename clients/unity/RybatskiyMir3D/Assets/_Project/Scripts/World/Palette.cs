@@ -5,8 +5,8 @@ namespace RybatskiyMir.World
     /// <summary>Art-bible colours. One language for the whole slice.</summary>
     public static class Palette
     {
-        public static readonly Color SkyDay = Hex("8EC6D8");
-        public static readonly Color SkyZenith = Hex("5A9FBE");
+        public static readonly Color SkyDay = Hex("B7D4E0");
+        public static readonly Color SkyZenith = Hex("2E6A8A");
         public static readonly Color FarForest = Hex("2F4A3A");
         public static readonly Color NeedleA = Hex("3E5C3A");
         public static readonly Color NeedleB = Hex("1F3324");
@@ -18,9 +18,9 @@ namespace RybatskiyMir.World
         public static readonly Color Foam = Hex("D7E7EA");
         public static readonly Color PierDry = Hex("6B5340");
         public static readonly Color PierWet = Hex("3E3228");
-        public static readonly Color Jacket = Hex("4E5C3A");
-        public static readonly Color Vest = Hex("3A462C");
-        public static readonly Color Pants = Hex("3A3A30");
+        public static readonly Color Jacket = Hex("6A5B38");
+        public static readonly Color Vest = Hex("3E3A28");
+        public static readonly Color Pants = Hex("3A3428");
         public static readonly Color Boots = Hex("1F2A1C");
         public static readonly Color Cap = Hex("6A5638");
         public static readonly Color Skin = new Color(0.76f, 0.60f, 0.47f);
