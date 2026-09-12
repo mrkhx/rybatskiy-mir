@@ -49,14 +49,18 @@ body {
 .lake[data-tod="MORNING"] { --sky-top: #9fd0d4; --sky-mid: #c3dcc8; }
 .lake[data-tod="EVENING"] { --sky-top: #6b8aa8; --sky-mid: #c9a07a; }
 
-.layer { position: absolute; inset: 0; pointer-events: none; }
+.layer { position: absolute; pointer-events: none; }
+.far-pines, .mid-shore, .water-sheet, .weather-rain, .weather-snow { inset: 0; }
 .far-pines {
   background:
-    radial-gradient(ellipse 40% 18% at 18% 52%, #1d3b32 60%, transparent 62%),
-    radial-gradient(ellipse 50% 22% at 55% 50%, #16352d 60%, transparent 62%),
-    radial-gradient(ellipse 36% 16% at 88% 53%, #1a3f34 60%, transparent 62%);
-  opacity: 0.85;
-  transform: translateY(var(--parx, 0px));
+    radial-gradient(ellipse 18% 28% at 8% 46%, #12261d 70%, transparent 72%),
+    radial-gradient(ellipse 22% 34% at 18% 44%, #163028 70%, transparent 72%),
+    radial-gradient(ellipse 16% 26% at 28% 47%, #10241c 70%, transparent 72%),
+    radial-gradient(ellipse 24% 36% at 48% 42%, #1a3428 70%, transparent 72%),
+    radial-gradient(ellipse 20% 30% at 62% 45%, #13271f 70%, transparent 72%),
+    radial-gradient(ellipse 26% 38% at 78% 41%, #18342a 70%, transparent 72%),
+    radial-gradient(ellipse 18% 28% at 92% 46%, #10231c 70%, transparent 72%);
+  opacity: 0.95;
 }
 .mid-shore {
   background: linear-gradient(180deg, transparent 48%, #2a4633 48.2%, #1c3226 62%, transparent 62%);
@@ -194,7 +198,12 @@ body {
   align-items: center;
 }
 .brand { display: flex; flex-direction: column; gap: 2px; }
-.brand small { color: var(--accent); letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.68rem; }
+.brand small, .kicker {
+  color: var(--accent);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+}
 .brand strong { font-size: 1.05rem; letter-spacing: -0.02em; }
 .meta { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .chip {
@@ -225,12 +234,13 @@ body {
   transition: transform var(--motion-fast) var(--ease), background 150ms ease;
 }
 .dock button.active, .btn.primary {
-  background: var(--accent);
-  color: var(--accent-fg);
+  background: #e7d5b0;
+  color: #132027;
   border-color: transparent;
 }
 .btn:active { transform: scale(0.98); }
 .btn.ghost { color: var(--muted); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .hud {
   width: min(520px, calc(100% - 24px));
@@ -264,6 +274,7 @@ body {
   z-index: 4;
 }
 .sheet h2 { margin: 0 0 12px; font-size: 1.05rem; }
+.sheet h3 { margin: 14px 0 6px; font-size: 0.92rem; color: var(--accent); }
 .list { display: grid; gap: 8px; }
 .row {
   display: flex; justify-content: space-between; gap: 12px; align-items: center;
@@ -271,6 +282,7 @@ body {
   border-top: 1px solid var(--line);
   font-size: 0.92rem;
 }
+.actions { display: flex; gap: 6px; flex-shrink: 0; }
 .muted { color: var(--muted); }
 .warn { color: var(--warn); }
 .ok { color: var(--ok); }

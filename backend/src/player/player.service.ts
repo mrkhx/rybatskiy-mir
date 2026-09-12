@@ -4,11 +4,13 @@ import { validateNick } from "../game/nick";
 
 const STARTER = [
   { itemId: "rod-willow", qty: 1, equipped: true, slot: "rod" },
+  { itemId: "rod-spin-light", qty: 1 },
   { itemId: "reel-basic", qty: 1, equipped: true, slot: "reel" },
   { itemId: "line-025", qty: 1, equipped: true, slot: "line" },
   { itemId: "hook-10", qty: 12, equipped: true, slot: "hook" },
   { itemId: "float-goose", qty: 1, equipped: true, slot: "float" },
-  { itemId: "worm", qty: 16 },
+  { itemId: "worm", qty: 16, equipped: true, slot: "bait" },
+  { itemId: "spinner", qty: 1 },
   { itemId: "bread", qty: 6 },
   { itemId: "shovel", qty: 1 },
   { itemId: "bread-food", qty: 2 },
@@ -48,6 +50,7 @@ export type PlayerProfile = {
     fatigue: number;
     keepnetCount: number;
     keepnetWeightG: number;
+    keepnetCap: number;
     premiumUntil: Date | null;
   } | null;
   skills: Array<{ skill: string; level: number; xp: number }>;
@@ -89,6 +92,7 @@ export class PlayerService {
             fatigue: user.stats.fatigue,
             keepnetCount: user.stats.keepnetCount,
             keepnetWeightG: user.stats.keepnetWeightG,
+            keepnetCap: user.stats.keepnetCap,
             premiumUntil: prem && prem.endsAt > new Date() ? prem.endsAt : null,
           }
         : null,

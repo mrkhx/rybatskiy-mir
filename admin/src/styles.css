@@ -103,3 +103,37 @@ main {
   font-size: 0.9rem;
   margin: 16px 0 0;
 }
+
+button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #22352b;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+
+button.active {
+  background: var(--accent);
+  color: #1a1408;
+  border-color: transparent;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0 0 16px;
+}
+
+.panel h3 {
+  margin: 16px 0 8px;
+  font-size: 1rem;
+}
+
+.row .note {
+  margin: 0;
+}
+

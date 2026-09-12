@@ -12,7 +12,7 @@ import { systemRng, type Rng } from "../game/rng";
 import { assertTransition, isTerminal } from "../game/state-machine";
 import type { BiteContext, FightSnapshot, FightTick, FishingState, LoseReason, SpeciesForBite } from "../game/types";
 import { rollSpecimen } from "../game/weight";
-import { applyXp, catchCoins, catchXp, skillXpForCatch } from "../game/xp";
+import { applyXp, catchXp, skillXpForCatch } from "../game/xp";
 import { PlayerService } from "../player/player.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { WorldService } from "../world/world.service";
@@ -41,16 +41,6 @@ export class FishingService {
 
   async start(userId: string, input: { spotId: string; method: FishingMethod }) {
     await this.players.ensure(userId);
-    const existing = await this.getActive(userId);
-    if (existing && !isTerminal(existing.state as FishingState)) {
-      return existing;
-    }
-    if (existing) {
-      await this.prisma.fishingSession.update({
-        where: { id: existing.id },
-        data: { endedAt: new Date() },
-      });
-    }
 
     const spot = await this.prisma.spot.findUnique({ where: { id: input.spotId } });
     if (!spot) throw new NotFoundException("Spot not found");
@@ -65,6 +55,21 @@ export class FishingService {
     }
 
     const kit = await this.equipped(userId, input.method);
+    const existing = await this.getActive(userId);
+    if (existing && !isTerminal(existing.state as FishingState)) {
+      const same = existing.spotId === input.spotId && existing.method === input.method;
+      if (same && existing.state === "READY") return existing;
+      if (existing.state === "BITE" || existing.state === "HOOKED" || existing.state === "FIGHTING") {
+        throw new BadRequestException("Сначала закончите текущую ловлю");
+      }
+    }
+    if (existing) {
+      await this.prisma.fishingSession.update({
+        where: { id: existing.id },
+        data: { endedAt: new Date() },
+      });
+    }
+
     return this.prisma.fishingSession.create({
       data: {
         userId,
@@ -316,7 +321,6 @@ export class FishingService {
       released: false,
       premiumBoost: premium?.xpBoost ?? 0,
     });
-    const coins = catchCoins(species.baseValue, session.weightG, species.avgWeightG, premium?.coinBoost ?? 0);
     const progress = applyXp(stats?.level ?? 1, stats?.xp ?? 0, xp);
     const flags = await this.recordFlags(session.userId, session.speciesId, session.waterbodyId, session.weightG);
 
@@ -339,7 +343,7 @@ export class FishingService {
           season: clock.season,
           depthM: session.depthM ?? 1.5,
           xpGranted: xp,
-          coinsGranted: coins,
+          coinsGranted: 0,
           kept: false,
           recordFlags: flags as Prisma.InputJsonValue,
         },
@@ -348,18 +352,9 @@ export class FishingService {
       if (stats) {
         await tx.playerStats.update({
           where: { userId: session.userId },
-          data: { level: progress.level, xp: progress.xp, coins: stats.coins + coins },
+          data: { level: progress.level, xp: progress.xp },
         });
       }
-      await tx.ledgerEntry.create({
-        data: {
-          userId: session.userId,
-          kind: "CATCH_SALE",
-          delta: coins,
-          balance: (stats?.coins ?? 0) + coins,
-          meta: { catchId: caught.id },
-        },
-      });
       const skill = METHOD_SKILL[session.method] ?? "FLOAT";
       await tx.playerSkill.upsert({
         where: { userId_skill: { userId: session.userId, skill } },
@@ -471,24 +466,31 @@ export class FishingService {
   }
 
   private async equipped(userId: string, method: FishingMethod) {
-    const rows = await this.prisma.inventoryItem.findMany({
-      where: { userId, equipped: true },
+    const all = await this.prisma.inventoryItem.findMany({
+      where: { userId },
       include: { item: true },
     });
+    const rows = all.filter((r) => r.equipped);
     const bySlot = Object.fromEntries(rows.filter((r) => r.slot).map((r) => [r.slot as string, r]));
-    if (!bySlot.rod || !bySlot.reel || !bySlot.line) {
+    let rod = bySlot.rod;
+    if (!rod) throw new BadRequestException("Соберите снасть: удилище, катушка, леска");
+    if (!bySlot.reel || !bySlot.line) {
       throw new BadRequestException("Соберите снасть: удилище, катушка, леска");
     }
-    const rodMethod = (bySlot.rod.item.stats as { method?: string }).method;
+    const rodMethod = (rod.item.stats as { method?: string }).method;
     if (rodMethod && rodMethod !== method) {
-      throw new BadRequestException("Удилище не подходит для этого метода");
+      const alt = all.find((r) => r.item.kind === "ROD" && (r.item.stats as { method?: string }).method === method);
+      if (!alt) throw new BadRequestException("Удилище не подходит для этого метода");
+      rod = alt;
     }
-    const bait = rows.find((r) => r.item.kind === "BAIT");
-    const lure = rows.find((r) => r.item.kind === "LURE");
+    const bait =
+      rows.find((r) => r.item.kind === "BAIT") ?? all.find((r) => r.item.kind === "BAIT");
+    const lure =
+      rows.find((r) => r.item.kind === "LURE") ?? all.find((r) => r.item.kind === "LURE");
     if (method === "SPINNING" && !lure) throw new BadRequestException("Нужна приманка");
     if (method !== "SPINNING" && !bait) throw new BadRequestException("Нужна наживка");
     return {
-      rod: bySlot.rod.itemId,
+      rod: rod.itemId,
       reel: bySlot.reel.itemId,
       line: bySlot.line.itemId,
       bait: bait?.itemId ?? null,

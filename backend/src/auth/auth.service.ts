@@ -47,12 +47,20 @@ export class AuthService {
   }
 
   private async upsertUser(vkId: string, fallbackNick: string): Promise<AuthUser> {
-    const user = await this.prisma.user.upsert({
+    const created = await this.prisma.user.upsert({
       where: { vkId },
       update: {},
       create: { vkId, nickname: fallbackNick, nicknameSet: false },
     });
+    if (this.env.allowDevAuth && vkId === "admin" && !created.isAdmin) {
+      return this.issueUser(
+        await this.prisma.user.update({ where: { id: created.id }, data: { isAdmin: true } }),
+      );
+    }
+    return { id: created.id, vkId: created.vkId, nickname: created.nickname };
+  }
 
+  private issueUser(user: { id: string; vkId: string; nickname: string }): AuthUser {
     return { id: user.id, vkId: user.vkId, nickname: user.nickname };
   }
 

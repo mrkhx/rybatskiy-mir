@@ -65,6 +65,8 @@ export type Player = {
     warmth: number;
     keepnetCount: number;
     keepnetWeightG: number;
+    keepnetCap?: number;
     premiumUntil: string | null;
   } | null;
+  skills?: Array<{ skill: string; level: number; xp: number }>;
 };
