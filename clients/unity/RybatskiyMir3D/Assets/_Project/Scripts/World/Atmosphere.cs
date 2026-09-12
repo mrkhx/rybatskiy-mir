@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using RybatskiyMir.Audio;
 
 namespace RybatskiyMir.World
 {
@@ -65,6 +66,8 @@ namespace RybatskiyMir.World
             _weather = weather ?? "CLEAR";
             var storm = IsStorm;
             var rain = storm || _weather == "RAIN";
+            var foggy = _weather == "FOG" || _weather == "MIST";
+            var cloudy = _weather == "CLOUDY" || _weather == "OVERCAST";
             var night = _tod is "NIGHT" or "DUSK";
             var evening = _tod is "EVENING" or "DAWN";
 
@@ -100,6 +103,23 @@ namespace RybatskiyMir.World
                 zenith = new Color(0.02f, 0.03f, 0.07f);
                 fogStart *= 0.45f;
                 fogEnd *= 0.55f;
+            }
+
+            if (cloudy && !rain)
+            {
+                intensity *= 0.78f;
+                sunCol = Color.Lerp(sunCol, new Color(0.82f, 0.84f, 0.86f), 0.4f);
+                fog = Color.Lerp(fog, new Color(0.62f, 0.66f, 0.70f), 0.45f);
+                sky = Color.Lerp(sky, new Color(0.48f, 0.54f, 0.60f), 0.5f);
+                zenith = Color.Lerp(zenith, new Color(0.36f, 0.42f, 0.48f), 0.45f);
+            }
+
+            if (foggy)
+            {
+                fog = Color.Lerp(fog, new Color(0.70f, 0.76f, 0.78f), 0.7f);
+                fogStart *= 0.35f;
+                fogEnd *= 0.48f;
+                intensity *= 0.7f;
             }
 
             if (rain)
@@ -159,7 +179,17 @@ namespace RybatskiyMir.World
                 var em = _rain.emission;
                 em.rateOverTime = !QualityTier.Rain || !rain ? 0 : storm ? 1100 : 520;
             }
+
+            if (WindField.I)
+            {
+                WindField.I.BaseStrength = storm ? 1.05f : rain ? 0.72f : foggy ? 0.22f : cloudy ? 0.38f : 0.45f;
+                WindField.I.Heading = storm ? 48f : 22f;
+            }
+            WorldAudio.I?.SetAmbience(_weather, _tod, storm);
         }
+
+        public string Weather => _weather;
+        public string TimeOfDay => _tod;
 
         bool IsStorm => _weather is "STORM" or "DOWNPOUR" or "THUNDERSTORM";
 
@@ -172,7 +202,11 @@ namespace RybatskiyMir.World
             }
 
             var storm = IsStorm;
-            if (storm && Random.value < 0.0035f) _flash = 1f;
+            if (storm && Random.value < 0.0035f)
+            {
+                _flash = 1f;
+                WorldAudio.I?.PlayThunder(ForestLakeBuilder.LakeCenter + Vector3.up * 14f);
+            }
             if (_flash > 0f)
             {
                 _flash -= Time.deltaTime * 3.2f;

@@ -24,7 +24,7 @@ namespace RybatskiyMir.World
                 GraphicsSettings.defaultRenderPipeline = asset;
                 QualitySettings.renderPipeline = asset;
                 QualitySettings.shadowDistance = 78f;
-                QualitySettings.shadowCascades = QualityTier.SoftShadows ? 2 : 0;
+                QualitySettings.shadowCascades = QualityTier.ShadowCascades > 0 ? QualityTier.ShadowCascades : 0;
                 Debug.Log("[RybatskiyMir] Runtime URP pipeline created.");
             }
             catch (System.Exception e)
