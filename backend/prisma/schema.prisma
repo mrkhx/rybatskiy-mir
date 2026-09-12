@@ -7,11 +7,761 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Минимальная учётная запись игрока. Игровая модель будет расширяться отдельными таблицами.
+enum Sex {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum FishTier {
+  COMMON
+  LARGE
+  TROPHY
+  RECORD
+  LEGENDARY
+}
+
+enum FishingMethod {
+  FLOAT
+  SPINNING
+  FEEDER
+  BOTTOM
+  CARP
+  TROLLING
+  SEA
+  ICE
+}
+
+enum FishingState {
+  IDLE
+  READY
+  CAST
+  WAITING_BITE
+  BITE
+  HOOKED
+  FIGHTING
+  LANDED
+  LOST
+  BROKEN
+}
+
+enum ItemKind {
+  ROD
+  REEL
+  LINE
+  HOOK
+  FLOAT
+  SINKER
+  LEADER
+  FEEDER
+  BAIT
+  LURE
+  CLOTHING
+  TENT
+  FOOD
+  DRINK
+  TOOL
+  MATERIAL
+  CONSUMABLE
+  BOAT
+  VEHICLE
+  COSMETIC
+  RECIPE
+}
+
+enum Rarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum TimeOfDay {
+  DAWN
+  MORNING
+  DAY
+  EVENING
+  DUSK
+  NIGHT
+}
+
+enum Season {
+  SPRING
+  SUMMER
+  AUTUMN
+  WINTER
+}
+
+enum WeatherKind {
+  CLEAR
+  PARTLY_CLOUDY
+  OVERCAST
+  RAIN
+  DOWNPOUR
+  STORM
+  FOG
+  WIND
+  CALM
+  SNOW
+}
+
+enum SkillId {
+  FLOAT
+  SPINNING
+  FEEDER
+  BOTTOM
+  CARP
+  TROLLING
+  ICE
+  SEA
+  ACCURACY
+  CAST_RANGE
+  HOOKING
+  DRAG_CONTROL
+  FIGHTING
+  BIG_FISH
+  RELIEF
+  SONAR
+  WEATHER_READ
+  NAVIGATION
+  SEARCH
+  REPAIR
+  RIGS
+  GROUNDBAIT
+  BOILIES
+  LURES
+  BAIT_HARVEST
+  COOKING
+  CAMP
+  TRANSPORT
+}
+
+enum ClubRole {
+  OWNER
+  DEPUTY
+  CAPTAIN
+  MODERATOR
+  MEMBER
+}
+
+enum QuestKind {
+  DAILY
+  WEEKLY
+  REGIONAL
+  STORY
+  CRAFT
+  CLUB
+  SEASON
+  EXPEDITION
+}
+
+enum ShopKind {
+  TACKLE
+  LURE
+  BAIT
+  GROUNDBAIT
+  WORKSHOP
+  BOAT
+  CLOTHING
+  CAMP
+  GROCERY
+}
+
+enum ChatChannel {
+  GLOBAL
+  WATERBODY
+  CLUB
+  TOURNAMENT
+  DIRECT
+}
+
+enum TransactionKind {
+  CATCH_SALE
+  SHOP_BUY
+  SHOP_SELL
+  QUEST_REWARD
+  TOURNAMENT_REWARD
+  PREMIUM_GRANT
+  ADMIN_COMPENSATION
+  CRAFT
+  AUCTION
+  CLUB
+}
+
 model User {
-  id        String   @id @default(cuid())
-  vkId      String   @unique
-  nickname  String
+  id           String   @id @default(cuid())
+  vkId         String   @unique
+  nickname     String   @unique
+  nicknameSet  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastSeenAt   DateTime @default(now())
+  isAdmin      Boolean  @default(false)
+  mutedUntil   DateTime?
+  bannedUntil  DateTime?
+
+  character    Character?
+  stats        PlayerStats?
+  inventory    InventoryItem[]
+  catches      Catch[]
+  sessions     FishingSession[]
+  skills       PlayerSkill[]
+  perks        PlayerPerk[]
+  diary        DiaryEntry[]
+  encyclopedia EncyclopediaUnlock[]
+  records      RecordEntry[]
+  quests       QuestProgress[]
+  clubMembership ClubMember?
+  sentMessages ChatMessage[]
+  transactions LedgerEntry[]
+  premium      PremiumGrant[]
+  friendsOf    Friendship[] @relation("FriendOwner")
+  friendsWith  Friendship[] @relation("FriendTarget")
+  tournamentEntries TournamentEntry[]
+  reports      ChatReport[]
+  auditActions AuditLog[] @relation("AuditActor")
+}
+
+model Character {
+  userId        String @id
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sex           Sex    @default(OTHER)
+  faceType      String @default("oval")
+  ageArchetype  String @default("adult")
+  skinTone      String @default("warm")
+  hairStyle     String @default("short")
+  hairColor     String @default("brown")
+  facialHair    String @default("none")
+  hat           String @default("none")
+  outfit        String @default("starter")
+}
+
+model PlayerStats {
+  userId         String @id
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level          Int    @default(1)
+  xp             Int    @default(0)
+  coins          Int    @default(250)
+  specialization String @default("universal")
+  title          String @default("Новичок")
+  division       String @default("novice")
+  health         Int    @default(100)
+  stamina        Int    @default(100)
+  hunger         Int    @default(20)
+  thirst         Int    @default(20)
+  warmth         Int    @default(70)
+  wetness        Int    @default(0)
+  fatigue        Int    @default(0)
+  keepnetCount   Int    @default(0)
+  keepnetWeightG Int    @default(0)
+  keepnetCap     Int    @default(8)
+  keepnetWeightCap Int  @default(8000)
+  explorationPct Float  @default(0)
+  premiumXpBoost Float  @default(0)
+  premiumCoinBoost Float @default(0)
+}
+
+model PlayerSkill {
+  userId String
+  skill  SkillId
+  xp     Int @default(0)
+  level  Int @default(1)
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, skill])
+}
+
+model PlayerPerk {
+  userId   String
+  perkId   String
+  skill    SkillId
+  tier     Int
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selectedAt DateTime @default(now())
+
+  @@id([userId, perkId])
+}
+
+model Waterbody {
+  id           String  @id
+  slug         String  @unique
+  name         String
+  kind         String
+  description  String
+  region       String
+  minLevel     Int     @default(1)
+  exploration  Json
+  visual       Json
+  seasonality  Json
+  spots        Spot[]
+  species      WaterbodySpecies[]
+  fauna        FaunaSpawn[]
+  npcs         Npc[]
+  events       WorldEvent[]
+  catches      Catch[]
+}
+
+model Spot {
+  id            String @id
+  waterbodyId   String
+  waterbody     Waterbody @relation(fields: [waterbodyId], references: [id])
+  slug          String
+  name          String
+  kind          String
+  description   String
+  depthMinM     Float
+  depthMaxM     Float
+  current       Float  @default(0)
+  vegetation    Float  @default(0.4)
+  trophyChance  Float  @default(0.08)
+  secret        Boolean @default(false)
+  unlock        Json?
+  methods       FishingMethod[]
+  species       SpotSpecies[]
+  catches       Catch[]
+  sessions      FishingSession[]
+
+  @@unique([waterbodyId, slug])
+}
+
+model FishSpecies {
+  id              String @id
+  slug            String @unique
+  name            String
+  description     String
+  minWeightG      Int
+  avgWeightG      Int
+  maxWeightG      Int
+  minLengthCm     Int
+  maxLengthCm     Int
+  rarity          Rarity @default(COMMON)
+  trophyWeightG   Int
+  recordWeightG   Int
+  baseXp          Int
+  baseValue       Int
+  fightProfile    Json
+  activity        Json
+  baits           Json
+  lures           Json
+  behavior        String
+  legendary       Boolean @default(false)
+  legendaryLore   String?
+  waterbodies     WaterbodySpecies[]
+  spots           SpotSpecies[]
+  catches         Catch[]
+  encyclopedia    EncyclopediaUnlock[]
+}
+
+model WaterbodySpecies {
+  waterbodyId String
+  speciesId   String
+  abundance   Float @default(1)
+  waterbody   Waterbody @relation(fields: [waterbodyId], references: [id])
+  species     FishSpecies @relation(fields: [speciesId], references: [id])
+
+  @@id([waterbodyId, speciesId])
+}
+
+model SpotSpecies {
+  spotId    String
+  speciesId String
+  weight    Float @default(1)
+  spot      Spot @relation(fields: [spotId], references: [id])
+  species   FishSpecies @relation(fields: [speciesId], references: [id])
+
+  @@id([spotId, speciesId])
+}
+
+model Item {
+  id          String   @id
+  slug        String   @unique
+  name        String
+  description String
+  kind        ItemKind
+  rarity      Rarity   @default(COMMON)
+  stackable   Boolean  @default(true)
+  maxStack    Int      @default(99)
+  value       Int      @default(10)
+  stats       Json
+  cosmetic    Boolean  @default(false)
+  p2w         Boolean  @default(false)
+  inventory   InventoryItem[]
+  offers      ShopOffer[]
+  recipes     RecipeOutput[]
+  ingredients RecipeIngredient[]
+}
+
+model InventoryItem {
+  id        String @id @default(cuid())
+  userId    String
+  itemId    String
+  qty       Int    @default(1)
+  durability Int?
+  quality   String @default("normal")
+  equipped  Boolean @default(false)
+  slot      String?
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item      Item @relation(fields: [itemId], references: [id])
+
+  @@index([userId, itemId])
+}
+
+model Shop {
+  id          String @id
+  slug        String @unique
+  name        String
+  kind        ShopKind
+  region      String @default("forest")
+  reputationMin Int @default(0)
+  offers      ShopOffer[]
+}
+
+model ShopOffer {
+  id        String @id @default(cuid())
+  shopId    String
+  itemId    String
+  price     Int
+  stock     Int @default(-1)
+  featured  Boolean @default(false)
+  shop      Shop @relation(fields: [shopId], references: [id])
+  item      Item @relation(fields: [itemId], references: [id])
+
+  @@unique([shopId, itemId])
+}
+
+model Recipe {
+  id          String @id
+  slug        String @unique
+  name        String
+  kind        String
+  station     String
+  skill       SkillId?
+  minSkill    Int @default(1)
+  ingredients RecipeIngredient[]
+  outputs     RecipeOutput[]
+}
+
+model RecipeIngredient {
+  recipeId String
+  itemId   String
+  qty      Int
+  recipe   Recipe @relation(fields: [recipeId], references: [id])
+  item     Item @relation(fields: [itemId], references: [id])
+
+  @@id([recipeId, itemId])
+}
+
+model RecipeOutput {
+  recipeId String
+  itemId   String
+  qty      Int @default(1)
+  recipe   Recipe @relation(fields: [recipeId], references: [id])
+  item     Item @relation(fields: [itemId], references: [id])
+
+  @@id([recipeId, itemId])
+}
+
+model FishingSession {
+  id            String @id @default(cuid())
+  userId        String
+  waterbodyId   String
+  spotId        String
+  method        FishingMethod
+  state         FishingState @default(READY)
+  rodItemId     String?
+  reelItemId    String?
+  lineItemId    String?
+  baitItemId    String?
+  lureItemId    String?
+  castForce     Float?
+  castDir       Float?
+  depthM        Float?
+  speciesId     String?
+  weightG       Int?
+  lengthCm      Int?
+  tier          FishTier?
+  tension       Float @default(0)
+  fishStamina   Float @default(1)
+  lineIntegrity Float @default(1)
+  fightProgress Float @default(0)
+  biteAt        DateTime?
+  hookedAt      DateTime?
+  endedAt       DateTime?
+  loseReason    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spot          Spot @relation(fields: [spotId], references: [id])
+
+  @@index([userId, state])
+}
+
+model Catch {
+  id          String @id @default(cuid())
+  userId      String
+  speciesId   String
+  waterbodyId String
+  spotId      String
+  weightG     Int
+  lengthCm    Int
+  tier        FishTier
+  method      FishingMethod
+  rodItemId   String?
+  baitItemId  String?
+  lureItemId  String?
+  weather     WeatherKind
+  timeOfDay   TimeOfDay
+  season      Season
+  depthM      Float
+  xpGranted   Int
+  coinsGranted Int @default(0)
+  kept        Boolean
+  recordFlags Json
+  createdAt   DateTime @default(now())
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  species     FishSpecies @relation(fields: [speciesId], references: [id])
+  waterbody   Waterbody @relation(fields: [waterbodyId], references: [id])
+  spot        Spot @relation(fields: [spotId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([speciesId, weightG])
+}
+
+model DiaryEntry {
+  id        String @id @default(cuid())
+  userId    String
+  catchId   String?
+  summary   String
+  details   Json
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EncyclopediaUnlock {
+  userId    String
+  speciesId String
+  fields    Json
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  species   FishSpecies @relation(fields: [speciesId], references: [id])
+
+  @@id([userId, speciesId])
+}
+
+model RecordEntry {
+  id          String @id @default(cuid())
+  scope       String
+  speciesId   String?
+  waterbodyId String?
+  userId      String
+  catchId     String
+  weightG     Int
+  heldFrom    DateTime @default(now())
+  previousUserId String?
+  user        User @relation(fields: [userId], references: [id])
+
+  @@index([scope, speciesId, waterbodyId])
+}
+
+model Npc {
+  id          String @id
+  slug        String @unique
+  name        String
+  role        String
+  waterbodyId String?
+  waterbody   Waterbody? @relation(fields: [waterbodyId], references: [id])
+  greeting    String
+  rumors      Json
+  quests      Quest[]
+}
+
+model Quest {
+  id          String @id
+  slug        String @unique
+  npcId       String?
+  npc         Npc? @relation(fields: [npcId], references: [id])
+  kind        QuestKind
+  title       String
+  description String
+  objectives  Json
+  rewards     Json
+  progress    QuestProgress[]
+}
+
+model QuestProgress {
+  userId    String
+  questId   String
+  status    String @default("active")
+  progress  Json
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quest     Quest @relation(fields: [questId], references: [id])
+
+  @@id([userId, questId])
+}
+
+model FaunaSpecies {
+  id          String @id
+  slug        String @unique
+  name        String
+  kind        String
+  description String
+  rare        Boolean @default(false)
+  dangerous   Boolean @default(false)
+  hint        String?
+  spawns      FaunaSpawn[]
+}
+
+model FaunaSpawn {
+  faunaId     String
+  waterbodyId String
+  abundance   Float @default(1)
+  fauna       FaunaSpecies @relation(fields: [faunaId], references: [id])
+  waterbody   Waterbody @relation(fields: [waterbodyId], references: [id])
+
+  @@id([faunaId, waterbodyId])
+}
+
+model WorldClock {
+  id            String @id @default("global")
+  season        Season @default(SUMMER)
+  dayOfYear     Int    @default(180)
+  minutes       Int    @default(480)
+  weather       WeatherKind @default(CLEAR)
+  temperatureC  Float  @default(18)
+  waterTempC    Float  @default(16)
+  pressureHpa   Float  @default(1013)
+  windKmh       Float  @default(6)
+  waterClarity  Float  @default(0.7)
+  moonPhase     Float  @default(0.4)
+  eventFlags    Json   @default("{}")
+  updatedAt     DateTime @updatedAt
+}
+
+model WorldEvent {
+  id          String @id @default(cuid())
+  slug        String
+  title       String
+  description String
+  waterbodyId String?
+  waterbody   Waterbody? @relation(fields: [waterbodyId], references: [id])
+  kind        String
+  startsAt    DateTime
+  endsAt      DateTime
+  modifiers   Json
+  active      Boolean @default(true)
+}
+
+model Club {
+  id          String @id @default(cuid())
+  name        String @unique
+  tag         String @unique
+  emblem      String @default("anchor")
+  description String @default("")
+  level       Int @default(1)
+  xp          Int @default(0)
+  createdAt   DateTime @default(now())
+  members     ClubMember[]
+}
+
+model ClubMember {
+  clubId String
+  userId String @unique
+  role   ClubRole @default(MEMBER)
+  clubXp Int @default(0)
+  club   Club @relation(fields: [clubId], references: [id])
+  user   User @relation(fields: [userId], references: [id])
+
+  @@id([clubId, userId])
+}
+
+model ChatMessage {
+  id        String @id @default(cuid())
+  channel   ChatChannel
+  roomId    String
+  userId    String
+  body      String
+  system    Boolean @default(false)
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id])
+
+  @@index([channel, roomId, createdAt])
+}
+
+model ChatReport {
+  id         String @id @default(cuid())
+  reporterId String
+  messageId  String
+  reason     String
+  createdAt  DateTime @default(now())
+  reporter   User @relation(fields: [reporterId], references: [id])
+}
+
+model Friendship {
+  ownerId  String
+  friendId String
+  status   String @default("pending")
+  owner    User @relation("FriendOwner", fields: [ownerId], references: [id])
+  friend   User @relation("FriendTarget", fields: [friendId], references: [id])
+
+  @@id([ownerId, friendId])
+}
+
+model Tournament {
+  id          String @id @default(cuid())
+  slug        String @unique
+  title       String
+  format      String
+  fair        Boolean @default(false)
+  waterbodyId String?
+  speciesId   String?
+  method      FishingMethod?
+  startsAt    DateTime
+  endsAt      DateTime
+  rewards     Json
+  entries     TournamentEntry[]
+}
+
+model TournamentEntry {
+  tournamentId String
+  userId       String
+  score        Float @default(0)
+  bestWeightG  Int @default(0)
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  user         User @relation(fields: [userId], references: [id])
+
+  @@id([tournamentId, userId])
+}
+
+model PremiumGrant {
+  id        String @id @default(cuid())
+  userId    String
+  days      Int
+  xpBoost   Float @default(0.2)
+  coinBoost Float @default(0.1)
+  startsAt  DateTime @default(now())
+  endsAt    DateTime
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LedgerEntry {
+  id        String @id @default(cuid())
+  userId    String
+  kind      TransactionKind
+  delta     Int
+  balance   Int
+  meta      Json
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id        String @id @default(cuid())
+  actorId   String?
+  actor     User? @relation("AuditActor", fields: [actorId], references: [id])
+  action    String
+  target    String
+  payload   Json
+  createdAt DateTime @default(now())
 }
