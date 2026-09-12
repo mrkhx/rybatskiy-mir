@@ -244,6 +244,125 @@ namespace RybatskiyMir.World
             return go.transform;
         }
 
+        public static Mesh Tube(float rBot, float rTop, int seg = 12, bool caps = true)
+        {
+            seg = Mathf.Max(6, seg);
+            var rings = 2;
+            var vCount = seg * rings + (caps ? 2 : 0);
+            var verts = new Vector3[vCount];
+            var uv = new Vector2[vCount];
+            var cols = new Color[vCount];
+            for (int r = 0; r < rings; r++)
+            {
+                float y = r;
+                float rad = r == 0 ? rBot : rTop;
+                for (int i = 0; i < seg; i++)
+                {
+                    var a = i / (float)seg * Mathf.PI * 2f;
+                    int idx = r * seg + i;
+                    verts[idx] = new Vector3(Mathf.Cos(a) * rad, y, Mathf.Sin(a) * rad);
+                    uv[idx] = new Vector2(i / (float)seg, r);
+                    cols[idx] = Color.white;
+                }
+            }
+            int cap0 = -1, cap1 = -1;
+            if (caps)
+            {
+                cap0 = seg * 2;
+                cap1 = cap0 + 1;
+                verts[cap0] = new Vector3(0, 0, 0);
+                verts[cap1] = new Vector3(0, 1, 0);
+                uv[cap0] = new Vector2(0.5f, 0);
+                uv[cap1] = new Vector2(0.5f, 1);
+                cols[cap0] = cols[cap1] = Color.white;
+            }
+            var tris = new System.Collections.Generic.List<int>(seg * 12);
+            for (int i = 0; i < seg; i++)
+            {
+                int n = (i + 1) % seg;
+                int a = i, b = n, c = seg + i, d = seg + n;
+                tris.Add(a); tris.Add(c); tris.Add(b);
+                tris.Add(b); tris.Add(c); tris.Add(d);
+                if (caps)
+                {
+                    tris.Add(cap0); tris.Add(b); tris.Add(a);
+                    tris.Add(cap1); tris.Add(c); tris.Add(d);
+                }
+            }
+            var mesh = new Mesh { name = "tube" };
+            mesh.vertices = verts;
+            mesh.uv = uv;
+            mesh.colors = cols;
+            mesh.triangles = tris.ToArray();
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        public static Mesh Ellipsoid(int seg = 14)
+        {
+            seg = Mathf.Max(8, seg);
+            int rings = seg / 2;
+            var verts = new System.Collections.Generic.List<Vector3>();
+            var uv = new System.Collections.Generic.List<Vector2>();
+            for (int y = 0; y <= rings; y++)
+            {
+                var v = y / (float)rings;
+                var phi = v * Mathf.PI;
+                var sy = Mathf.Cos(phi);
+                var r = Mathf.Sin(phi);
+                for (int x = 0; x <= seg; x++)
+                {
+                    var u = x / (float)seg;
+                    var th = u * Mathf.PI * 2f;
+                    verts.Add(new Vector3(Mathf.Cos(th) * r, sy, Mathf.Sin(th) * r));
+                    uv.Add(new Vector2(u, 1f - v));
+                }
+            }
+            var tris = new System.Collections.Generic.List<int>();
+            int stride = seg + 1;
+            for (int y = 0; y < rings; y++)
+            for (int x = 0; x < seg; x++)
+            {
+                int i = y * stride + x;
+                tris.Add(i); tris.Add(i + stride); tris.Add(i + 1);
+                tris.Add(i + 1); tris.Add(i + stride); tris.Add(i + stride + 1);
+            }
+            var mesh = new Mesh { name = "ellipsoid" };
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uv);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        public static Transform TubeChild(string name, Transform parent, Vector3 localPos, float rBot, float rTop, float height, Material mat, int seg = 12)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localScale = new Vector3(1f, height, 1f);
+            go.AddComponent<MeshFilter>().sharedMesh = Tube(rBot, rTop, seg);
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = mat;
+            r.shadowCastingMode = ShadowCastingMode.On;
+            return go.transform;
+        }
+
+        public static Transform BallChild(string name, Transform parent, Vector3 localPos, Vector3 scale, Material mat, int seg = 12)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localScale = scale;
+            go.AddComponent<MeshFilter>().sharedMesh = Ellipsoid(seg);
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = mat;
+            r.shadowCastingMode = ShadowCastingMode.On;
+            return go.transform;
+        }
+
         public static void SetLayerRecursively(GameObject go, int layer)
         {
             go.layer = layer;
