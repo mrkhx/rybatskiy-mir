@@ -1,4 +1,6 @@
 import { PrismaClient, type Prisma } from "@prisma/client";
+import { SPECIES_DIETS } from "../src/game/diets";
+import { HARVEST_PATCHES } from "../src/game/harvest";
 import {
   fauna,
   items,
@@ -33,10 +35,17 @@ async function main(): Promise<void> {
 
   for (const fish of species) {
     const { spots: spotLinks, legendary, legendaryLore, ...rest } = fish;
+    const diet = SPECIES_DIETS[fish.id] ?? null;
+    const payload = {
+      ...rest,
+      legendary: Boolean(legendary),
+      legendaryLore: legendaryLore ?? null,
+      diet: diet === null ? Prisma.JsonNull : (diet as Prisma.InputJsonValue),
+    };
     await prisma.fishSpecies.upsert({
       where: { id: fish.id },
-      update: { ...rest, legendary: Boolean(legendary), legendaryLore: legendaryLore ?? null },
-      create: { ...rest, legendary: Boolean(legendary), legendaryLore: legendaryLore ?? null },
+      update: payload,
+      create: payload,
     });
     await prisma.waterbodySpecies.upsert({
       where: { waterbodyId_speciesId: { waterbodyId: "forest-lake", speciesId: fish.id } },
@@ -130,6 +139,33 @@ async function main(): Promise<void> {
       where: { id: quest.id },
       update: quest,
       create: quest,
+    });
+  }
+
+  for (const patch of HARVEST_PATCHES) {
+    const data = {
+      waterbodyId: patch.waterbodyId,
+      slug: patch.slug,
+      name: patch.name,
+      kind: patch.kind,
+      description: patch.description,
+      soilType: patch.soilType,
+      biotope: patch.biotope,
+      currentStock: patch.maxStock,
+      maxStock: patch.maxStock,
+      regenerationPerHour: patch.regenerationPerHour,
+      qualityPotential: patch.qualityPotential,
+      requiredSkill: patch.requiredSkill,
+      tools: patch.tools as Prisma.InputJsonValue,
+      seasons: patch.seasons as Prisma.InputJsonValue,
+      yields: patch.yields as Prisma.InputJsonValue,
+      weatherBonus: patch.weatherBonus as Prisma.InputJsonValue,
+    };
+    const { currentStock, ...meta } = data;
+    await prisma.baitHarvestPatch.upsert({
+      where: { id: patch.id },
+      update: meta,
+      create: { id: patch.id, currentStock, ...meta },
     });
   }
 

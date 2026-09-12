@@ -321,6 +321,8 @@ model Spot {
   species       SpotSpecies[]
   catches       Catch[]
   sessions      FishingSession[]
+  feeding       FeedingSpot[]
+  pressure      SpotPressure?
 
   @@unique([waterbodyId, slug])
 }
@@ -347,6 +349,7 @@ model FishSpecies {
   behavior        String
   legendary       Boolean @default(false)
   legendaryLore   String?
+  diet            Json?
   waterbodies     WaterbodySpecies[]
   spots           SpotSpecies[]
   catches         Catch[]
@@ -401,6 +404,9 @@ model InventoryItem {
   quality   String @default("normal")
   equipped  Boolean @default(false)
   slot      String?
+  freshness Float @default(1)
+  liveliness Float?
+  harvestedAt DateTime?
   user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
   item      Item @relation(fields: [itemId], references: [id])
 
@@ -474,6 +480,9 @@ model FishingSession {
   lineItemId    String?
   baitItemId    String?
   lureItemId    String?
+  groundbaitItemId String?
+  retrieve      String?
+  playerHint    String?
   castForce     Float?
   castDir       Float?
   depthM        Float?
@@ -510,6 +519,7 @@ model Catch {
   rodItemId   String?
   baitItemId  String?
   lureItemId  String?
+  retrieve    String?
   weather     WeatherKind
   timeOfDay   TimeOfDay
   season      Season
@@ -526,6 +536,58 @@ model Catch {
 
   @@index([userId, createdAt])
   @@index([speciesId, weightG])
+}
+
+model FeedingSpot {
+  id                String   @id @default(cuid())
+  waterbodyId       String
+  spotId            String
+  mixItemId         String
+  intensity         Float
+  nutritionalValue  Float
+  attraction        Float
+  saturation        Float
+  createdAt         DateTime
+  peakAt            DateTime
+  expiresAt         DateTime
+  current           Float
+  spot              Spot     @relation(fields: [spotId], references: [id])
+
+  @@index([spotId, expiresAt])
+}
+
+model SpotPressure {
+  spotId     String    @id
+  pressure   Float     @default(0)
+  castCount  Int       @default(0)
+  lastCastAt DateTime?
+  updatedAt  DateTime  @updatedAt
+  spot       Spot      @relation(fields: [spotId], references: [id])
+}
+
+model BaitHarvestPatch {
+  id                   String    @id
+  waterbodyId          String
+  slug                 String
+  name                 String
+  kind                 String
+  description          String
+  soilType             String
+  biotope              String
+  currentStock         Float
+  maxStock             Float
+  regenerationPerHour  Float
+  qualityPotential     Float
+  requiredSkill        Int
+  tools                Json
+  seasons              Json
+  yields               Json
+  weatherBonus         Json
+  lastHarvestAt        DateTime?
+  stockUpdatedAt       DateTime  @default(now())
+  depletion            Float     @default(0)
+
+  @@unique([waterbodyId, slug])
 }
 
 model DiaryEntry {
