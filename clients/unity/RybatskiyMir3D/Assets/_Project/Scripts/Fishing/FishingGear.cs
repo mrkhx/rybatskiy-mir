@@ -136,13 +136,23 @@ namespace RybatskiyMir.Fishing
             if (Hand) Hand.localRotation = _gripLocal;
         }
 
-        public void Holster(Transform spine)
+        public void Holster(Transform mount)
         {
             ClearAim();
-            if (!Hand || !spine) return;
-            Hand.SetParent(spine, false);
-            Hand.localPosition = new Vector3(0.16f, 0.04f, -0.18f);
-            Hand.localRotation = Quaternion.Euler(18f, 6f, -32f);
+            if (!Hand || !mount) return;
+            Hand.SetParent(mount, false);
+            var socket = mount.name.IndexOf("Mount", System.StringComparison.OrdinalIgnoreCase) >= 0
+                         || mount.name.IndexOf("Grip", System.StringComparison.OrdinalIgnoreCase) >= 0;
+            if (socket)
+            {
+                Hand.localPosition = Vector3.zero;
+                Hand.localRotation = Quaternion.Euler(18f, 6f, -32f);
+            }
+            else
+            {
+                Hand.localPosition = new Vector3(0.16f, 0.04f, -0.18f);
+                Hand.localRotation = Quaternion.Euler(18f, 6f, -32f);
+            }
             SetVisible(true, false, false, false);
         }
 

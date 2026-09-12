@@ -13,7 +13,7 @@ VK **не** центр архитектуры. Backend остаётся един
 - проект и C# slice **есть в git** и открываются в Unity 6;
 - Play Mode, скриншоты 3D, Windows/Android/WebGL билды здесь **не запускались**;
 - web-preview по-прежнему показывает 2.5D прототип;
-- рыбак — stylized humanoid из примитивов по палитре art bible, **не** капсула и **не** финальный SK_Fisherman;
+- рыбак — authored FBX `SM_Fisherman` (Humanoid, CC0 body + original clothes), **не** капсула;
 - сцена — компактный runtime-blockout Лесного озера (чаша, мостик, сосны-конусы, камыш, кувшинки, коряги, волновая вода). Это промежуточная стадия art bible §12.1, не shipping-кадр.
 
 Блокирующих архитектурных проблем нет: API рыбалки переиспользуется как есть, CORS для native не нужен, VK/WebGL сознательно отложен.
@@ -181,7 +181,7 @@ Android default: MEDIUM. Desktop: HIGH.
 ## 13. Следующий этап
 
 1. Авторский мостик + берег (SM_OldBridge) вместо runtime planks.
-2. SK_Fisherman humanoid + animset IDLE/WALK/RUN/SIT/CAST/FIGHT.
+2. Authored clips IDLE/WALK/RUN/SIT/CAST/FIGHT on the same Humanoid (procedural poses cover the slice).
 3. Water asset (Gerstner + intersection foam + planar HIGH).
 4. Socket.IO RealtimeClient вместо REST poll.
 5. Android IL2CPP smoke.

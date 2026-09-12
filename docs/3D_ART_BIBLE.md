@@ -72,8 +72,8 @@ Production template: **Лесное озеро — Старый мостик**.
 - Одежда: куртка, жилет, штаны, сапоги, кепка. Сумка — позже.
 - Rig: humanoid bone chain (Hips → Spine → Chest → Neck → Head, руки/ноги).
 - Удочка — отдельный объект, крепится к правой кисти, не впечена в меш.
-- Slice: runtime organic humanoid (трубки/эллипсоиды, не кубы). Авторский FBX — следующий art pass.
-- Полибюджет hero: 8–25k tris. Текстуры 1–2K albedo + mask.
+- Slice: authored FBX `SM_Fisherman` (CC0 male body + original fishing clothes/rig). Runtime capsules — только fallback, если FBX нет.
+- Полибюджет hero: ~27k tris LOD0. Текстуры 1K albedo + cloth normal.
 
 Анимации (обязательный набор):
 

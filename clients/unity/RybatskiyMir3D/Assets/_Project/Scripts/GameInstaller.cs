@@ -67,8 +67,8 @@ namespace RybatskiyMir
             camGo.transform.position = player.transform.position - player.transform.forward * 4.6f + Vector3.up * 1.7f;
 
             var body = player.GetComponent<FishermanBody>();
-            var gear = FishingGear.Build(body.RightHand);
-            gear.Holster(body.Spine);
+            var gear = FishingGear.Build(body.RodHand);
+            gear.Holster(body.RodHolster);
             _fishing = gameObject.AddComponent<FishingDirector>();
             _fishing.Client = fishing;
             _fishing.Input = _input;
