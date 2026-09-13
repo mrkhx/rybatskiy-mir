@@ -18,7 +18,7 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
   useEffect(() => {
     quality.current = sceneQuality();
     const img = new Image();
-    img.src = "/scene/forest-lake/float.webp";
+    img.src = "/scene/forest-lake/float.webp?v=12";
     img.onload = () => {
       floatImg.current = img;
     };
@@ -78,8 +78,8 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
         ctx.beginPath();
         const y0 = h * (0.48 + i * 0.07);
         const amp = (4 + i * 1.4) * (storm ? 1.35 : 1);
-        ctx.strokeStyle = `rgba(220,240,244,${0.18 - i * 0.025})`;
-        ctx.lineWidth = 1.15;
+        ctx.strokeStyle = `rgba(210,224,226,${0.1 - i * 0.014})`;
+        ctx.lineWidth = 0.85;
         for (let x = -24; x <= w + 24; x += 14) {
           const y = y0
             + Math.sin(x * 0.018 + t * (0.7 + i * 0.13) + i) * amp
@@ -188,8 +188,8 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
         ctx.moveTo(X(p.tipX), Y(p.tipY));
         if (p.lineBroken) ctx.lineTo(X(p.tipX + 4), Y(p.tipY + 8));
         else ctx.quadraticCurveTo(X((p.tipX + endX) / 2), Y((p.tipY + endY) / 2) + sag, X(endX), Y(endY));
-        ctx.strokeStyle = p.lineBroken ? "rgba(220,210,190,0.25)" : "rgba(236,228,214,0.84)";
-        ctx.lineWidth = p.lineSag < 0.12 ? 1.7 : 1.15;
+        ctx.strokeStyle = p.lineBroken ? "rgba(180,176,168,0.2)" : "rgba(196, 202, 196, 0.38)";
+        ctx.lineWidth = p.lineSag < 0.12 ? 1.05 : 0.75;
         ctx.stroke();
       }
 
@@ -198,21 +198,21 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
       ctx.beginPath();
       ctx.moveTo(X(p.gripX), Y(p.gripY));
       ctx.quadraticCurveTo(X(mx), Y(my + 0.6), X(p.tipX), Y(p.tipY));
-      ctx.strokeStyle = "#2a1c10";
-      ctx.lineWidth = 2.35;
+      ctx.strokeStyle = "#2c281e";
+      ctx.lineWidth = 1.65;
       ctx.lineCap = "round";
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(X(p.gripX), Y(p.gripY));
       ctx.quadraticCurveTo(X(mx), Y(my), X(p.tipX), Y(p.tipY));
-      ctx.strokeStyle = "#c4a06a";
-      ctx.lineWidth = 1.35;
+      ctx.strokeStyle = "#7a6b4e";
+      ctx.lineWidth = 0.95;
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(X(p.gripX + 0.15), Y(p.gripY - 0.15));
-      ctx.quadraticCurveTo(X(mx), Y(my - 0.3), X(p.tipX - 0.1), Y(p.tipY - 0.15));
-      ctx.strokeStyle = "#ead9b4";
-      ctx.lineWidth = 0.5;
+      ctx.moveTo(X(p.gripX + 0.12), Y(p.gripY - 0.12));
+      ctx.quadraticCurveTo(X(mx), Y(my - 0.25), X(p.tipX - 0.08), Y(p.tipY - 0.12));
+      ctx.strokeStyle = "rgba(198, 186, 158, 0.7)";
+      ctx.lineWidth = 0.4;
       ctx.stroke();
 
       if (p.lureFlying) {
@@ -236,15 +236,15 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
         ctx.beginPath();
         ctx.ellipse(0, 0.4, 6.2, 2, 0, 0, Math.PI * 2);
         ctx.fill();
-        const dip = p.floatSub * 5;
+        const dip = p.floatSub * 4;
         const fi = floatImg.current;
         if (fi && fi.complete && fi.naturalHeight > 0) {
-          ctx.drawImage(fi, -3.5, -11 + dip, 7, 16);
+          ctx.drawImage(fi, -2.6, -13 + dip, 5.2, 18);
         } else {
-          ctx.fillStyle = "#c45c4a";
-          ctx.fillRect(-2.6, -8 + dip, 5.2, 12);
-          ctx.fillStyle = "#f2eee6";
-          ctx.fillRect(-1.8, -12 + dip, 3.6, 5);
+          ctx.fillStyle = "#8a4a40";
+          ctx.fillRect(-1.6, -9 + dip, 3.2, 11);
+          ctx.fillStyle = "#e6e0d4";
+          ctx.fillRect(-1.1, -13 + dip, 2.2, 4);
         }
         ctx.restore();
       }

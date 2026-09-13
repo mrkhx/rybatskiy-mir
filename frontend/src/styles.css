@@ -223,21 +223,21 @@ body {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(210, 230, 235, 0.1), transparent 22%),
-    radial-gradient(ellipse 48% 22% at 38% 16%, rgba(255,255,255,0.14), transparent 70%),
-    radial-gradient(ellipse 36% 16% at 72% 44%, rgba(170, 210, 220, 0.1), transparent 70%);
-  mix-blend-mode: screen;
-  animation: glint 11s ease-in-out infinite;
+    linear-gradient(180deg, rgba(210, 230, 235, 0.06), transparent 22%),
+    radial-gradient(ellipse 48% 22% at 38% 16%, rgba(255,255,255,0.07), transparent 70%);
+  mix-blend-mode: soft-light;
+  opacity: 0.55;
+  animation: glint 14s ease-in-out infinite;
 }
 .water-caustic {
   position: absolute;
   inset: -8%;
   background:
-    radial-gradient(ellipse 40% 18% at 30% 20%, rgba(255,255,255,0.12), transparent 70%),
-    radial-gradient(ellipse 28% 12% at 64% 48%, rgba(180,230,240,0.08), transparent 70%);
-  mix-blend-mode: screen;
-  opacity: 0.65;
-  animation: waterDrift 18s ease-in-out infinite;
+    radial-gradient(ellipse 40% 18% at 30% 20%, rgba(255,255,255,0.06), transparent 70%),
+    radial-gradient(ellipse 28% 12% at 64% 48%, rgba(180,230,240,0.04), transparent 70%);
+  mix-blend-mode: soft-light;
+  opacity: 0.4;
+  animation: waterDrift 22s ease-in-out infinite;
 }
 
 .stage-rig {
@@ -246,13 +246,13 @@ body {
 }
 .pier-seat {
   position: absolute;
-  left: 31%;
-  top: 62%;
-  width: clamp(96px, 10.5vw, 132px);
-  aspect-ratio: 558 / 1622;
+  left: 30%;
+  top: 60%;
+  width: clamp(150px, 16.5vw, 208px);
+  aspect-ratio: 944 / 1239;
   height: auto;
   z-index: 4;
-  transform: translate(-50%, -96%);
+  transform: translate(-44%, -70%);
   pointer-events: none;
 }
 .stage-rig .angler {
@@ -264,17 +264,17 @@ body {
   top: auto;
   bottom: auto;
   z-index: 4;
-  filter: saturate(0.8) brightness(0.93) contrast(1.04);
+  filter: saturate(0.7) brightness(0.9) contrast(0.96);
 }
 .stage-rig .angler::after {
   content: "";
   position: absolute;
-  left: 28%;
-  width: 44%;
-  bottom: 1%;
-  height: 5%;
-  background: radial-gradient(ellipse at center, rgba(6, 12, 14, 0.55), transparent 70%);
-  filter: blur(3px);
+  left: 22%;
+  width: 52%;
+  bottom: 26%;
+  height: 8%;
+  background: radial-gradient(ellipse at center, rgba(6, 12, 14, 0.42), transparent 70%);
+  filter: blur(4px);
   pointer-events: none;
 }
 
@@ -284,8 +284,8 @@ body {
   display: block;
   overflow: visible;
   position: relative;
-  transform: none;
-  transform-origin: 50% 96%;
+  transform: translate3d(0, calc(var(--breath, 0) * 0.4px), 0);
+  transform-origin: 44% 70%;
 }
 .angler-rig.painted { pointer-events: none; }
 .angler-rig .master {
@@ -301,10 +301,10 @@ body {
 }
 .angler-rig .wrist {
   position: absolute;
-  left: 68%;
-  top: 54%;
-  width: 6px;
-  height: 6px;
+  left: 74%;
+  top: 53%;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: transparent;
   display: block;
@@ -883,9 +883,9 @@ body {
     margin-right: auto;
   }
   .pier-seat {
-    left: 32%;
-    top: 61%;
-    width: clamp(104px, 9.5vw, 140px);
+    left: 31%;
+    top: 58.5%;
+    width: clamp(160px, 14.5vw, 214px);
   }
   .reeds-l { height: 52%; }
   .reeds-r { height: 48%; }
@@ -900,9 +900,9 @@ body {
   .meta { justify-content: flex-start; flex: 1 1 auto; }
   .chip { padding: 4px 8px; font-size: 0.72rem; }
   .pier-seat {
-    left: 29%;
-    top: 63%;
-    width: clamp(92px, 24vw, 120px);
+    left: 28%;
+    top: 61%;
+    width: clamp(138px, 38vw, 188px);
   }
 }
 

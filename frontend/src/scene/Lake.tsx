@@ -18,7 +18,7 @@ type LakeProps = {
 };
 
 const A = "/scene/forest-lake";
-const V = "v=11";
+const V = "v=12";
 
 export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, hookNonce = 0 }: LakeProps) {
   const root = useRef<HTMLDivElement>(null);
@@ -79,7 +79,7 @@ export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, h
         if (b.width > 0) {
           const aspect = a.width / a.height;
           const ang = (pose.rodAngle * Math.PI) / 180;
-          const len = 6.4;
+          const len = 6.6;
           pose = {
             ...pose,
             gripX: ((b.left + b.width / 2 - a.left) / a.width) * 100,
