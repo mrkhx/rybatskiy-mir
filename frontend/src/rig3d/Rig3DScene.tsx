@@ -209,13 +209,16 @@ export function Rig3DScene({
     fishMixer.update(dt);
 
     const clip = charRef.current;
-    // Do not parent the rod onto the bind-pose character. WORLD-copied clips
-    // twisted Neck/Head; the restored production GLB is rest-pose only.
-    if (!attached.current && clip !== "IDLE") {
+    const wantsRod = clip !== "IDLE" && clip !== "WALK" && clip !== "RETURN_IDLE";
+    if (wantsRod && !attached.current) {
       attached.current = attachRodToHand(man, rod);
+      rod.visible = true;
+    } else if (!wantsRod && attached.current) {
+      rod.removeFromParent();
+      rod.visible = false;
+      attached.current = false;
     }
 
-    applyRightGrip(man, clip);
     if (attached.current) aimRod(man, rod, clip);
     applyRodBend(rod, tensionFor(clip));
     spinReel(rod, dt, clip === "REEL");

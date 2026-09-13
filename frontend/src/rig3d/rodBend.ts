@@ -45,6 +45,7 @@ const _rodWorldQ = new THREE.Quaternion();
 const _worldQ = new THREE.Quaternion();
 const _fwd = new THREE.Vector3();
 const _down = new THREE.Vector3(0, -1, 0);
+const _up = new THREE.Vector3(0, 1, 0);
 const _reelOff = new THREE.Vector3();
 const _from = new THREE.Vector3();
 const _qRoll = new THREE.Quaternion();
@@ -88,8 +89,11 @@ export function aimRod(man: THREE.Object3D, rod: THREE.Object3D, clip: CharClip)
     } else {
       _dir.normalize();
       _fwd.set(0, 0.18, 1).applyQuaternion(_worldQ);
-      const blend = clip.startsWith("CAST") || clip === "HOOKSET" ? 0.25 : 0.7;
+      const blend = clip === "READY" ? 0.45 : clip.startsWith("CAST") || clip === "HOOKSET" ? 0.25 : 0.7;
       _dir.addScaledVector(_fwd, blend).normalize();
+      if (clip === "READY") {
+        _dir.addScaledVector(_up, 0.12).normalize();
+      }
     }
   } else {
     _dir.set(0.52, -0.74, -0.28).applyQuaternion(_worldQ).normalize();

@@ -20,7 +20,6 @@ const CURL: Record<string, [number, number, number]> = {
 };
 
 const FISHING: Set<CharClip> = new Set([
-  "READY",
   "AIM",
   "CAST_BACKSWING",
   "CAST_FORWARD",
