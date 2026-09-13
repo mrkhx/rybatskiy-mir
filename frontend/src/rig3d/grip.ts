@@ -36,6 +36,8 @@ const FISHING: Set<CharClip> = new Set([
 const _e = new THREE.Euler();
 const _q = new THREE.Quaternion();
 const _gripLocal = new THREE.Vector3();
+const _mountPos = new THREE.Vector3();
+const _mountScl = new THREE.Vector3();
 
 /** Additive finger curl so the right hand reads as holding the grip.
 
@@ -55,15 +57,21 @@ export function applyRightGrip(root: THREE.Object3D, clip: CharClip, amount = 1)
 }
 
 export function ensureRodGrip(man: THREE.Object3D): THREE.Object3D | null {
-  const existing = man.getObjectByName("CharRodMount") ?? man.getObjectByName("RodGrip");
-  if (existing && existing.parent?.name === "Hand_R") return existing;
   const hand = man.getObjectByName("Hand_R");
   if (!hand) return null;
-  const g = new THREE.Object3D();
-  g.name = "CharRodMount";
-  hand.add(g);
-  // Palm of Rocketbox Hand_R: along the bone, slightly in front of the knuckles.
-  g.position.set(0.015, 0.085, 0.012);
+  hand.updateWorldMatrix(true, false);
+  hand.matrixWorld.decompose(_mountPos, _q, _mountScl);
+  const boneScale = (Math.abs(_mountScl.x) + Math.abs(_mountScl.y) + Math.abs(_mountScl.z)) / 3;
+  const compensate = boneScale > 1e-8 ? 1 / boneScale : 100;
+
+  let g = man.getObjectByName("CharRodMount");
+  if (!g || g.parent !== hand) {
+    g = new THREE.Object3D();
+    g.name = "CharRodMount";
+    hand.add(g);
+  }
+  g.scale.setScalar(compensate);
+  g.position.set(0, 6, 2);
   g.rotation.set(Math.PI / 2, 0, Math.PI / 2);
   return g;
 }
@@ -76,19 +84,7 @@ export function attachRodToHand(man: THREE.Object3D, rod: THREE.Object3D): boole
   mount.add(rod);
   rod.position.set(0, 0, 0);
   rod.rotation.set(0, 0, 0);
-  rod.scale.setScalar(1.18);
-  const blank = rod.getObjectByName("BlankMesh");
-  if (blank) blank.scale.set(2.2, 2.2, 1);
-  if (!rod.getObjectByName("RodReadCore")) {
-    const core = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.011, 0.006, 1.72, 8),
-      new THREE.MeshBasicMaterial({ color: 0x6a6458 }),
-    );
-    core.name = "RodReadCore";
-    core.rotation.x = Math.PI / 2;
-    core.position.set(0, 0, -1.05);
-    rod.add(core);
-  }
+  rod.scale.setScalar(0.72);
   rod.updateMatrixWorld(true);
   const grip = rod.getObjectByName("RodGrip");
   if (grip) {

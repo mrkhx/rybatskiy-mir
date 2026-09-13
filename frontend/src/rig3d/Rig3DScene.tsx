@@ -196,6 +196,7 @@ export function Rig3DScene({
     hardenRodMaterials(rod);
     hardenMaterials(pike);
     pike.rotation.y = Math.PI / 2;
+    (window as unknown as { __RIG3D?: { man: THREE.Object3D; rod: THREE.Object3D } }).__RIG3D = { man, rod };
     onReports?.({
       fisherman: inspectFisherman(manGltf, fishermanUrl, fishermanSource),
       rod: inspectRod(rodGltf, rodUrl, rodSource),

@@ -81,10 +81,15 @@ export function aimRod(man: THREE.Object3D, rod: THREE.Object3D, clip: CharClip)
   _worldQ.setFromRotationMatrix(man.matrixWorld);
 
   if (clip === "READY") {
-    // Character facing (world +Z) plus 20° up. Body yaw in the READY clip
-    // already turns the fisherman 3/4 so 0° is not end-on.
+    // Do not aim down the camera axis: a metric rod through the lens
+    // reads as a tree trunk. Send it right and slightly up so 0°/90°
+    // see handle, reel and blank as a silhouette.
     man.getWorldDirection(_fwd);
-    _dir.copy(_fwd).addScaledVector(_up, 0.36).normalize();
+    _from.crossVectors(_up, _fwd).normalize();
+    _dir.copy(_fwd).multiplyScalar(0.2);
+    _dir.addScaledVector(_from, 0.9);
+    _dir.addScaledVector(_up, 0.28);
+    _dir.normalize();
   } else if (FISHING_AIM.has(clip) && handL) {
     handR.getWorldPosition(_a);
     handL.getWorldPosition(_b);
