@@ -1,4 +1,16 @@
+/**
+ * READY attachment — consumes the locked approved baseline.
+ * Do not retune READY here. See approvedReady.ts.
+ */
 import * as THREE from "three";
+import {
+  READY_PITCH,
+  READY_REEL_SEAT_ALONG,
+  READY_WRIST_OUT,
+  READY_THUMB_OUT,
+  READY_NUDGE_IN,
+  READY_FIST_Z,
+} from "./approvedReady";
 
 const _gripOff = new THREE.Vector3();
 const _anchor = new THREE.Vector3();
@@ -13,33 +25,7 @@ const _axisZ = new THREE.Vector3(0, 0, 1);
 const _axisX = new THREE.Vector3(1, 0, 0);
 const _axisY = new THREE.Vector3(0, 1, 0);
 
-const DEG = Math.PI / 180;
-const PITCH = 30 * DEG;
-const REEL_SEAT_ALONG = 0.11;
-/** Tiny outward roll of the right fist, local X, absolute each frame. */
-const WRIST_OUT = 12 * DEG;
-/** Thumb 15° away from the torso, around the handle (local Y). */
-const THUMB_OUT = 33 * DEG;
-/** Man-local +Z = toward torso at 90°. Small inward shift only. */
-const _nudgeIn = new THREE.Vector3(0, 0, 0.04);
-
 const REST_Q: Record<string, THREE.Quaternion> = {};
-const FIST_Z: Record<string, number> = {
-  Index_R_1: -42 * DEG,
-  Index_R_2: -58 * DEG,
-  Index_R_3: -32 * DEG,
-  Middle_R_1: -40 * DEG,
-  Middle_R_2: -60 * DEG,
-  Middle_R_3: -34 * DEG,
-  Ring_R_1: -38 * DEG,
-  Ring_R_2: -56 * DEG,
-  Ring_R_3: -32 * DEG,
-  Pinky_R_1: -34 * DEG,
-  Pinky_R_2: -52 * DEG,
-  Pinky_R_3: -30 * DEG,
-  Thumb_R_2: -24 * DEG,
-  Thumb_R_3: -18 * DEG,
-};
 
 function getBone(man: THREE.Object3D, name: string): THREE.Bone | null {
   let found: THREE.Bone | null = null;
@@ -52,12 +38,12 @@ function getBone(man: THREE.Object3D, name: string): THREE.Bone | null {
 
 /** Fingers only. Does not touch Hand_R / wrist / arm. */
 export function closeRightFist(man: THREE.Object3D, _rod?: THREE.Object3D): void {
-  for (const name of Object.keys(FIST_Z)) {
+  for (const name of Object.keys(READY_FIST_Z)) {
     const b = getBone(man, name);
     if (!b) continue;
     if (!REST_Q[name]) REST_Q[name] = b.quaternion.clone();
     b.quaternion.copy(REST_Q[name]);
-    _qz.setFromAxisAngle(_axisZ, FIST_Z[name]);
+    _qz.setFromAxisAngle(_axisZ, READY_FIST_Z[name]);
     b.quaternion.multiply(_qz);
   }
 }
@@ -68,9 +54,9 @@ export function rollRightWristOut(man: THREE.Object3D, _rod?: THREE.Object3D): v
   if (!hand) return;
   if (!REST_Q.Hand_R) REST_Q.Hand_R = hand.quaternion.clone();
   hand.quaternion.copy(REST_Q.Hand_R);
-  _qz.setFromAxisAngle(_axisX, WRIST_OUT);
+  _qz.setFromAxisAngle(_axisX, READY_WRIST_OUT);
   hand.quaternion.multiply(_qz);
-  _qz.setFromAxisAngle(_axisY, THUMB_OUT);
+  _qz.setFromAxisAngle(_axisY, READY_THUMB_OUT);
   hand.quaternion.multiply(_qz);
 }
 
@@ -87,7 +73,7 @@ export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean
   rod.visible = true;
   rod.scale.setScalar(1);
 
-  _y.set(-Math.cos(PITCH), Math.sin(PITCH), 0).normalize();
+  _y.set(-Math.cos(READY_PITCH), Math.sin(READY_PITCH), 0).normalize();
   _z.set(0, -1, 0);
   _z.addScaledVector(_y, -_z.dot(_y));
   if (_z.lengthSq() < 1e-8) _z.set(0, 0, 1);
@@ -112,8 +98,8 @@ export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean
   _invMan.copy(man.matrixWorld).invert();
   _anchor.applyMatrix4(_invMan);
 
-  _gripOff.set(0, REEL_SEAT_ALONG, 0).applyQuaternion(rod.quaternion);
-  rod.position.copy(_anchor).sub(_gripOff).add(_nudgeIn);
+  _gripOff.set(0, READY_REEL_SEAT_ALONG, 0).applyQuaternion(rod.quaternion);
+  rod.position.copy(_anchor).sub(_gripOff).add(READY_NUDGE_IN);
   return true;
 }
 
