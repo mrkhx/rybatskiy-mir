@@ -274,7 +274,7 @@ export function Rig3DScene({
     fishMixer.update(dt);
 
     const clip = charRef.current;
-    const wantsRod = clip === "READY";
+    const wantsRod = false;
     if (wantsRod && !attached.current) {
       attached.current = attachRodToHand(man, rod);
       rod.visible = true;
