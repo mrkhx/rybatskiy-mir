@@ -10,16 +10,17 @@ import { PRODUCTION } from "../scene3d/assets/paths";
 import "../rig/rig.css";
 import "./rig3d.css";
 
-type View = "side" | "34" | "reel" | "spool" | "stripper" | "lastguides" | "tiptop";
+type View = "side" | "reel" | "reel34" | "spool" | "rotor" | "roller" | "foot" | "handle";
 
 const CAM: Record<View, { pos: [number, number, number]; target: [number, number, number]; fov: number }> = {
   side: { pos: [4.6, 0.4, 1.2], target: [0, 0, 1.2], fov: 32 },
-  "34": { pos: [3.0, 1.4, -0.4], target: [0, 0, 1.2], fov: 34 },
-  reel: { pos: [0.18, 0.05, 0.28], target: [0, -0.04, 0.28], fov: 28 },
-  spool: { pos: [0.14, 0.04, 0.34], target: [0, -0.05, 0.30], fov: 26 },
-  stripper: { pos: [0.16, 0.04, 0.66], target: [0, -0.025, 0.66], fov: 26 },
-  lastguides: { pos: [0.14, 0.04, 2.16], target: [0, -0.015, 2.18], fov: 24 },
-  tiptop: { pos: [0.08, 0.025, 2.44], target: [0, -0.006, 2.445], fov: 22 },
+  reel: { pos: [0.14, -0.05, 0.28], target: [0, -0.055, 0.28], fov: 26 },
+  reel34: { pos: [0.12, 0.02, 0.16], target: [0, -0.05, 0.29], fov: 28 },
+  spool: { pos: [0.02, -0.055, 0.42], target: [0, -0.055, 0.30], fov: 24 },
+  rotor: { pos: [0.10, -0.03, 0.38], target: [0, -0.05, 0.31], fov: 24 },
+  roller: { pos: [0.06, 0.01, 0.36], target: [0, -0.034, 0.31], fov: 20 },
+  foot: { pos: [0.10, -0.005, 0.28], target: [0, -0.02, 0.28], fov: 24 },
+  handle: { pos: [-0.12, -0.05, 0.28], target: [-0.04, -0.055, 0.28], fov: 24 },
 };
 
 function CamRig({ view }: { view: View }) {
@@ -69,6 +70,7 @@ function RodScene({ tension, view }: { tension: number; view: View }) {
 
   useFrame(({ camera }) => {
     applyRodBend(rod, tension);
+    (window as unknown as { __ROD?: THREE.Object3D }).__ROD = rod;
     if (!sticky.current) return;
     const c = CAM[view];
     camera.position.set(...c.pos);
@@ -134,9 +136,9 @@ export function RodLab() {
       </section>
       <nav className="rig-dock">
         <div className="rig-toggles">
-          {(["side", "34", "reel", "spool", "stripper", "lastguides", "tiptop"] as View[]).map((v) => (
+          {(["side", "reel", "reel34", "spool", "rotor", "roller", "foot", "handle"] as View[]).map((v) => (
             <button key={v} type="button" className={view === v ? "is-on" : ""} onClick={() => setView(v)}>
-              {v === "34" ? "3/4" : v}
+              {v}
             </button>
           ))}
         </div>

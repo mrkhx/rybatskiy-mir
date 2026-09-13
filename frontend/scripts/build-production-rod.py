@@ -101,6 +101,55 @@ def join(objs, name):
     return objs[0]
 
 
+def lathe(name, profile, segs=28):
+    """Revolve (radius, z) profile around +Z."""
+    import bmesh
+
+    bm = bmesh.new()
+    rings = []
+    for r, z in profile:
+        r = max(float(r), 1e-5)
+        ring = []
+        for i in range(segs):
+            a = 2 * math.pi * i / segs
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), z)))
+        rings.append(ring)
+    bm.verts.ensure_lookup_table()
+    for i in range(len(rings) - 1):
+        for j in range(segs):
+            bm.faces.new(
+                (
+                    rings[i][j],
+                    rings[i][(j + 1) % segs],
+                    rings[i + 1][(j + 1) % segs],
+                    rings[i + 1][j],
+                )
+            )
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    bm.free()
+    ob = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(ob)
+    return ob
+
+
+def bevel(o, width=0.005, segments=3):
+    bpy.context.view_layer.objects.active = o
+    o.select_set(True)
+    m = o.modifiers.new("bev", "BEVEL")
+    m.width = width
+    m.segments = segments
+    m.limit_method = "NONE"
+    bpy.ops.object.modifier_apply(modifier="bev")
+    o.select_set(False)
+    return o
+    bpy.ops.object.empty_add(type="PLAIN_AXES", location=loc)
+    o = bpy.context.active_object
+    o.name = name
+    o.empty_display_size = 0.02
+    return o
+
+
 def empty(name, loc):
     bpy.ops.object.empty_add(type="PLAIN_AXES", location=loc)
     o = bpy.context.active_object
@@ -157,9 +206,11 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 cork = mat("cork", (0.62, 0.48, 0.32), 0.84)
 graphite = mat("graphite", (0.11, 0.12, 0.13), 0.34, 0.2)
 seat_m = mat("seat", (0.08, 0.08, 0.09), 0.36, 0.35)
-chrome = mat("chrome", (0.80, 0.82, 0.84), 0.16, 0.92)
-reel_m = mat("reel_body", (0.14, 0.15, 0.17), 0.30, 0.55)
-spool_m = mat("spool", (0.58, 0.24, 0.14), 0.50, 0.04)
+chrome = mat("chrome", (0.72, 0.74, 0.76), 0.18, 0.88)
+reel_m = mat("reel_body", (0.07, 0.075, 0.08), 0.32, 0.45)
+rotor_m = mat("rotor", (0.10, 0.11, 0.12), 0.28, 0.5)
+spool_m = mat("spool", (0.42, 0.44, 0.46), 0.28, 0.62)
+knob_m = mat("knob", (0.09, 0.09, 0.10), 0.55, 0.08)
 tape = mat("tape", (0.12, 0.13, 0.12), 0.72)
 
 # ----- handle along +Z -----
@@ -181,42 +232,125 @@ handle = join([butt, rear, seat, hood, fore, wrap], "HandleMesh")
 blank = make_blank()
 blank.data.materials.append(graphite)
 
-# ----- spinning reel UNDER the seat -----
-# −Y is down. Spool axis = +Z (toward tip). Open face toward +Z.
-seat_z = (SEAT[0] + SEAT[1]) * 0.5  # 0.28
-# foot clamped in the hood, along the rod
-foot = cube("ReelFoot", (0.007, 0.004, 0.055), (0, -0.015, seat_z))
-foot.data.materials.append(chrome)
-stem = cyl("ReelStem", 0.0042, 0.016, (0, -0.026, seat_z), rot=(math.pi / 2, 0, 0), verts=12)
-stem.data.materials.append(chrome)
-# body hangs below the stem
-body = sphere("ReelBody", 0.020, (0, -0.048, seat_z - 0.004), 18)
-body.data.materials.append(reel_m)
-body.scale = (0.92, 1.05, 1.12)
-apply_rs(body)
-# spool: cylinder ALONG +Z, in front of the body toward the tip
-spool = cyl("Spool", 0.0135, 0.022, (0, -0.050, seat_z + 0.018), verts=22)
-spool.data.materials.append(spool_m)
-lip = torus("SpoolLip", 0.0142, 0.0010, (0, -0.050, seat_z + 0.028), maj=18, mn=6)
-lip.data.materials.append(chrome)
-# rotor around the spool, still along Z
-rotor = cyl("Rotor", 0.0165, 0.008, (0, -0.050, seat_z + 0.008), verts=18)
-rotor.data.materials.append(reel_m)
-# bail: ring in the YZ plane around the spool (hole along X would be wrong).
-# Hole along Z so line can leave toward the tip.
-bail = torus("Bail", 0.0175, 0.00115, (0, -0.050, seat_z + 0.012), maj=20, mn=6)
-bail.data.materials.append(chrome)
-# line roller at the top of the bail, toward the blank
-roller = sphere("LineRoller", 0.0032, (0, -0.033, seat_z + 0.012), 10)
-roller.data.materials.append(chrome)
-housing = join([foot, stem, body, spool, lip, rotor, bail, roller], "ReelHousing")
+# ----- spinning reel UNDER the seat (2500-class, handle on −X / left) -----
+# Blender: +Z tip, −Y down, −X left (crank with the left hand).
+seat_z = (SEAT[0] + SEAT[1]) * 0.5
+cy, cz = -0.054, seat_z - 0.004
 
-# crank on +X side of the body
-arm = cyl("CrankArm", 0.0024, 0.034, (0.026, -0.048, seat_z - 0.004), rot=(0, 0, math.pi / 2), verts=10)
-arm.data.materials.append(chrome)
-knob = sphere("CrankKnob", 0.0062, (0.043, -0.048, seat_z - 0.004), 12)
-knob.data.materials.append(seat_m)
-crank = join([arm, knob], "ReelHandleMesh")
+# 1. foot — thin plate in the seat hood, flared ends
+foot = cube("ReelFoot", (0.009, 0.0028, 0.064), (0, -0.0135, seat_z))
+foot.data.materials.append(chrome)
+bevel(foot, 0.0012, 2)
+# 2. stem
+stem = cyl("ReelStem", 0.0036, 0.018, (0, -0.024, seat_z), rot=(math.pi / 2, 0, 0), verts=14)
+stem.data.materials.append(chrome)
+stem2 = cyl("ReelStemFlare", 0.005, 0.006, (0, -0.034, seat_z), rot=(math.pi / 2, 0, 0), verts=14)
+stem2.data.materials.append(reel_m)
+
+# 3. body — rounded housing, longer back-to-front than a sphere
+body = cube("ReelBody", (0.028, 0.036, 0.040), (0, cy, cz))
+body.data.materials.append(reel_m)
+bevel(body, 0.0075, 4)
+# rear gear bulge
+bulge = cube("GearHouse", (0.024, 0.030, 0.016), (0, cy + 0.002, cz - 0.016))
+bulge.data.materials.append(reel_m)
+bevel(bulge, 0.005, 3)
+# right side plate (no handle)
+plate = cyl("SidePlate", 0.011, 0.004, (0.015, cy, cz), rot=(0, math.pi / 2, 0), verts=20)
+plate.data.materials.append(rotor_m)
+
+# 4. rotor cup in front of the body
+rotor_z = cz + 0.016
+rotor_cup = cyl("RotorCup", 0.0175, 0.010, (0, cy, rotor_z), verts=28)
+rotor_cup.data.materials.append(rotor_m)
+rotor_back = cyl("RotorBack", 0.018, 0.003, (0, cy, rotor_z - 0.006), verts=28)
+rotor_back.data.materials.append(rotor_m)
+rotor_lip = torus("RotorLip", 0.0178, 0.00085, (0, cy, rotor_z + 0.005), maj=28, mn=6)
+rotor_lip.data.materials.append(chrome)
+# rotor arms to the bail (left/right)
+arm_l = cyl("RotorArmL", 0.0022, 0.018, (-0.016, cy, rotor_z + 0.006), verts=10)
+arm_l.data.materials.append(rotor_m)
+arm_r = cyl("RotorArmR", 0.0022, 0.018, (0.016, cy, rotor_z + 0.006), verts=10)
+arm_r.data.materials.append(rotor_m)
+
+# 5. spool — lathed profile, open face toward +Z (tip)
+spool = lathe(
+    "Spool",
+    [
+        (0.0148, 0.000),
+        (0.0150, 0.0025),
+        (0.0112, 0.0045),
+        (0.0104, 0.012),
+        (0.0108, 0.017),
+        (0.0152, 0.0195),
+        (0.0152, 0.0215),
+        (0.0060, 0.0215),
+        (0.0055, 0.024),
+    ],
+    segs=32,
+)
+spool.location = (0, cy, rotor_z + 0.002)
+spool.data.materials.append(spool_m)
+
+# 6. drag knob on the front of the spool
+drag = lathe(
+    "DragKnob",
+    [
+        (0.0060, 0.000),
+        (0.0074, 0.0015),
+        (0.0074, 0.0045),
+        (0.0048, 0.0055),
+        (0.0022, 0.0060),
+        (0.0001, 0.0060),
+    ],
+    segs=20,
+)
+drag.location = (0, cy, rotor_z + 0.026)
+drag.data.materials.append(knob_m)
+
+# 7. bail arm — wire around the FRONT of the spool (hole along Z)
+bail_z = rotor_z + 0.022
+bail = torus("BailArm", 0.0188, 0.00115, (0, cy, bail_z), maj=28, mn=8)
+bail.data.materials.append(chrome)
+# 8. line roller at the TOP of the bail (toward the blank)
+roller = cyl("LineRoller", 0.0028, 0.0055, (0, cy + 0.0185, bail_z), rot=(0, math.pi / 2, 0), verts=14)
+roller.data.materials.append(chrome)
+roller_pin = cyl("RollerPin", 0.0011, 0.008, (0, cy + 0.0185, bail_z), rot=(0, math.pi / 2, 0), verts=8)
+roller_pin.data.materials.append(reel_m)
+
+housing = join(
+    [
+        foot,
+        stem,
+        stem2,
+        body,
+        bulge,
+        plate,
+        rotor_cup,
+        rotor_back,
+        rotor_lip,
+        arm_l,
+        arm_r,
+        spool,
+        drag,
+        bail,
+        roller,
+        roller_pin,
+    ],
+    "ReelHousing",
+)
+
+# 9. handle on the LEFT (−X): arm + oval knob
+h_y, h_z = cy, cz
+h_arm = cyl("CrankArm", 0.0022, 0.036, (-0.034, h_y, h_z), rot=(0, 0, math.pi / 2), verts=12)
+h_arm.data.materials.append(chrome)
+h_hub = cyl("CrankHub", 0.0042, 0.006, (-0.017, h_y, h_z), rot=(0, 0, math.pi / 2), verts=14)
+h_hub.data.materials.append(rotor_m)
+h_knob = sphere("CrankKnob", 0.0068, (-0.053, h_y, h_z), 16)
+h_knob.scale = (0.72, 1.45, 0.78)
+apply_rs(h_knob)
+h_knob.data.materials.append(knob_m)
+crank = join([h_arm, h_hub, h_knob], "ReelHandleMesh")
 
 # ----- guide train on the UNDERSIDE (−Y), same plane as the reel -----
 # (t along blank, inner radius of ring)
@@ -318,10 +452,10 @@ bone_empty("RodGrip", (0, 0, 0.12), "RodGripBone")
 bone_empty("RodTip", (0, 0, TIP_Z), f"Blank_{N_BONES - 1}")
 bone_empty("LineStart", (0, -(R1 + 0.006), TIP_Z), f"Blank_{N_BONES - 1}")
 bone_empty("Reel", (0, -0.048, seat_z), "RodGripBone")
-bone_empty("ReelHandle", (0.043, -0.048, seat_z - 0.004), "RodGripBone")
+bone_empty("ReelHandle", (-0.053, cy, cz), "RodGripBone")
 bone_empty("RodSupportTarget", (0, 0, 0.48), "Blank_0")
-bone_empty("ReelHandleTarget", (0.043, -0.048, seat_z - 0.004), "RodGripBone")
-bone_empty("ReelRotor", (0, -0.050, seat_z + 0.008), "RodGripBone")
+bone_empty("ReelHandleTarget", (-0.053, cy, cz), "RodGripBone")
+bone_empty("ReelRotor", (0, cy, rotor_z), "RodGripBone")
 
 tris = sum(
     max(0, len(p.vertices) - 2) for o in bpy.data.objects if o.type == "MESH" for p in o.data.polygons

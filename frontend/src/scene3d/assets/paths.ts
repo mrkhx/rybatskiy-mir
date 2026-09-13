@@ -1,6 +1,6 @@
 export const PRODUCTION = {
   fisherman: "/models/production/fisherman.glb?v=ready4",
-  rod: "/models/production/rod.glb?v=rod3",
+  rod: "/models/production/rod.glb?v=rod4",
   pike: "/models/production/pike.glb",
 } as const;
 
