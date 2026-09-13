@@ -13,7 +13,7 @@ import type { AdapterReport } from "../scene3d/assets/contract";
 import { importHumanoid } from "../scene3d/assets/retarget";
 import { twoBoneIK } from "./ik";
 import { applyRodBend, aimRod, spinReel, worldOf } from "./rodBend";
-import { applyRightGrip, placeRodReady } from "./grip";
+import { placeRodReady } from "./grip";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
 
 useGLTF.preload(PRODUCTION.fisherman);
