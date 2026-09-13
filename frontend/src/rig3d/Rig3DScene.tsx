@@ -256,7 +256,7 @@ export function Rig3DScene({
 
   return (
     <group>
-      <group rotation={[0, yaw + extraYaw.current, 0]}>
+      <group rotation={[0, yaw + extraYaw.current + Math.PI, 0]}>
         <primitive object={man} position={[0, 0, 0]} />
       </group>
       <group position={[0.55, 0.55, -1.65]} scale={fishScale}>

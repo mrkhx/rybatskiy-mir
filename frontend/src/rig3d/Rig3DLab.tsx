@@ -107,7 +107,8 @@ export function Rig3DLab() {
   const tog = (key: keyof DebugFlags) => setDebug((d) => ({ ...d, [key]: !d[key] }));
   const dpr = useMemo<[number, number]>(() => [1, 1.5], []);
   const available = useMemo(() => new Set(reports?.fisherman.clips ?? []), [reports]);
-  const productionReady = Boolean(reports?.fisherman.pass && reports.rod.pass && reports.pike.pass);
+  const fishermanPass = Boolean(reports?.fisherman.pass);
+  const productionReady = Boolean(fishermanPass && reports?.rod.pass && reports?.pike.pass);
   const azimuthDeg = Math.round(((yaw * 180) / Math.PI + 360) % 360);
 
   return (
@@ -132,11 +133,18 @@ export function Rig3DLab() {
 
       <section className="rig-stage rig3d-stage" aria-label="3D риг рыбака">
         <div className="rig3d-banner" role="status">
-          {productionReady ? (
-            <strong className="is-pass">PRODUCTION PASS</strong>
+          {fishermanPass ? (
+            <>
+              <strong className="is-pass">FISHERMAN PASS</strong>
+              <span>
+                {productionReady
+                  ? "production set complete"
+                  : "персонаж production · rod/pike ещё debug"}
+              </span>
+            </>
           ) : (
             <>
-              <strong className="is-fail">PRODUCTION FAIL</strong>
+              <strong className="is-fail">FISHERMAN FAIL</strong>
               <span>
                 {assets.productionPresent.fisherman
                   ? "файл в production не проходит contract"

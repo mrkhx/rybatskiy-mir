@@ -23,10 +23,15 @@ export type ResolvedAssets = {
 
 async function probe(url: string): Promise<boolean> {
   try {
-    const res = await fetch(url, { method: "GET", cache: "no-store" });
-    if (!res.ok) return false;
+    const head = await fetch(url, { method: "HEAD", cache: "no-store" });
+    if (head.ok) {
+      const len = Number(head.headers.get("content-length") || "0");
+      if (len >= 1024) return true;
+    }
+    const res = await fetch(url, { method: "GET", headers: { Range: "bytes=0-11" }, cache: "no-store" });
+    if (!res.ok && res.status !== 206) return false;
     const buf = await res.arrayBuffer();
-    if (buf.byteLength < 12) return false;
+    if (buf.byteLength < 4) return false;
     const magic = new TextDecoder().decode(new Uint8Array(buf, 0, 4));
     return magic === "glTF";
   } catch {

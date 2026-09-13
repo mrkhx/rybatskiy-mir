@@ -84,6 +84,7 @@ export function inspectFisherman(
       "actionClips",
       missingClips.length === 0,
       missingClips.length ? `missing ${missingClips.join(", ")}` : "required clips ok",
+      "warn",
     ),
     check(
       "locomotionClips",

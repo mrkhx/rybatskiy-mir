@@ -28,7 +28,22 @@ debug proxy with a banner. That is not the game character.
   `IDLE WALK READY AIM CAST_BACKSWING CAST_FORWARD CAST_FOLLOW WAIT
   BITE_REACTION HOOKSET REEL FIGHT_LIGHT FIGHT_HEAVY LAND RETURN_IDLE`
 - Optional: `TURN_LEFT TURN_RIGHT STEP_LEFT STEP_RIGHT`
-- Node `RodGrip` parented to `Hand_R` (or runtime will parent the rod).
+# Current production fisherman
+
+`fisherman.glb` is a **real 360° skinned humanoid**, not a capsule/proxy.
+
+- Source mesh/rig: Microsoft Rocketbox `Gardener_Male_01` (MIT)
+  https://github.com/microsoft/Microsoft-Rocketbox
+- Clothing albedo recolored to muted olive jacket, khaki trousers, dark rubber boots
+- 2K PBR: BaseColor + Normal (OpenGL) + Roughness
+- Bones renamed to the contract humanoid + fingers
+- T-pose bind. Clip present: `IDLE` (rest). Fishing locomotion/action clips are **not** authored yet
+- Cap is a simple skinned mesh on `Head` (placeholder visor; replace with a modeled cap later)
+- Work gloves are 5-finger skinned (grip-ready). Bare-hand swap is a later art pass
+- Rod and pike production files are still missing
+
+Do not copy `/models/rig3d/` proxies into this folder.
+
 
 ## Rod
 
