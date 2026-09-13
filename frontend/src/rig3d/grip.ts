@@ -38,9 +38,13 @@ const _e = new THREE.Euler();
 const _q = new THREE.Quaternion();
 const _gripLocal = new THREE.Vector3();
 
-/** Additive finger curl so the right hand reads as holding the grip. */
+/** Additive finger curl so the right hand reads as holding the grip.
+
+  Disabled on the restored bind-pose character. These Euler offsets were
+  authored for Mixamo bone roll and twist Rocketbox fingers.
+*/
 export function applyRightGrip(root: THREE.Object3D, clip: CharClip, amount = 1) {
-  if (!FISHING.has(clip) && clip !== "IDLE") return;
+  if (!FISHING.has(clip)) return;
   const w = clip === "IDLE" ? 0.35 * amount : amount;
   for (const [name, xyz] of Object.entries(CURL)) {
     const b = root.getObjectByName(name);
