@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, setToken, token, type Player, type Session } from "./api/client";
 import { Lake } from "./scene/Lake";
 import { isVkMiniApp } from "./vk/mini-app";
+import { RigLab } from "./rig/RigLab";
 
 type Tab = "fish" | "map" | "bag" | "shop" | "log" | "profile";
 type Method = "FLOAT" | "SPINNING";
@@ -120,6 +121,15 @@ const SKILL: Record<string, string> = {
 };
 
 export default function App() {
+  if (typeof window !== "undefined") {
+    const q = new URLSearchParams(window.location.search);
+    const path = window.location.pathname.replace(/\/+$/, "");
+    if (q.get("rig") === "1" || path.endsWith("/dev/rig")) return <RigLab />;
+  }
+  return <GameApp />;
+}
+
+function GameApp() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [error, setError] = useState("");
   const [booting, setBooting] = useState(true);
