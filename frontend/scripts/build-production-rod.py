@@ -25,16 +25,16 @@ FORE = (0.34, 0.44)
 BLANK_Z0 = 0.44
 BLANK_LEN = 2.01
 TIP_Z = BLANK_Z0 + BLANK_LEN  # 2.45
-R0, RMID, R1 = 0.0068, 0.0034, 0.00085
+R0, RMID, R1 = 0.0066, 0.0032, 0.00055
 
 
 def blank_r(t: float) -> float:
     t = max(0.0, min(1.0, t))
-    if t < 0.75:
-        u = t / 0.75
+    if t < 0.72:
+        u = t / 0.72
         return R0 * (1 - u) + RMID * u
-    u = (t - 0.75) / 0.25
-    ease = u * u
+    u = (t - 0.72) / 0.28
+    ease = u * u * u
     return RMID * (1 - ease) + R1 * ease
 
 
@@ -150,6 +150,25 @@ def bevel(o, width=0.005, segments=3):
     return o
 
 
+def keep_arc(obj, pred):
+    """Delete mesh verts that fail pred(co)."""
+    import bmesh
+
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    dead = [v for v in bm.verts if not pred(v.co)]
+    bmesh.ops.delete(bm, geom=dead, context="VERTS")
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+    return obj
+    bpy.ops.object.empty_add(type="PLAIN_AXES", location=loc)
+    o = bpy.context.active_object
+    o.name = name
+    o.empty_display_size = 0.02
+    return o
+
+
 def empty(name, loc):
     bpy.ops.object.empty_add(type="PLAIN_AXES", location=loc)
     o = bpy.context.active_object
@@ -220,137 +239,158 @@ rear = cyl("RearGrip", 0.0135, REAR[1] - REAR[0], (0, 0, (REAR[0] + REAR[1]) * 0
 rear.data.materials.append(cork)
 seat = cyl("ReelSeat", 0.0112, SEAT[1] - SEAT[0], (0, 0, (SEAT[0] + SEAT[1]) * 0.5), verts=24)
 seat.data.materials.append(seat_m)
-# hood / clamp on the underside of the seat so the foot reads as locked in
-hood = cube("SeatHood", (0.016, 0.007, 0.07), (0, -0.012, (SEAT[0] + SEAT[1]) * 0.5))
-hood.data.materials.append(seat_m)
+# hood / locking rings of a spinning reel seat (front fixed + rear nut)
+hood_f = cube("SeatHoodF", (0.015, 0.006, 0.022), (0, -0.011, SEAT[1] - 0.014))
+hood_f.data.materials.append(seat_m)
+hood_r = cube("SeatHoodR", (0.015, 0.006, 0.022), (0, -0.011, SEAT[0] + 0.014))
+hood_r.data.materials.append(seat_m)
+nut = cyl("SeatNut", 0.0125, 0.012, (0, 0, SEAT[0] + 0.006), verts=12)
+nut.data.materials.append(chrome)
 fore = cyl("Foregrip", 0.0106, FORE[1] - FORE[0], (0, 0, (FORE[0] + FORE[1]) * 0.5), verts=24)
 fore.data.materials.append(cork)
 wrap = cyl("Wrap", 0.0084, 0.024, (0, 0, FORE[1] + 0.004), verts=16)
 wrap.data.materials.append(tape)
-handle = join([butt, rear, seat, hood, fore, wrap], "HandleMesh")
+handle = join([butt, rear, seat, hood_f, hood_r, nut, fore, wrap], "HandleMesh")
 
 blank = make_blank()
 blank.data.materials.append(graphite)
 
-# ----- spinning reel UNDER the seat (2500-class, handle on −X / left) -----
-# Blender: +Z tip, −Y down, −X left (crank with the left hand).
+# ----- spinning reel UNDER the seat -----
+# Blender: +Z = tip, −Y = down, −X = angler's left (left-hand crank).
+# Foot is a T-plate in the seat. Bail is a C-wire in front of the spool, not a
+# full hoop around the body. Handle is a 90° crank on −X.
 seat_z = (SEAT[0] + SEAT[1]) * 0.5
-cy, cz = -0.054, seat_z - 0.004
+cy, cz = -0.056, seat_z - 0.008
 
-# 1. foot — thin plate in the seat hood, flared ends
-foot = cube("ReelFoot", (0.009, 0.0028, 0.064), (0, -0.0135, seat_z))
-foot.data.materials.append(chrome)
-bevel(foot, 0.0012, 2)
-# 2. stem
-stem = cyl("ReelStem", 0.0036, 0.018, (0, -0.024, seat_z), rot=(math.pi / 2, 0, 0), verts=14)
-stem.data.materials.append(chrome)
-stem2 = cyl("ReelStemFlare", 0.005, 0.006, (0, -0.034, seat_z), rot=(math.pi / 2, 0, 0), verts=14)
-stem2.data.materials.append(reel_m)
+# T-foot: wide plate in the seat, like a real reel foot
+foot = cube("ReelFoot", (0.016, 0.0026, 0.078), (0, -0.0132, seat_z))
+foot.data.materials.append(reel_m)
+bevel(foot, 0.0010, 2)
+# neck of the T
+neck = cube("ReelFootNeck", (0.008, 0.004, 0.016), (0, -0.016, seat_z))
+neck.data.materials.append(reel_m)
+bevel(neck, 0.0014, 2)
+# stem hangs down and slightly back into the body
+stem = cube("ReelStem", (0.0075, 0.022, 0.011), (0, -0.028, seat_z - 0.002))
+stem.data.materials.append(reel_m)
+bevel(stem, 0.0022, 3)
 
-# 3. body — rounded housing, longer back-to-front than a sphere
-body = cube("ReelBody", (0.028, 0.036, 0.040), (0, cy, cz))
+# body: compact housing BEHIND the spool (gear case)
+body = cube("ReelBody", (0.030, 0.034, 0.034), (0, cy, cz))
 body.data.materials.append(reel_m)
-bevel(body, 0.0075, 4)
-# rear gear bulge
-bulge = cube("GearHouse", (0.024, 0.030, 0.016), (0, cy + 0.002, cz - 0.016))
-bulge.data.materials.append(reel_m)
-bevel(bulge, 0.005, 3)
-# right side plate (no handle)
-plate = cyl("SidePlate", 0.011, 0.004, (0.015, cy, cz), rot=(0, math.pi / 2, 0), verts=20)
+bevel(body, 0.008, 4)
+rear = cube("GearHouse", (0.026, 0.028, 0.018), (0, cy + 0.001, cz - 0.018))
+rear.data.materials.append(reel_m)
+bevel(rear, 0.0055, 3)
+# left hub (handle side) / right side plate
+hub_l = cyl("HandleHub", 0.0075, 0.007, (-0.016, cy, cz + 0.002), rot=(0, math.pi / 2, 0), verts=18)
+hub_l.data.materials.append(rotor_m)
+plate = cyl("SidePlate", 0.010, 0.004, (0.016, cy, cz + 0.002), rot=(0, math.pi / 2, 0), verts=20)
 plate.data.materials.append(rotor_m)
 
-# 4. rotor cup in front of the body
-rotor_z = cz + 0.016
-rotor_cup = cyl("RotorCup", 0.0175, 0.010, (0, cy, rotor_z), verts=28)
+# rotor cup in FRONT of the body
+rotor_z = cz + 0.018
+rotor_cup = cyl("RotorCup", 0.0168, 0.011, (0, cy, rotor_z), verts=32)
 rotor_cup.data.materials.append(rotor_m)
-rotor_back = cyl("RotorBack", 0.018, 0.003, (0, cy, rotor_z - 0.006), verts=28)
+rotor_back = cyl("RotorBack", 0.0174, 0.0032, (0, cy, rotor_z - 0.0065), verts=32)
 rotor_back.data.materials.append(rotor_m)
-rotor_lip = torus("RotorLip", 0.0178, 0.00085, (0, cy, rotor_z + 0.005), maj=28, mn=6)
+rotor_lip = torus("RotorLip", 0.0170, 0.0008, (0, cy, rotor_z + 0.0055), maj=32, mn=6)
 rotor_lip.data.materials.append(chrome)
-# rotor arms to the bail (left/right)
-arm_l = cyl("RotorArmL", 0.0022, 0.018, (-0.016, cy, rotor_z + 0.006), verts=10)
-arm_l.data.materials.append(rotor_m)
-arm_r = cyl("RotorArmR", 0.0022, 0.018, (0.016, cy, rotor_z + 0.006), verts=10)
-arm_r.data.materials.append(rotor_m)
+# two rotor arms in the XY plane at the front of the cup
+arm_roller = cube("RotorArmRoller", (0.005, 0.014, 0.006), (0.0, cy + 0.014, rotor_z + 0.004))
+arm_roller.data.materials.append(rotor_m)
+bevel(arm_roller, 0.0016, 2)
+arm_wire = cube("RotorArmWire", (0.005, 0.012, 0.006), (0.0, cy - 0.013, rotor_z + 0.004))
+arm_wire.data.materials.append(rotor_m)
+bevel(arm_wire, 0.0016, 2)
 
-# 5. spool — lathed profile, open face toward +Z (tip)
+# spool — lathed, open face toward the tip
 spool = lathe(
     "Spool",
     [
-        (0.0148, 0.000),
-        (0.0150, 0.0025),
-        (0.0112, 0.0045),
-        (0.0104, 0.012),
-        (0.0108, 0.017),
-        (0.0152, 0.0195),
-        (0.0152, 0.0215),
-        (0.0060, 0.0215),
-        (0.0055, 0.024),
+        (0.0152, 0.000),
+        (0.0154, 0.0020),
+        (0.0110, 0.0040),
+        (0.0102, 0.0135),
+        (0.0108, 0.0180),
+        (0.0156, 0.0205),
+        (0.0156, 0.0225),
+        (0.0062, 0.0225),
+        (0.0055, 0.0245),
     ],
-    segs=32,
+    segs=36,
 )
-spool.location = (0, cy, rotor_z + 0.002)
+spool.location = (0, cy, rotor_z + 0.001)
 spool.data.materials.append(spool_m)
 
-# 6. drag knob on the front of the spool
 drag = lathe(
     "DragKnob",
     [
-        (0.0060, 0.000),
-        (0.0074, 0.0015),
-        (0.0074, 0.0045),
-        (0.0048, 0.0055),
-        (0.0022, 0.0060),
-        (0.0001, 0.0060),
+        (0.0062, 0.000),
+        (0.0078, 0.0012),
+        (0.0078, 0.0048),
+        (0.0044, 0.0058),
+        (0.0020, 0.0064),
+        (0.0001, 0.0064),
     ],
-    segs=20,
+    segs=22,
 )
 drag.location = (0, cy, rotor_z + 0.026)
 drag.data.materials.append(knob_m)
 
-# 7. bail arm — wire around the FRONT of the spool (hole along Z)
-bail_z = rotor_z + 0.022
-bail = torus("BailArm", 0.0188, 0.00115, (0, cy, bail_z), maj=28, mn=8)
+# C-shaped bail WIRE in front of the spool (hole along Z, drop the hanging-down gap)
+bail_z = rotor_z + 0.023
+bail = torus("BailArm", 0.0176, 0.00095, (0, cy, bail_z), maj=36, mn=8)
 bail.data.materials.append(chrome)
-# 8. line roller at the TOP of the bail (toward the blank)
-roller = cyl("LineRoller", 0.0028, 0.0055, (0, cy + 0.0185, bail_z), rot=(0, math.pi / 2, 0), verts=14)
+keep_arc(bail, lambda co: (co.y - cy) > -0.011)  # keep top ~230° toward the blank
+# line roller at the TOP of the bail, toward the rod
+roller = cyl("LineRoller", 0.0031, 0.0062, (0.0, cy + 0.0172, bail_z), rot=(0, math.pi / 2, 0), verts=16)
 roller.data.materials.append(chrome)
-roller_pin = cyl("RollerPin", 0.0011, 0.008, (0, cy + 0.0185, bail_z), rot=(0, math.pi / 2, 0), verts=8)
-roller_pin.data.materials.append(reel_m)
+roller_h = cube("RollerHousing", (0.007, 0.006, 0.006), (0.0, cy + 0.016, bail_z - 0.001))
+roller_h.data.materials.append(rotor_m)
+bevel(roller_h, 0.0012, 2)
 
 housing = join(
     [
         foot,
+        neck,
         stem,
-        stem2,
         body,
-        bulge,
+        rear,
+        hub_l,
         plate,
         rotor_cup,
         rotor_back,
         rotor_lip,
-        arm_l,
-        arm_r,
+        arm_roller,
+        arm_wire,
         spool,
         drag,
         bail,
         roller,
-        roller_pin,
+        roller_h,
     ],
     "ReelHousing",
 )
 
-# 9. handle on the LEFT (−X): arm + oval knob
-h_y, h_z = cy, cz
-h_arm = cyl("CrankArm", 0.0022, 0.036, (-0.034, h_y, h_z), rot=(0, 0, math.pi / 2), verts=12)
+# Left-hand crank: shaft out of −X, then 90° arm back/down, oval knob
+h_arm = cyl("CrankShaft", 0.0024, 0.012, (-0.022, cy, cz + 0.002), rot=(0, 0, math.pi / 2), verts=12)
 h_arm.data.materials.append(chrome)
-h_hub = cyl("CrankHub", 0.0042, 0.006, (-0.017, h_y, h_z), rot=(0, 0, math.pi / 2), verts=14)
-h_hub.data.materials.append(rotor_m)
-h_knob = sphere("CrankKnob", 0.0068, (-0.053, h_y, h_z), 16)
-h_knob.scale = (0.72, 1.45, 0.78)
+# arm in YZ, pointing back (−Z) and slightly down
+crank_arm = cyl(
+    "CrankArm",
+    0.0023,
+    0.034,
+    (-0.028, cy - 0.004, cz - 0.014),
+    rot=(0.35, 0, 0),
+    verts=12,
+)
+crank_arm.data.materials.append(chrome)
+h_knob = sphere("CrankKnob", 0.0074, (-0.028, cy - 0.010, cz - 0.030), 18)
+h_knob.scale = (0.78, 0.82, 1.55)
 apply_rs(h_knob)
 h_knob.data.materials.append(knob_m)
-crank = join([h_arm, h_hub, h_knob], "ReelHandleMesh")
+crank = join([h_arm, crank_arm, h_knob], "ReelHandleMesh")
 
 # ----- guide train on the UNDERSIDE (−Y), same plane as the reel -----
 # (t along blank, inner radius of ring)
@@ -391,21 +431,21 @@ for i, (t, ring_r) in enumerate(GUIDES):
     gring.data.materials.append(chrome)
     guides.append(join([gfoot, gring], f"Guide{i}"))
 
-# tip-top: sleeve ON the blank end + tiny ring, no gap
-sleeve = cyl("TipSleeve", R1 + 0.00055, 0.009, (0, 0, TIP_Z - 0.0035), verts=12)
+# tip-top: metal tube ON the last millimetres of blank + tiny ring, same plane as guides
+sleeve = cyl("TipSleeve", R1 + 0.00045, 0.0075, (0, 0, TIP_Z - 0.0028), verts=14)
 sleeve.data.materials.append(chrome)
-tt_foot = cyl(
-    "TipFoot",
-    0.0006,
-    0.0045,
-    (0, -(R1 + 0.003), TIP_Z - 0.001),
+tt_frame = cyl(
+    "TipFrame",
+    0.00045,
+    0.0036,
+    (0, -(R1 + 0.0022), TIP_Z),
     rot=(math.pi / 2, 0, 0),
     verts=8,
 )
-tt_foot.data.materials.append(chrome)
-tt_ring = torus("TipRing", 0.00215, 0.00055, (0, -(R1 + 0.0062), TIP_Z - 0.001), maj=12, mn=6)
+tt_frame.data.materials.append(chrome)
+tt_ring = torus("TipRing", 0.0017, 0.00042, (0, -(R1 + 0.0046), TIP_Z), maj=14, mn=6)
 tt_ring.data.materials.append(chrome)
-tiptop = join([sleeve, tt_foot, tt_ring], "TipTop")
+tiptop = join([sleeve, tt_frame, tt_ring], "TipTop")
 
 # ----- armature along +Z -----
 bpy.ops.object.armature_add(enter_editmode=True, location=(0, 0, 0))
@@ -452,9 +492,9 @@ bone_empty("RodGrip", (0, 0, 0.12), "RodGripBone")
 bone_empty("RodTip", (0, 0, TIP_Z), f"Blank_{N_BONES - 1}")
 bone_empty("LineStart", (0, -(R1 + 0.006), TIP_Z), f"Blank_{N_BONES - 1}")
 bone_empty("Reel", (0, -0.048, seat_z), "RodGripBone")
-bone_empty("ReelHandle", (-0.053, cy, cz), "RodGripBone")
+bone_empty("ReelHandle", (-0.028, cy - 0.010, cz - 0.030), "RodGripBone")
 bone_empty("RodSupportTarget", (0, 0, 0.48), "Blank_0")
-bone_empty("ReelHandleTarget", (-0.053, cy, cz), "RodGripBone")
+bone_empty("ReelHandleTarget", (-0.028, cy - 0.010, cz - 0.030), "RodGripBone")
 bone_empty("ReelRotor", (0, cy, rotor_z), "RodGripBone")
 
 tris = sum(

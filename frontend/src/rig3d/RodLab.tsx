@@ -10,17 +10,14 @@ import { PRODUCTION } from "../scene3d/assets/paths";
 import "../rig/rig.css";
 import "./rig3d.css";
 
-type View = "side" | "reel" | "reel34" | "spool" | "rotor" | "roller" | "foot" | "handle";
+type View = "side" | "34" | "foot" | "reel" | "tiptop";
 
 const CAM: Record<View, { pos: [number, number, number]; target: [number, number, number]; fov: number }> = {
   side: { pos: [4.6, 0.4, 1.2], target: [0, 0, 1.2], fov: 32 },
-  reel: { pos: [0.14, -0.05, 0.28], target: [0, -0.055, 0.28], fov: 26 },
-  reel34: { pos: [0.12, 0.02, 0.16], target: [0, -0.05, 0.29], fov: 28 },
-  spool: { pos: [0.02, -0.055, 0.42], target: [0, -0.055, 0.30], fov: 24 },
-  rotor: { pos: [0.10, -0.03, 0.38], target: [0, -0.05, 0.31], fov: 24 },
-  roller: { pos: [0.06, 0.01, 0.36], target: [0, -0.034, 0.31], fov: 20 },
-  foot: { pos: [0.10, -0.005, 0.28], target: [0, -0.02, 0.28], fov: 24 },
-  handle: { pos: [-0.12, -0.05, 0.28], target: [-0.04, -0.055, 0.28], fov: 24 },
+  "34": { pos: [3.0, 1.3, -0.5], target: [0, 0, 1.2], fov: 34 },
+  foot: { pos: [0.11, -0.002, 0.28], target: [0, -0.018, 0.28], fov: 24 },
+  reel: { pos: [0.13, -0.02, 0.22], target: [0, -0.055, 0.29], fov: 26 },
+  tiptop: { pos: [0.07, 0.02, 2.445], target: [0, -0.005, 2.448], fov: 20 },
 };
 
 function CamRig({ view }: { view: View }) {
@@ -136,9 +133,9 @@ export function RodLab() {
       </section>
       <nav className="rig-dock">
         <div className="rig-toggles">
-          {(["side", "reel", "reel34", "spool", "rotor", "roller", "foot", "handle"] as View[]).map((v) => (
+          {(["side", "34", "foot", "reel", "tiptop"] as View[]).map((v) => (
             <button key={v} type="button" className={view === v ? "is-on" : ""} onClick={() => setView(v)}>
-              {v}
+              {v === "34" ? "3/4" : v}
             </button>
           ))}
         </div>
