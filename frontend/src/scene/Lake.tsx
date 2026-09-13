@@ -5,6 +5,7 @@ import { idlePose, solvePose, windAmount } from "./anim/pose";
 import type { Pose, SceneSnap } from "./anim/types";
 import { AnglerRig, type AnglerHandle } from "./live/AnglerRig";
 import { LiveCanvas, type LiveHandle } from "./live/LiveCanvas";
+import { sceneQuality } from "./quality";
 
 type LakeProps = {
   tod: string;
@@ -17,13 +18,14 @@ type LakeProps = {
 };
 
 const A = "/scene/forest-lake";
-const V = "v=5";
+const V = "v=6";
 
 export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, hookNonce = 0 }: LakeProps) {
   const root = useRef<HTMLDivElement>(null);
   const angler = useRef<AnglerHandle>(null);
   const live = useRef<LiveHandle>(null);
   const poseRef = useRef<Pose>(idlePose());
+  const quality = sceneQuality();
   const snap: SceneSnap = {
     sessionState: session?.state ?? null,
     tension: session?.tension ?? 0,
@@ -92,13 +94,16 @@ export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, h
       live.current?.draw(pose, t, dt, s.wx);
       if (lake) {
         lake.style.setProperty("--wind", windAmount(t, s.wx).toFixed(3));
+        lake.style.setProperty("--shake", (s.tension * 1.6).toFixed(3));
+        lake.style.setProperty("--breath", pose.breath.toFixed(3));
         lake.setAttribute("data-anim", state);
+        lake.setAttribute("data-quality", quality);
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [clock]);
+  }, [clock, quality]);
 
   return (
     <div
@@ -108,10 +113,13 @@ export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, h
       data-wx={wx}
       data-anim="IDLE"
       data-feed={feeding ? "1" : "0"}
+      data-quality={quality}
     >
       <img className="lyr sky par-far" src={`${A}/sky.webp?${V}`} alt="" />
       <div className="sun-glow par-far" />
       <img className="lyr far-forest par-far" src={`${A}/far-forest.webp?${V}`} alt="" />
+      <img className="lyr trees-l par-mid" src={`${A}/trees.webp?${V}`} alt="" />
+      <img className="lyr trees-r par-mid" src={`${A}/trees-b.webp?${V}`} alt="" />
 
       <div className="lyr water par-play">
         <img className="water-tex" src={`${A}/water.webp?${V}`} alt="" />
@@ -145,6 +153,7 @@ export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, h
       <div className="caustic-sheet" />
       <div className="weather-rain" />
       <div className="weather-snow" />
+      <div className="lightning" />
       {feeding && <div className="feed-ring" />}
     </div>
   );

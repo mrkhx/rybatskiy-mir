@@ -585,7 +585,10 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
           {tab === "fish" && (
             <div className="hud">
               <div className="panel hud-panel">
-                <p className="muted">{spot?.name} · {shownMethod === "FLOAT" ? "Поплавок" : "Спиннинг"}</p>
+                <div className="hud-status">
+                  <p className="muted">{spot?.name} · {shownMethod === "FLOAT" ? "Поплавок" : "Спиннинг"}</p>
+                  <p className="muted">{TOD[tod] ?? tod} · {WX[wx] ?? wx} · {depth.toFixed(1)} м</p>
+                </div>
                 {world?.feeding?.find((f) => f.spotId === shownSpotId) && (
                   <p className="ok">{world.feeding.find((f) => f.spotId === shownSpotId)?.label}</p>
                 )}

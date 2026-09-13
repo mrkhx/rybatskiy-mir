@@ -1,20 +1,32 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import type { Pose } from "../anim/types";
+import { sceneQuality, type Quality } from "../quality";
 
 type Ripple = { x: number; y: number; r: number; a: number; max: number };
+type Drop = { x: number; y: number; len: number; spd: number };
 export type LiveHandle = { draw: (pose: Pose, t: number, dt: number, wx: string) => void };
 
 export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ripples = useRef<Ripple[]>([]);
+  const drops = useRef<Drop[]>([]);
   const lastSplash = useRef(0);
+  const floatImg = useRef<HTMLImageElement | null>(null);
+  const quality = useRef<Quality>("HIGH");
+  const flash = useRef(0);
 
   useEffect(() => {
+    quality.current = sceneQuality();
+    const img = new Image();
+    img.src = "/scene/forest-lake/float.webp";
+    img.onload = () => {
+      floatImg.current = img;
+    };
     const cvs = canvasRef.current;
     if (!cvs) return;
     const fit = () => {
       const r = cvs.getBoundingClientRect();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const dpr = Math.min(quality.current === "LOW" ? 1 : 2, window.devicePixelRatio || 1);
       cvs.width = Math.max(1, Math.floor(r.width * dpr));
       cvs.height = Math.max(1, Math.floor(r.height * dpr));
       try {
@@ -47,77 +59,125 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
       const X = (n: number) => (n / 100) * w;
       const Y = (n: number) => (n / 100) * h;
       const rain = wx === "RAIN" || wx === "DOWNPOUR" || wx === "STORM";
+      const q = quality.current;
+      const storm = wx === "STORM";
 
       const spawn = (x: number, y: number, max: number, a = 0.45) => {
-        if (ripples.current.length > 22) ripples.current.shift();
+        const cap = q === "LOW" ? 8 : q === "MEDIUM" ? 14 : 22;
+        if (ripples.current.length > cap) ripples.current.shift();
         ripples.current.push({ x, y, r: 2, a, max });
       };
 
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, h * 0.45, w, h * 0.55);
+      ctx.rect(0, h * 0.44, w, h * 0.56);
       ctx.clip();
 
-      ctx.strokeStyle = "rgba(220,240,244,0.16)";
-      ctx.lineWidth = 1.2;
-      for (let i = 0; i < 4; i++) {
+      const waves = q === "LOW" ? 2 : 5;
+      for (let i = 0; i < waves; i++) {
         ctx.beginPath();
-        const y0 = h * (0.5 + i * 0.08);
-        for (let x = -20; x <= w + 20; x += 16) {
-          const y = y0 + Math.sin(x * 0.02 + t * (0.8 + i * 0.15) + i) * (3 + i);
-          if (x === -20) ctx.moveTo(x, y);
+        const y0 = h * (0.48 + i * 0.07);
+        const amp = (4 + i * 1.4) * (storm ? 1.35 : 1);
+        ctx.strokeStyle = `rgba(220,240,244,${0.18 - i * 0.025})`;
+        ctx.lineWidth = 1.15;
+        for (let x = -24; x <= w + 24; x += 14) {
+          const y = y0
+            + Math.sin(x * 0.018 + t * (0.7 + i * 0.13) + i) * amp
+            + Math.sin(x * 0.041 + t * 1.1) * amp * 0.28;
+          if (x === -24) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
         ctx.stroke();
       }
 
-      if (rain && Math.random() < (wx === "STORM" ? 0.28 : 0.14)) {
-        spawn(8 + Math.random() * 84, 52 + Math.random() * 28, 18 + Math.random() * 16, 0.28);
+      if (rain && q !== "LOW") {
+        const chance = storm ? 0.32 : wx === "DOWNPOUR" ? 0.22 : 0.12;
+        if (Math.random() < chance) spawn(8 + Math.random() * 84, 52 + Math.random() * 28, 16 + Math.random() * 14, 0.26);
       }
-      if (p.rings > 0.2 && Math.random() < 0.07) spawn(p.floatX, p.floatY + 0.4, 22, 0.4);
+      if (p.rings > 0.2 && Math.random() < 0.08) spawn(p.floatX, p.floatY + 0.4, 22, 0.42);
       if (p.splash > lastSplash.current && p.splash > 0.3) {
-        spawn(p.floatVisible ? p.floatX : p.lureX, p.floatVisible ? p.floatY : p.lureY, 34, 0.7);
+        spawn(p.floatVisible ? p.floatX : p.lureX, p.floatVisible ? p.floatY : p.lureY, 36, 0.72);
       }
       lastSplash.current = p.splash;
 
       for (let i = ripples.current.length - 1; i >= 0; i--) {
         const rp = ripples.current[i];
-        rp.r += dt * 22;
+        if (!rp) continue;
+        rp.r += dt * 24;
         rp.a -= dt * 0.55;
         if (rp.a <= 0 || rp.r > rp.max) {
           ripples.current.splice(i, 1);
           continue;
         }
         ctx.beginPath();
-        ctx.ellipse(X(rp.x), Y(rp.y), rp.r, rp.r * 0.38, 0, 0, Math.PI * 2);
+        ctx.ellipse(X(rp.x), Y(rp.y), rp.r, rp.r * 0.36, 0, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(230,246,248,${rp.a})`;
-        ctx.lineWidth = 1.4;
+        ctx.lineWidth = 1.35;
         ctx.stroke();
       }
 
       if (p.fishVis > 0.05) {
-        ctx.globalAlpha = p.fishVis * 0.55;
-        ctx.fillStyle = "rgba(8, 28, 32, 0.85)";
+        ctx.globalAlpha = p.fishVis * 0.58;
+        ctx.fillStyle = "rgba(6, 24, 28, 0.9)";
         ctx.beginPath();
-        ctx.ellipse(X(p.fishX), Y(p.fishY + 1.2), 18 + p.fishVis * 10, 6 + p.fishVis * 3, Math.sin(t * 4) * 0.3, 0, Math.PI * 2);
+        ctx.ellipse(X(p.fishX), Y(p.fishY + 1.2), 20 + p.fishVis * 12, 6.5 + p.fishVis * 3, Math.sin(t * 4) * 0.35, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
       }
 
       if (p.splash > 0.05) {
         ctx.globalAlpha = p.splash;
-        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        ctx.fillStyle = "rgba(255,255,255,0.72)";
         const sx = X(p.floatVisible ? p.floatX : p.lureX);
         const sy = Y(p.floatVisible ? p.floatY : p.lureY);
-        for (let i = 0; i < 6; i++) {
-          const a = (i / 6) * Math.PI - Math.PI / 2;
+        for (let i = 0; i < 7; i++) {
+          const a = (i / 7) * Math.PI - Math.PI / 2;
           ctx.beginPath();
-          ctx.ellipse(sx + Math.cos(a) * 10 * p.splash, sy + Math.sin(a) * 6 * p.splash, 2.2, 4, a, 0, Math.PI * 2);
+          ctx.ellipse(sx + Math.cos(a) * 11 * p.splash, sy + Math.sin(a) * 6 * p.splash, 2.1, 4.2, a, 0, Math.PI * 2);
           ctx.fill();
         }
         ctx.globalAlpha = 1;
       }
       ctx.restore();
+
+      if (rain && q !== "LOW") {
+        const n = storm ? 70 : wx === "DOWNPOUR" ? 48 : 28;
+        if (drops.current.length < n) {
+          for (let i = drops.current.length; i < n; i++) {
+            drops.current.push({
+              x: Math.random() * w,
+              y: Math.random() * h * 0.72,
+              len: 8 + Math.random() * 10,
+              spd: 380 + Math.random() * 220,
+            });
+          }
+        }
+        ctx.strokeStyle = "rgba(226,236,242,0.38)";
+        ctx.lineWidth = 1.05;
+        ctx.beginPath();
+        for (const d of drops.current) {
+          d.y += d.spd * dt;
+          d.x += dt * 48;
+          if (d.y > h * 0.78) {
+            d.y = -12;
+            d.x = Math.random() * w;
+          }
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x + 3, d.y + d.len);
+        }
+        ctx.stroke();
+      } else {
+        drops.current.length = 0;
+      }
+
+      if (storm) {
+        if (flash.current <= 0 && Math.random() < 0.004) flash.current = 1;
+        if (flash.current > 0) {
+          ctx.fillStyle = `rgba(210,228,240,${0.16 * flash.current})`;
+          ctx.fillRect(0, 0, w, h * 0.55);
+          flash.current -= dt * 2.8;
+        }
+      }
 
       const endX = p.lureFlying ? p.lureX : p.floatVisible ? p.floatX : p.fishVis > 0.2 ? p.fishX : p.tipX + 4;
       const endY = p.lureFlying ? p.lureY : p.floatVisible ? p.floatY : p.fishVis > 0.2 ? p.fishY : p.tipY + 8;
@@ -126,24 +186,24 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
       ctx.moveTo(X(p.tipX), Y(p.tipY));
       if (p.lineBroken) ctx.lineTo(X(p.tipX + 4), Y(p.tipY + 8));
       else ctx.quadraticCurveTo(X((p.tipX + endX) / 2), Y((p.tipY + endY) / 2) + sag, X(endX), Y(endY));
-      ctx.strokeStyle = p.lineBroken ? "rgba(220,210,190,0.25)" : "rgba(236,228,214,0.82)";
-      ctx.lineWidth = p.lineSag < 0.12 ? 1.6 : 1.15;
+      ctx.strokeStyle = p.lineBroken ? "rgba(220,210,190,0.25)" : "rgba(236,228,214,0.84)";
+      ctx.lineWidth = p.lineSag < 0.12 ? 1.7 : 1.15;
       ctx.stroke();
 
       const mx = (p.gripX + p.tipX) / 2;
-      const my = (p.gripY + p.tipY) / 2 + p.rodBend * 2.4;
+      const my = (p.gripY + p.tipY) / 2 + p.rodBend * 2.6;
       ctx.beginPath();
       ctx.moveTo(X(p.gripX), Y(p.gripY));
       ctx.quadraticCurveTo(X(mx), Y(my + 0.6), X(p.tipX), Y(p.tipY));
       ctx.strokeStyle = "#2a1c10";
-      ctx.lineWidth = 3.2;
+      ctx.lineWidth = 3.3;
       ctx.lineCap = "round";
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(X(p.gripX), Y(p.gripY));
       ctx.quadraticCurveTo(X(mx), Y(my), X(p.tipX), Y(p.tipY));
       ctx.strokeStyle = "#c4a06a";
-      ctx.lineWidth = 1.8;
+      ctx.lineWidth = 1.85;
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(X(p.gripX + 0.15), Y(p.gripY - 0.15));
@@ -169,10 +229,15 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
         ctx.beginPath();
         ctx.ellipse(0, 10, 16, 6, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#c45c4a";
-        ctx.fillRect(-4.5, -14 + p.floatSub * 8, 9, 22);
-        ctx.fillStyle = "#f2eee6";
-        ctx.fillRect(-3.2, -20 + p.floatSub * 8, 6.4, 8);
+        const fi = floatImg.current;
+        if (fi && fi.complete && fi.naturalHeight > 0) {
+          ctx.drawImage(fi, -5, -22 + p.floatSub * 6, 10, 28);
+        } else {
+          ctx.fillStyle = "#c45c4a";
+          ctx.fillRect(-4.5, -14 + p.floatSub * 8, 9, 22);
+          ctx.fillStyle = "#f2eee6";
+          ctx.fillRect(-3.2, -20 + p.floatSub * 8, 6.4, 8);
+        }
         ctx.restore();
       }
     },
