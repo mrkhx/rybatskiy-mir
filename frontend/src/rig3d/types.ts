@@ -40,6 +40,7 @@ export type DebugFlags = {
   fps: boolean;
   orbit: boolean;
   fingers: boolean;
+  armAxes: boolean;
 };
 
 export const LOOPING_CHAR = new Set<CharClip>([

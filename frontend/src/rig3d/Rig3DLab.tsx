@@ -76,6 +76,7 @@ export function Rig3DLab() {
     fps: true,
     orbit: false,
     fingers: false,
+    armAxes: false,
   });
 
   useEffect(() => {
@@ -258,6 +259,7 @@ export function Rig3DLab() {
               ["ik", "IK targets"],
               ["rodAnchors", "Rod anchors"],
               ["fingers", "Finger bones"],
+              ["armAxes", "Arm axes"],
               ["fishSkeleton", "Fish skeleton"],
               ["line", "Line"],
               ["fps", "FPS"],

@@ -125,8 +125,35 @@ export function Rig3DScene({
     skel.visible = false;
     const fishSkel = new THREE.SkeletonHelper(pike);
     fishSkel.visible = false;
-    return { skel, fishSkel };
+    const ARM = ["UpperArm_L", "LowerArm_L", "Hand_L", "UpperArm_R", "LowerArm_R", "Hand_R"] as const;
+    const armAxes = ARM.map((name) => {
+      const h = new THREE.AxesHelper(0.14);
+      h.name = `Axis_${name}`;
+      h.visible = false;
+      return { name, helper: h };
+    });
+    const pivots = ARM.map((name) => {
+      const g = new THREE.Mesh(
+        new THREE.SphereGeometry(0.018, 10, 10),
+        new THREE.MeshBasicMaterial({ color: name.endsWith("_L") ? 0x7ec8e3 : 0xe3b27e }),
+      );
+      g.name = `Pivot_${name}`;
+      g.visible = false;
+      return { name, mesh: g };
+    });
+    return { skel, fishSkel, armAxes, pivots };
   }, [man, pike]);
+
+  useEffect(() => {
+    for (const { name, helper } of helpers.armAxes) {
+      const b = man.getObjectByName(name);
+      if (b && helper.parent !== b) b.add(helper);
+    }
+    for (const { name, mesh } of helpers.pivots) {
+      const b = man.getObjectByName(name);
+      if (b && mesh.parent !== b) b.add(mesh);
+    }
+  }, [helpers, man]);
 
   useEffect(() => {
     attached.current = false;
@@ -199,7 +226,9 @@ export function Rig3DScene({
   useEffect(() => {
     helpers.skel.visible = debug.skeleton || debug.fingers;
     helpers.fishSkel.visible = debug.fishSkeleton;
-  }, [debug.skeleton, debug.fishSkeleton, helpers]);
+    for (const { helper } of helpers.armAxes) helper.visible = debug.armAxes;
+    for (const { mesh } of helpers.pivots) mesh.visible = debug.armAxes;
+  }, [debug.skeleton, debug.fishSkeleton, debug.armAxes, helpers]);
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
@@ -209,7 +238,7 @@ export function Rig3DScene({
     fishMixer.update(dt);
 
     const clip = charRef.current;
-    const wantsRod = clip !== "IDLE" && clip !== "WALK" && clip !== "RETURN_IDLE";
+    const wantsRod = false;
     if (wantsRod && !attached.current) {
       attached.current = attachRodToHand(man, rod);
       rod.visible = true;

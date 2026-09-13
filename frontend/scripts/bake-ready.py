@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
-"""Bake READY on the gardener Bip01 armature (same import as production).
+"""Bake READY from gardener rest, local bone space only.
 
-Offline two-hand IK toward fishing-ready targets, then visual bake to local
-keys. No WORLD copy, no Mixamo, no mesh export into production.
+No IK, no WORLD copy, no Mixamo, no Hand keys.
+
+Gardener rest after automatic_bone_orientation (documented):
+  Bone Y = length axis (head→tail).
+  UpperArm a1 = humerus TWIST  — always 0.
+  UpperArm a0 = drop from T-pose (L+, R−).
+  UpperArm a2 = shoulder flexion forward (L+ and R+).
+  LowerArm a2 = elbow flexion forward (L+ and R+).
+  LowerArm a0 = slight in-plane assist (L+, R−).
+  Hand stays at bind so the wrist continues the forearm.
 """
 from __future__ import annotations
 
@@ -10,12 +18,12 @@ import math
 from pathlib import Path
 
 import bpy
-from mathutils import Euler, Vector
+from mathutils import Euler
 
 FBX = "/tmp/rocketbox/Gardener_Male_01/Export/Gardener_Male_01.fbx"
 OUT = "/tmp/ready_baked.glb"
 FPS = 30
-FRAMES = 105  # 3.5s
+FRAMES = 105
 
 BONE_MAP = {
     "Bip01 Pelvis": "Hips",
@@ -48,26 +56,56 @@ for side, pref in (("L", "Bip01 L"), ("R", "Bip01 R")):
         BONE_MAP[f"{pref} Finger{i}1"] = f"{name}_{side}_2"
         BONE_MAP[f"{pref} Finger{i}2"] = f"{name}_{side}_3"
 
-# Gardener space: +X left, -Y forward, +Z up.
-# Right hand = grip (near right hip/navel, in front).
-# Left hand = support (further forward, slightly higher, toward the blank).
-GRIP = Vector((-0.20, -0.22, 1.00))
-SUPPORT = Vector((-0.10, -0.50, 1.12))
-POLE_R = Vector((-0.45, -0.05, 0.95))
-POLE_L = Vector((0.20, -0.15, 1.05))
-
-BODY = {
-    "Chest": (0.0, 0.0, -5.0),
-    "Spine": (0.0, 0.0, -2.0),
-    "Neck": (0.0, 0.0, 4.0),
-    "Hips": (3.0, -1.0, 0.0),
-    "UpperLeg_L": (2.0, 0.0, -5.0),
-    "LowerLeg_L": (0.0, 0.0, -8.0),
-    "UpperLeg_R": (-1.0, 0.0, -2.0),
-    "LowerLeg_R": (0.0, 0.0, -4.0),
-    "Shoulder_L": (6.0, -8.0, 6.0),
-    "Shoulder_R": (-4.0, 8.0, 4.0),
+# Joint limits in local Euler degrees relative to bind.
+LIMITS = {
+    "UpperArm_L": {"x": (0, 45), "y": (0, 0), "z": (0, 35)},
+    "UpperArm_R": {"x": (-45, 0), "y": (0, 0), "z": (0, 35)},
+    "LowerArm_L": {"x": (0, 12), "y": (0, 0), "z": (0, 40)},
+    "LowerArm_R": {"x": (-12, 0), "y": (0, 0), "z": (0, 40)},
+    "Shoulder_L": {"x": (0, 10), "y": (-12, 0), "z": (0, 10)},
+    "Shoulder_R": {"x": (-10, 0), "y": (0, 12), "z": (0, 10)},
 }
+
+
+def clamp_pose(pose: dict[str, tuple[float, float, float]]) -> dict[str, tuple[float, float, float]]:
+    out = {}
+    for name, xyz in pose.items():
+        lim = LIMITS.get(name)
+        if not lim:
+            out[name] = xyz
+            continue
+        x, y, z = xyz
+        x = min(lim["x"][1], max(lim["x"][0], x))
+        y = min(lim["y"][1], max(lim["y"][0], y))
+        z = min(lim["z"][1], max(lim["z"][0], z))
+        out[name] = (x, y, z)
+    return out
+
+
+def ready_at(t: float) -> dict[str, tuple[float, float, float]]:
+    """t in [0,1). Increment from accepted IDLE, no humerus twist, no wrist keys."""
+    s = math.sin(2 * math.pi * t)
+    c = math.cos(2 * math.pi * t)
+    # IDLE used UpperArm (33, 0, 12) / (-33, 0, 12) and LowerArm (4, 0, 20).
+    # READY: less drop, more forward flexion, more elbow — still a1=0.
+    return clamp_pose(
+        {
+            "UpperArm_L": (24.0 + 1.0 * s, 0.0, 20.0),
+            "UpperArm_R": (-24.0 - 1.0 * s, 0.0, 20.0),
+            "LowerArm_L": (6.0 + 0.5 * s, 0.0, 28.0),
+            "LowerArm_R": (-6.0 - 0.5 * s, 0.0, 28.0),
+            "Shoulder_L": (5.0 + 0.8 * s, -6.0, 4.0),
+            "Shoulder_R": (-5.0 - 0.8 * s, 6.0, 4.0),
+            "Chest": (0.0, 0.0, -6.0 + 1.2 * s),
+            "Spine": (0.0, 0.0, -3.0 + 0.6 * c),
+            "Neck": (0.0, 0.0, 3.0 + 1.0 * c),
+            "Hips": (3.0 + 0.8 * s, -1.0, 0.0),
+            "UpperLeg_L": (2.0, 0.0, -5.0),
+            "LowerLeg_L": (0.0, 0.0, -8.0 + 1.2 * s),
+            "UpperLeg_R": (-1.0, 0.0, -2.0),
+            "LowerLeg_R": (0.0, 0.0, -4.0 + 0.6 * s),
+        }
+    )
 
 
 def wpos(arm, n):
@@ -79,7 +117,6 @@ def report(tag, arm):
         v = wpos(arm, n)
         return f"({v.x:5.2f},{v.y:5.2f},{v.z:5.2f})"
 
-    hl, hr = wpos(arm, "Hand_L"), wpos(arm, "Hand_R")
     print(
         tag,
         "HL",
@@ -88,9 +125,10 @@ def report(tag, arm):
         fmt("Hand_R"),
         "HD",
         fmt("Head"),
-        "FL",
-        fmt("Foot_L"),
-        f"dY {hl.y - hr.y:+.2f} dZ {hl.z - hr.z:+.2f} sep {(hl - hr).length:.2f}",
+        "EL",
+        fmt("LowerArm_L"),
+        "ER",
+        fmt("LowerArm_R"),
     )
 
 
@@ -101,6 +139,7 @@ def reset(arm):
 
 
 def apply_euler(arm, pose_deg):
+    reset(arm)
     for name, xyz in pose_deg.items():
         pb = arm.pose.bones.get(name)
         if not pb:
@@ -108,14 +147,6 @@ def apply_euler(arm, pose_deg):
         pb.rotation_mode = "XYZ"
         pb.rotation_euler = Euler([math.radians(v) for v in xyz], "XYZ")
     bpy.context.view_layer.update()
-
-
-def empty_at(name, loc):
-    o = bpy.data.objects.new(name, None)
-    o.empty_display_size = 0.05
-    o.location = loc
-    bpy.context.collection.objects.link(o)
-    return o
 
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -136,49 +167,41 @@ bpy.ops.object.mode_set(mode="EDIT")
 for b in list(arm.data.edit_bones):
     if b.name in BONE_MAP:
         b.name = BONE_MAP[b.name]
-bpy.ops.object.mode_set(mode="POSE")
+bpy.ops.object.mode_set(mode="OBJECT")
 
 reset(arm)
-apply_euler(arm, BODY)
-report("BODY", arm)
+report("REST", arm)
+apply_euler(arm, ready_at(0))
+report("READY t0", arm)
 
-grip = empty_at("GripTarget", GRIP)
-support = empty_at("SupportTarget", SUPPORT)
-pole_r = empty_at("PoleR", POLE_R)
-pole_l = empty_at("PoleL", POLE_L)
-
-
-def add_ik(bone, target, pole, chain=2):
-    pb = arm.pose.bones[bone]
-    c = pb.constraints.new("IK")
-    c.target = target
-    c.chain_count = chain
-    c.use_tail = True
-    c.pole_target = pole
-    c.pole_angle = math.pi
-    c.iterations = 20
-    return c
-
-
-add_ik("LowerArm_R", grip, pole_r, 2)
-add_ik("LowerArm_L", support, pole_l, 2)
-bpy.context.view_layer.update()
-report("IK t0", arm)
+hl = wpos(arm, "Hand_L")
+hr = wpos(arm, "Hand_R")
+hd = wpos(arm, "Head")
+# Hands in front of the torso, not through it, not in T-pose.
+assert hl.y < -0.10 and hr.y < -0.10, (hl, hr)
+assert 0.10 < hl.x < 0.40, hl
+assert -0.40 < hr.x < -0.10, hr
+assert 0.85 < hl.z < 1.15, hl
+assert 0.85 < hr.z < 1.15, hr
+assert abs(hd.x) < 0.12 and hd.z > 1.50, hd
+# No wrist keys: Hand matrix_basis must stay identity.
+assert arm.pose.bones["Hand_L"].matrix_basis.to_euler("XYZ").x == 0
+assert arm.pose.bones["Hand_R"].matrix_basis.to_euler("XYZ").x == 0
+# No humerus twist.
+assert abs(arm.pose.bones["UpperArm_L"].rotation_euler.y) < 1e-6
+assert abs(arm.pose.bones["UpperArm_R"].rotation_euler.y) < 1e-6
 
 keyed = [
-    "Hips",
-    "Spine",
-    "Spine1",
-    "Chest",
-    "Neck",
+    "UpperArm_L",
+    "UpperArm_R",
+    "LowerArm_L",
+    "LowerArm_R",
     "Shoulder_L",
     "Shoulder_R",
-    "UpperArm_L",
-    "LowerArm_L",
-    "Hand_L",
-    "UpperArm_R",
-    "LowerArm_R",
-    "Hand_R",
+    "Spine",
+    "Chest",
+    "Neck",
+    "Hips",
     "UpperLeg_L",
     "LowerLeg_L",
     "UpperLeg_R",
@@ -191,47 +214,14 @@ arm.animation_data.action = act
 
 for i in range(FRAMES):
     frame = 1 + i
-    t = i / FRAMES
-    s = math.sin(2 * math.pi * t)
-    c = math.cos(2 * math.pi * t)
-    # Tiny living motion on the targets and the body.
-    grip.location = GRIP + Vector((0.004 * c, 0.006 * s, 0.010 * s))
-    support.location = SUPPORT + Vector((0.005 * s, 0.008 * c, 0.012 * s))
-    body = {
-        "Chest": (0.0, 0.0, -5.0 + 1.2 * s),
-        "Spine": (0.0, 0.0, -2.0 + 0.6 * c),
-        "Neck": (0.0, 0.0, 4.0 + 1.0 * c),
-        "Hips": (3.0 + 0.8 * s, -1.0, 0.0),
-        "UpperLeg_L": (2.0, 0.0, -5.0),
-        "LowerLeg_L": (0.0, 0.0, -8.0 + 1.2 * s),
-        "UpperLeg_R": (-1.0, 0.0, -2.0),
-        "LowerLeg_R": (0.0, 0.0, -4.0 + 0.6 * s),
-        "Shoulder_L": (6.0 + 0.8 * s, -8.0, 6.0),
-        "Shoulder_R": (-4.0 - 0.8 * s, 8.0, 4.0),
-    }
-    apply_euler(arm, body)
-    bpy.context.view_layer.update()
-    bpy.context.scene.frame_set(frame)
+    apply_euler(arm, ready_at(i / FRAMES))
     for name in keyed:
         pb = arm.pose.bones[name]
         pb.rotation_mode = "QUATERNION"
         pb.keyframe_insert("rotation_quaternion", frame=frame)
         pb.keyframe_insert("location", frame=frame)
 
-# Bake visual so keys are the IK result, then drop constraints.
-bpy.ops.nla.bake(
-    frame_start=1,
-    frame_end=FRAMES + 1,
-    only_selected=False,
-    visual_keying=True,
-    clear_constraints=True,
-    use_current_action=True,
-    bake_types={"POSE"},
-)
-
-# Seamless wrap
-bpy.context.scene.frame_set(1)
-bpy.context.view_layer.update()
+apply_euler(arm, ready_at(0))
 for name in keyed:
     pb = arm.pose.bones[name]
     pb.rotation_mode = "QUATERNION"
@@ -244,22 +234,7 @@ for fc in act.fcurves:
 
 bpy.context.scene.frame_set(1)
 bpy.context.view_layer.update()
-report("BAKED f1", arm)
-bpy.context.scene.frame_set(1 + FRAMES // 2)
-bpy.context.view_layer.update()
-report("BAKED mid", arm)
-
-hl = wpos(arm, "Hand_L")
-hr = wpos(arm, "Hand_R")
-hd = wpos(arm, "Head")
-assert hl.y < hr.y - 0.08, (hl, hr)  # left more forward
-assert hl.z > hr.z + 0.04, (hl, hr)  # left slightly higher
-assert hr.z > 0.85 and hr.z < 1.15, hr
-assert hd.z > 1.50, hd
-
-for o in list(bpy.data.objects):
-    if o.type in {"EMPTY", "CAMERA", "LIGHT"} and o is not arm:
-        bpy.data.objects.remove(o, do_unlink=True)
+report("READY f1", arm)
 
 arm.animation_data.action = None
 for t in list(arm.animation_data.nla_tracks):
@@ -267,6 +242,10 @@ for t in list(arm.animation_data.nla_tracks):
 tr = arm.animation_data.nla_tracks.new()
 tr.name = "READY"
 tr.strips.new("READY", 1, act)
+
+for o in list(bpy.data.objects):
+    if o.type in {"EMPTY", "CAMERA", "LIGHT"}:
+        bpy.data.objects.remove(o, do_unlink=True)
 
 Path(OUT).parent.mkdir(parents=True, exist_ok=True)
 bpy.ops.export_scene.gltf(
@@ -282,4 +261,5 @@ bpy.ops.export_scene.gltf(
     export_lights=False,
     export_yup=True,
 )
-print("WROTE", OUT, "frames", FRAMES, "fps", FPS, "duration", FRAMES / FPS)
+print("WROTE", OUT, "frames", FRAMES, "fps", FPS)
+print("AXES UpperArm Y=twist locked 0; a0=drop; a2=forward; LowerArm a2=elbow; Hand=bind")
