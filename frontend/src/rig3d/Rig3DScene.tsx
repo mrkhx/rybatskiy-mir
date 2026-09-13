@@ -13,7 +13,7 @@ import type { AdapterReport } from "../scene3d/assets/contract";
 import { importHumanoid } from "../scene3d/assets/retarget";
 import { twoBoneIK } from "./ik";
 import { applyRodBend, aimRod, spinReel, worldOf } from "./rodBend";
-import { placeRodReady, closeRightFist } from "./grip";
+import { placeRodReady, closeRightFist, rollRightWristOut } from "./grip";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
 
 useGLTF.preload(PRODUCTION.fisherman);
@@ -277,6 +277,8 @@ export function Rig3DScene({
     const wantsRod = clip === "READY";
     if (wantsRod) {
       closeRightFist(man, rod);
+      placeRodReady(man, rod);
+      rollRightWristOut(man, rod);
       attached.current = placeRodReady(man, rod);
       rod.visible = true;
     } else if (attached.current) {
