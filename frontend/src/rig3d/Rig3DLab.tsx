@@ -78,6 +78,10 @@ export function Rig3DLab() {
     fingers: false,
     armAxes: false,
   });
+  const [lineOn, setLineOn] = useState(true);
+  const [floatOn, setFloatOn] = useState(true);
+  const [lineTension, setLineTension] = useState(0);
+  const [wave, setWave] = useState(0.4);
 
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -220,6 +224,10 @@ export function Rig3DLab() {
               fishClip={fishClip}
               fishScale={fishScale}
               debug={debug}
+              lineOn={lineOn}
+              floatOn={floatOn}
+              lineTension={lineTension}
+              wave={wave}
               onFps={setFps}
               onCharFinished={onCharFinished}
               onReports={setReports}
@@ -255,6 +263,38 @@ export function Rig3DLab() {
           <button type="button" className={autoYaw ? "is-on" : ""} onClick={() => setAutoYaw((v) => !v)}>
             Auto rotate
           </button>
+        </div>
+        <div className="rig-toggles">
+          <button type="button" className={lineOn ? "is-on" : ""} onClick={() => setLineOn((v) => !v)}>
+            Line {lineOn ? "ON" : "OFF"}
+          </button>
+          <button type="button" className={floatOn ? "is-on" : ""} onClick={() => setFloatOn((v) => !v)}>
+            Float {floatOn ? "ON" : "OFF"}
+          </button>
+          <label className="rig3d-scale">
+            Tension
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={lineTension}
+              onChange={(e) => setLineTension(Number(e.target.value))}
+            />
+            <span>{lineTension.toFixed(2)}</span>
+          </label>
+          <label className="rig3d-scale">
+            Wave
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={wave}
+              onChange={(e) => setWave(Number(e.target.value))}
+            />
+            <span>{wave.toFixed(2)}</span>
+          </label>
         </div>
         <div className="rig-toggles">
           {(

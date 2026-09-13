@@ -15,6 +15,7 @@ import { twoBoneIK } from "./ik";
 import { applyRodBend, aimRod, spinReel, worldOf } from "./rodBend";
 import { placeRodReady, closeRightFist, rollRightWristOut } from "./grip";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
+import { FishingLineView, LakeFloat, WaterPlane } from "./FloatActor";
 
 useGLTF.preload(PRODUCTION.fisherman);
 useGLTF.preload(PRODUCTION.rod);
@@ -46,6 +47,10 @@ type Props = {
   fishClip: FishClip;
   fishScale: number;
   debug: DebugFlags;
+  lineOn?: boolean;
+  floatOn?: boolean;
+  lineTension?: number;
+  wave?: number;
   onFps?: (n: number) => void;
   onCharFinished?: (name: string) => void;
   onReports?: (reports: SceneReports) => void;
@@ -118,6 +123,10 @@ export function Rig3DScene({
   fishClip,
   fishScale,
   debug,
+  lineOn = true,
+  floatOn = true,
+  lineTension = 0,
+  wave = 0.4,
   onFps,
   onCharFinished,
   onReports,
@@ -155,6 +164,7 @@ export function Rig3DScene({
   const fpsAcc = useRef({ t: 0, frames: 0 });
   const attached = useRef(false);
   const extraYaw = useRef(0);
+  const floatRef = useRef<THREE.Group>(null);
   const helpers = useMemo(() => {
     const skel = new THREE.SkeletonHelper(man);
     skel.visible = false;
@@ -333,12 +343,24 @@ export function Rig3DScene({
     <group>
       <group rotation={[0, yaw + extraYaw.current + Math.PI, 0]}>
         <primitive object={man} position={[0, 0, 0]} />
+        <WaterPlane active={charClip === "READY"} floatOn={floatOn} />
+        <LakeFloat ref={floatRef} floatOn={floatOn} wave={wave} active={charClip === "READY"} />
       </group>
-      <group position={[0.55, 0.55, -1.65]} scale={fishScale}>
+      <group position={[0.55, 0.55, -1.65]} scale={fishScale} visible={!(floatOn && charClip === "READY")}>
         <primitive object={pike} />
       </group>
       <primitive object={helpers.skel} />
       <primitive object={helpers.fishSkel} />
+      <FishingLineView
+        rod={rod}
+        floatRef={floatRef}
+        lineOn={lineOn}
+        floatOn={floatOn}
+        tension={lineTension}
+        wave={wave}
+        debug={debug.line}
+        active={charClip === "READY"}
+      />
       {debug.line && charClip !== "READY" && (
         <line>
           <primitive object={lineGeo} attach="geometry" />

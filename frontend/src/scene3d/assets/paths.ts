@@ -2,6 +2,7 @@ export const PRODUCTION = {
   fisherman: "/models/production/fisherman.glb?v=ready13",
   rod: "/models/production/rod.glb?v=rod5",
   pike: "/models/production/pike.glb",
+  float: "/models/production/float.glb?v=float1",
 } as const;
 
 export const DEBUG_PROXY = {
