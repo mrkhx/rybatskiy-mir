@@ -11,7 +11,7 @@ const _basis = new THREE.Matrix4();
 
 const DEG = Math.PI / 180;
 const PITCH = 30 * DEG;
-const REEL_SEAT_ALONG = 0.22;
+const REEL_SEAT_ALONG = 0.11;
 
 /**
  * READY rod only. No bone / IK / FSM writes.
