@@ -1,0 +1,94 @@
+export type CharClip =
+  | "IDLE"
+  | "READY"
+  | "AIM"
+  | "CAST_BACKSWING"
+  | "CAST_FORWARD"
+  | "CAST_FOLLOW"
+  | "WAIT"
+  | "BITE_REACTION"
+  | "HOOKSET"
+  | "REEL"
+  | "FIGHT_LIGHT"
+  | "FIGHT_HEAVY"
+  | "LAND"
+  | "RETURN_IDLE";
+
+export type FishClip =
+  | "SWIM_IDLE"
+  | "SWIM_FAST"
+  | "TURN_LEFT"
+  | "TURN_RIGHT"
+  | "STRUGGLE_LIGHT"
+  | "STRUGGLE_HEAVY"
+  | "SURFACE"
+  | "LANDED";
+
+export type IkMode = "none" | "support" | "reel";
+
+export type DebugFlags = {
+  skeleton: boolean;
+  ik: boolean;
+  rodAnchors: boolean;
+  fishSkeleton: boolean;
+  line: boolean;
+  fps: boolean;
+  orbit: boolean;
+};
+
+export const LOOPING_CHAR = new Set<CharClip>([
+  "IDLE",
+  "READY",
+  "AIM",
+  "WAIT",
+  "REEL",
+  "FIGHT_LIGHT",
+  "FIGHT_HEAVY",
+]);
+
+export const LOOPING_FISH = new Set<FishClip>([
+  "SWIM_IDLE",
+  "SWIM_FAST",
+  "TURN_LEFT",
+  "TURN_RIGHT",
+  "STRUGGLE_LIGHT",
+  "STRUGGLE_HEAVY",
+  "SURFACE",
+  "LANDED",
+]);
+
+export const CAST_SEQ: CharClip[] = ["CAST_BACKSWING", "CAST_FORWARD", "CAST_FOLLOW", "WAIT"];
+
+export function tensionFor(clip: CharClip): number {
+  switch (clip) {
+    case "WAIT":
+      return 0.08;
+    case "BITE_REACTION":
+      return 0.28;
+    case "HOOKSET":
+      return 0.4;
+    case "REEL":
+      return 0.22;
+    case "FIGHT_LIGHT":
+      return 0.48;
+    case "FIGHT_HEAVY":
+      return 0.82;
+    case "CAST_BACKSWING":
+      return 0.12;
+    case "CAST_FORWARD":
+      return 0.28;
+    case "CAST_FOLLOW":
+      return 0.1;
+    case "LAND":
+      return 0.12;
+    default:
+      return 0.05;
+  }
+}
+
+export function ikFor(clip: CharClip): IkMode {
+  if (clip.startsWith("CAST")) return "none";
+  if (clip === "LAND" || clip === "RETURN_IDLE") return "support";
+  if (clip === "REEL") return "reel";
+  return "support";
+}

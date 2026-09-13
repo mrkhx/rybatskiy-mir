@@ -1,0 +1,292 @@
+"use client";
+
+import { useEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import { ContactShadows, useGLTF } from "@react-three/drei";
+import * as THREE from "three";
+import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
+import { twoBoneIK } from "./ik";
+import { applyRodBend, spinReel, worldOf } from "./rodBend";
+import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
+
+const FISHERMAN_URL = "/models/rig3d/fisherman.glb";
+const ROD_URL = "/models/rig3d/rod.glb";
+const PIKE_URL = "/models/rig3d/pike.glb";
+
+useGLTF.preload(FISHERMAN_URL);
+useGLTF.preload(ROD_URL);
+useGLTF.preload(PIKE_URL);
+
+const _target = new THREE.Vector3();
+const _fishMouth = new THREE.Vector3();
+const _tip = new THREE.Vector3();
+const _mid = new THREE.Vector3();
+
+type Props = {
+  charClip: CharClip;
+  fishClip: FishClip;
+  fishScale: number;
+  debug: DebugFlags;
+  onFps?: (n: number) => void;
+  onCharFinished?: (name: string) => void;
+};
+
+function hardenMaterials(root: THREE.Object3D) {
+  root.traverse((o: THREE.Object3D) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.frustumCulled = false;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const cloned = mats.map((mat) => {
+      const std = (mat as THREE.MeshStandardMaterial).clone();
+      std.side = THREE.DoubleSide;
+      if (std.envMapIntensity !== undefined) std.envMapIntensity = 0.22;
+      if (std.roughness !== undefined) std.roughness = Math.min(0.92, (std.roughness ?? 0.6) + 0.06);
+      return std;
+    });
+    mesh.material = Array.isArray(mesh.material) ? cloned : cloned[0]!;
+  });
+}
+
+function ensureReelHandleVisual(rod: THREE.Object3D) {
+  const handle = rod.getObjectByName("ReelHandle");
+  if (!handle) return;
+  let hasMesh = false;
+  handle.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) hasMesh = true;
+  });
+  if (hasMesh) return;
+  const metal = new THREE.MeshStandardMaterial({ color: 0x2c3034, metalness: 0.72, roughness: 0.32 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xb08a48, metalness: 0.62, roughness: 0.36 });
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.056, 8), metal);
+  arm.position.set(0, 0.028, 0);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 10), gold);
+  knob.position.set(0, 0.058, 0);
+  handle.add(arm, knob);
+}
+
+export function Rig3DScene({ charClip, fishClip, fishScale, debug, onFps, onCharFinished }: Props) {
+  const manGltf = useGLTF(FISHERMAN_URL);
+  const rodGltf = useGLTF(ROD_URL);
+  const pikeGltf = useGLTF(PIKE_URL);
+
+  const man = useMemo(() => cloneSkinned(manGltf.scene), [manGltf.scene]);
+  const rod = useMemo(() => cloneSkinned(rodGltf.scene), [rodGltf.scene]);
+  const pike = useMemo(() => cloneSkinned(pikeGltf.scene), [pikeGltf.scene]);
+
+  const manMixer = useMemo(() => new THREE.AnimationMixer(man), [man]);
+  const fishMixer = useMemo(() => new THREE.AnimationMixer(pike), [pike]);
+  const manActions = useMemo(() => {
+    const m: Record<string, THREE.AnimationAction> = {};
+    for (const clip of manGltf.animations) m[clip.name] = manMixer.clipAction(clip);
+    return m;
+  }, [manGltf.animations, manMixer]);
+  const fishActions = useMemo(() => {
+    const m: Record<string, THREE.AnimationAction> = {};
+    for (const clip of pikeGltf.animations) m[clip.name] = fishMixer.clipAction(clip);
+    return m;
+  }, [pikeGltf.animations, fishMixer]);
+
+  const charRef = useRef<CharClip>(charClip);
+  const lineGeo = useMemo(() => new THREE.BufferGeometry(), []);
+  const linePts = useMemo(() => new Float32Array(9), []);
+  const fpsAcc = useRef({ t: 0, frames: 0 });
+  const attached = useRef(false);
+  const helpers = useMemo(() => {
+    const skel = new THREE.SkeletonHelper(man);
+    skel.visible = false;
+    const fishSkel = new THREE.SkeletonHelper(pike);
+    fishSkel.visible = false;
+    return { skel, fishSkel };
+  }, [man, pike]);
+
+  useEffect(() => {
+    hardenMaterials(man);
+    hardenMaterials(rod);
+    hardenMaterials(pike);
+    ensureReelHandleVisual(rod);
+    pike.rotation.y = Math.PI / 2;
+    return () => {
+      manMixer.stopAllAction();
+      fishMixer.stopAllAction();
+    };
+  }, [man, rod, pike, manMixer, fishMixer]);
+
+  useEffect(() => {
+    const onFin = (e: THREE.Event<"finished", THREE.AnimationMixer> & { action: THREE.AnimationAction }) => {
+      const name = e.action.getClip().name;
+      if (name === charRef.current) onCharFinished?.(name);
+    };
+    manMixer.addEventListener("finished", onFin);
+    return () => manMixer.removeEventListener("finished", onFin);
+  }, [manMixer, onCharFinished]);
+
+  useEffect(() => {
+    const next = manActions[charClip];
+    if (!next) return;
+    for (const a of Object.values(manActions)) {
+      if (a !== next && a.isRunning()) a.fadeOut(0.22);
+    }
+    next.enabled = true;
+    next.reset();
+    next.setLoop(LOOPING_CHAR.has(charClip) ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+    next.clampWhenFinished = !LOOPING_CHAR.has(charClip);
+    next.fadeIn(charClip.startsWith("CAST") ? 0.08 : 0.22);
+    next.play();
+    charRef.current = charClip;
+  }, [charClip, manActions]);
+
+  useEffect(() => {
+    const next = fishActions[fishClip];
+    if (!next) return;
+    for (const a of Object.values(fishActions)) {
+      if (a !== next && a.isRunning()) a.fadeOut(0.25);
+    }
+    next.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.25).play();
+  }, [fishClip, fishActions]);
+
+  useEffect(() => {
+    helpers.skel.visible = debug.skeleton;
+    helpers.fishSkel.visible = debug.fishSkeleton;
+  }, [debug.skeleton, debug.fishSkeleton, helpers]);
+
+  useFrame((_, rawDt) => {
+    const dt = Math.min(rawDt, 0.05);
+    manMixer.update(dt);
+    fishMixer.update(dt);
+
+    if (!attached.current) {
+      const grip = man.getObjectByName("RodGrip") ?? man.getObjectByName("Hand_R");
+      if (grip) {
+        grip.add(rod);
+        rod.position.set(0.01, 0.0, 0.02);
+        rod.rotation.set(0.05, 0.15, -0.18);
+        rod.scale.setScalar(1);
+        attached.current = true;
+      }
+    }
+
+    const clip = charRef.current;
+    applyRodBend(rod, tensionFor(clip));
+    spinReel(rod, dt, clip === "REEL");
+
+    const ikMode = ikFor(clip);
+    if (ikMode !== "none") {
+      const targetName = ikMode === "reel" ? "ReelHandleTarget" : "RodSupportTarget";
+      if (worldOf(rod, targetName, _target)) {
+        twoBoneIK(man, ["UpperArm_L", "LowerArm_L", "Hand_L"], _target, 8);
+      }
+    }
+
+    if (debug.line !== false) {
+      worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
+      const jaw = pike.getObjectByName("Jaw") ?? pike.getObjectByName("PikeRoot");
+      if (jaw) {
+        jaw.updateWorldMatrix(true, false);
+        _fishMouth.setFromMatrixPosition(jaw.matrixWorld);
+      }
+      _mid.lerpVectors(_tip, _fishMouth, 0.5);
+      _mid.y -= 0.18;
+      linePts[0] = _tip.x;
+      linePts[1] = _tip.y;
+      linePts[2] = _tip.z;
+      linePts[3] = _mid.x;
+      linePts[4] = _mid.y;
+      linePts[5] = _mid.z;
+      linePts[6] = _fishMouth.x;
+      linePts[7] = _fishMouth.y;
+      linePts[8] = _fishMouth.z;
+      lineGeo.setAttribute("position", new THREE.BufferAttribute(linePts, 3));
+      lineGeo.computeBoundingSphere();
+    }
+
+    fpsAcc.current.t += dt;
+    fpsAcc.current.frames += 1;
+    if (fpsAcc.current.t >= 0.4) {
+      onFps?.(Math.round(fpsAcc.current.frames / fpsAcc.current.t));
+      fpsAcc.current.t = 0;
+      fpsAcc.current.frames = 0;
+    }
+  });
+
+  return (
+    <group>
+      <primitive object={man} position={[0, 0, 0]} rotation={[0, 0.35, 0]} />
+      <group position={[0.55, 0.55, -1.65]} scale={fishScale}>
+        <primitive object={pike} />
+      </group>
+      <primitive object={helpers.skel} />
+      <primitive object={helpers.fishSkel} />
+      {debug.line && (
+        <line>
+          <primitive object={lineGeo} attach="geometry" />
+          <lineBasicMaterial color="#d8dde4" transparent opacity={0.75} />
+        </line>
+      )}
+      {debug.ik && <IkDots rod={rod} />}
+      {debug.rodAnchors && <AnchorDots rod={rod} />}
+      <gridHelper args={[6, 12, "#7a8a94", "#3d4a52"]} />
+      <ContactShadows position={[0, 0.001, 0]} opacity={0.42} scale={4.5} blur={2.4} far={3.5} color="#1a1c18" />
+    </group>
+  );
+}
+
+function IkDots({ rod }: { rod: THREE.Object3D }) {
+  const a = useRef<THREE.Mesh>(null);
+  const b = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    if (a.current && worldOf(rod, "RodSupportTarget", _target)) a.current.position.copy(_target);
+    if (b.current && worldOf(rod, "ReelHandleTarget", _mid)) b.current.position.copy(_mid);
+  });
+  return (
+    <group>
+      <mesh ref={a}>
+        <sphereGeometry args={[0.025, 12, 12]} />
+        <meshBasicMaterial color="#8dcc9a" />
+      </mesh>
+      <mesh ref={b}>
+        <sphereGeometry args={[0.02, 12, 12]} />
+        <meshBasicMaterial color="#c9b896" />
+      </mesh>
+    </group>
+  );
+}
+
+function AnchorDots({ rod }: { rod: THREE.Object3D }) {
+  const refs = {
+    RodTip: useRef<THREE.Mesh>(null),
+    LineStart: useRef<THREE.Mesh>(null),
+    Reel: useRef<THREE.Mesh>(null),
+    RodGrip: useRef<THREE.Mesh>(null),
+  };
+  useFrame(() => {
+    (Object.keys(refs) as Array<keyof typeof refs>).forEach((name) => {
+      const mesh = refs[name].current;
+      if (mesh && worldOf(rod, name, _tip)) mesh.position.copy(_tip);
+    });
+  });
+  return (
+    <group>
+      {(["RodTip", "LineStart", "Reel", "RodGrip"] as const).map((name) => (
+        <mesh key={name} ref={refs[name]}>
+          <sphereGeometry args={[0.018, 10, 10]} />
+          <meshBasicMaterial color="#7ec8ff" />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+export function Lights() {
+  return (
+    <>
+      <hemisphereLight args={["#e8eef2", "#4a5560", 1.15]} />
+      <ambientLight intensity={0.55} />
+      <directionalLight position={[3.4, 6.5, 2.8]} intensity={1.55} color="#fff4e0" />
+      <directionalLight position={[-2.4, 2.2, -2.8]} intensity={0.7} color="#9eb4c8" />
+      <directionalLight position={[0.2, 1.8, 4.0]} intensity={0.45} color="#ffffff" />
+    </>
+  );
+}
