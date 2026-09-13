@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
-"""Production spinning rod: ONE continuous tapered blank, handle along the same axis.
+"""Production spinning rod — real layout, not stacked cylinders.
 
-Canonical axis (after glTF Y-up export):
-  +Y = butt → tip (RodGrip → RodTip)
-  +Z = 'up' of the reel (reel hangs toward -Z in Blender / -Y after some converters)
-  Blender build axis: +Y. export_yup maps Blender +Z→glTF +Y and Blender +Y→glTF +Z,
-  so we BUILD along Blender +Z to keep glTF +Y = rod axis.
+Blender build: +Z = butt → tip, −Y = down (reel + guides hang under the blank).
+glTF Y-up export: +Y = butt → tip.
 
-Build (Blender Z-up):
-  +Z = butt → tip
-After export (glTF Y-up):
-  +Y = butt → tip
+Spinning reel: foot clamped in the reel seat, body UNDER the rod, spool axis
+along the blank, open face toward the tip. Guide train + tip-top share that
+underside plane. Stripper is largest; rings shrink toward a sleeved tip-top.
 """
 from __future__ import annotations
 
@@ -22,16 +18,24 @@ from mathutils import Vector
 
 OUT = "/workspace/public/models/production/rod.glb"
 N_BONES = 8
-# Metres. 2.45 m spinning rod.
-BUTT_Z = 0.0
-REAR_GRIP = (0.02, 0.24)      # z0, z1
-SEAT = (0.24, 0.34)
+
+REAR = (0.02, 0.22)
+SEAT = (0.22, 0.34)
 FORE = (0.34, 0.44)
 BLANK_Z0 = 0.44
 BLANK_LEN = 2.01
 TIP_Z = BLANK_Z0 + BLANK_LEN  # 2.45
-BLANK_R0 = 0.0074
-BLANK_R1 = 0.0015
+R0, RMID, R1 = 0.0068, 0.0034, 0.00085
+
+
+def blank_r(t: float) -> float:
+    t = max(0.0, min(1.0, t))
+    if t < 0.75:
+        u = t / 0.75
+        return R0 * (1 - u) + RMID * u
+    u = (t - 0.75) / 0.25
+    ease = u * u
+    return RMID * (1 - ease) + R1 * ease
 
 
 def mat(name, color, rough=0.45, metal=0.0):
@@ -44,36 +48,64 @@ def mat(name, color, rough=0.45, metal=0.0):
     return m
 
 
-def apply_rot(o):
+def apply_rs(o):
     bpy.context.view_layer.objects.active = o
     o.select_set(True)
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
     o.select_set(False)
 
 
-def cyl_z(name, radius, z0, z1, verts=28):
-    depth = z1 - z0
-    bpy.ops.mesh.primitive_cylinder_add(
-        vertices=verts, radius=radius, depth=depth, location=(0, 0, z0 + depth * 0.5)
-    )
+def cyl(name, radius, depth, loc, rot=(0, 0, 0), verts=24):
+    bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=radius, depth=depth, location=loc)
     o = bpy.context.active_object
     o.name = name
-    apply_rot(o)
+    o.rotation_euler = rot
+    apply_rs(o)
     return o
 
 
-def sphere(name, r, loc, seg=16):
+def sphere(name, r, loc, seg=14):
     bpy.ops.mesh.primitive_uv_sphere_add(radius=r, location=loc, segments=seg, ring_count=seg)
     o = bpy.context.active_object
     o.name = name
     return o
 
 
+def torus(name, major, minor, loc, rot=(0, 0, 0), maj=14, mn=6):
+    bpy.ops.mesh.primitive_torus_add(
+        major_radius=major, minor_radius=minor, major_segments=maj, minor_segments=mn, location=loc
+    )
+    o = bpy.context.active_object
+    o.name = name
+    o.rotation_euler = rot
+    apply_rs(o)
+    return o
+
+
+def cube(name, s, loc):
+    bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
+    o = bpy.context.active_object
+    o.name = name
+    o.scale = s
+    apply_rs(o)
+    return o
+
+
+def join(objs, name):
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in objs:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = objs[0]
+    bpy.ops.object.join()
+    objs[0].name = name
+    return objs[0]
+
+
 def empty(name, loc):
     bpy.ops.object.empty_add(type="PLAIN_AXES", location=loc)
     o = bpy.context.active_object
     o.name = name
-    o.empty_display_size = 0.025
+    o.empty_display_size = 0.02
     return o
 
 
@@ -86,36 +118,35 @@ def parent_bone_keep(obj, arm, bone_name):
     bpy.ops.object.parent_set(type="BONE", keep_transform=True)
 
 
-def make_tapered_blank():
-    """Single connected tube, rings along +Z, no gaps."""
+def make_blank():
     import bmesh
 
-    rings, segs = 32, 16
+    rings, segs = 40, 14
     bm = bmesh.new()
-    verts = []
+    rings_v = []
     for i in range(rings + 1):
         t = i / rings
         z = BLANK_Z0 + t * BLANK_LEN
-        # slight ease so the butt of the blank matches the foregrip
-        r = BLANK_R0 * (1.0 - t) ** 0.85 + BLANK_R1 * t
+        r = blank_r(t)
         ring = []
         for j in range(segs):
             a = 2 * math.pi * j / segs
-            v = bm.verts.new((r * math.cos(a), r * math.sin(a), z))
-            ring.append(v)
-        verts.append(ring)
+            ring.append(bm.verts.new((r * math.cos(a), r * math.sin(a), z)))
+        rings_v.append(ring)
     bm.verts.ensure_lookup_table()
     for i in range(rings):
         for j in range(segs):
-            a = verts[i][j]
-            b = verts[i][(j + 1) % segs]
-            c = verts[i + 1][(j + 1) % segs]
-            d = verts[i + 1][j]
-            bm.faces.new((a, b, c, d))
+            bm.faces.new(
+                (
+                    rings_v[i][j],
+                    rings_v[i][(j + 1) % segs],
+                    rings_v[i + 1][(j + 1) % segs],
+                    rings_v[i + 1][j],
+                )
+            )
     mesh = bpy.data.meshes.new("BlankMesh")
     bm.to_mesh(mesh)
     bm.free()
-    mesh.calc_loop_triangles()
     ob = bpy.data.objects.new("BlankMesh", mesh)
     bpy.context.collection.objects.link(ob)
     return ob
@@ -123,131 +154,126 @@ def make_tapered_blank():
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 
-cork = mat("cork", (0.62, 0.48, 0.32), rough=0.84)
-graphite = mat("graphite", (0.10, 0.11, 0.12), rough=0.36, metal=0.18)
-seat_mat = mat("seat", (0.07, 0.07, 0.08), rough=0.38, metal=0.3)
-chrome = mat("chrome", (0.78, 0.80, 0.82), rough=0.18, metal=0.9)
-reel_body = mat("reel_body", (0.16, 0.17, 0.19), rough=0.32, metal=0.5)
-spool_mat = mat("spool", (0.55, 0.22, 0.14), rough=0.52, metal=0.04)
-tape = mat("tape", (0.12, 0.13, 0.12), rough=0.72)
+cork = mat("cork", (0.62, 0.48, 0.32), 0.84)
+graphite = mat("graphite", (0.11, 0.12, 0.13), 0.34, 0.2)
+seat_m = mat("seat", (0.08, 0.08, 0.09), 0.36, 0.35)
+chrome = mat("chrome", (0.80, 0.82, 0.84), 0.16, 0.92)
+reel_m = mat("reel_body", (0.14, 0.15, 0.17), 0.30, 0.55)
+spool_m = mat("spool", (0.58, 0.24, 0.14), 0.50, 0.04)
+tape = mat("tape", (0.12, 0.13, 0.12), 0.72)
 
-# --- handle along +Z, same axis as blank ---
-butt = sphere("ButtCap", 0.015, (0, 0, 0.012), 18)
+# ----- handle along +Z -----
+butt = sphere("ButtCap", 0.0145, (0, 0, 0.012), 16)
 butt.data.materials.append(chrome)
-rear = cyl_z("RearGrip", 0.014, *REAR_GRIP, 28)
+rear = cyl("RearGrip", 0.0135, REAR[1] - REAR[0], (0, 0, (REAR[0] + REAR[1]) * 0.5), verts=28)
 rear.data.materials.append(cork)
-reel_seat = cyl_z("ReelSeat", 0.0116, *SEAT, 24)
-reel_seat.data.materials.append(seat_mat)
-fore = cyl_z("Foregrip", 0.011, *FORE, 24)
+seat = cyl("ReelSeat", 0.0112, SEAT[1] - SEAT[0], (0, 0, (SEAT[0] + SEAT[1]) * 0.5), verts=24)
+seat.data.materials.append(seat_m)
+# hood / clamp on the underside of the seat so the foot reads as locked in
+hood = cube("SeatHood", (0.016, 0.007, 0.07), (0, -0.012, (SEAT[0] + SEAT[1]) * 0.5))
+hood.data.materials.append(seat_m)
+fore = cyl("Foregrip", 0.0106, FORE[1] - FORE[0], (0, 0, (FORE[0] + FORE[1]) * 0.5), verts=24)
 fore.data.materials.append(cork)
-# decorative winding wrap between seat and blank
-wrap = cyl_z("Wrap", 0.0088, FORE[1] - 0.012, BLANK_Z0 + 0.012, 16)
+wrap = cyl("Wrap", 0.0084, 0.024, (0, 0, FORE[1] + 0.004), verts=16)
 wrap.data.materials.append(tape)
+handle = join([butt, rear, seat, hood, fore, wrap], "HandleMesh")
 
-bpy.ops.object.select_all(action="DESELECT")
-for o in (butt, rear, reel_seat, fore, wrap):
-    o.select_set(True)
-bpy.context.view_layer.objects.active = rear
-bpy.ops.object.join()
-handle = bpy.context.active_object
-handle.name = "HandleMesh"
-
-blank = make_tapered_blank()
+blank = make_blank()
 blank.data.materials.append(graphite)
 
-# --- guides: tiny foot + ring, hole along +Z ---
-guides = []
-guide_ts = (0.10, 0.22, 0.36, 0.50, 0.64, 0.78, 0.90)
-for i, t in enumerate(guide_ts):
-    z = BLANK_Z0 + t * BLANK_LEN
-    rb = BLANK_R0 * (1.0 - t) ** 0.85 + BLANK_R1 * t
-    ring_r = 0.0072 * (1.0 - 0.55 * t) + 0.0024
-    foot_h = 0.007 + ring_r * 0.35
-    bpy.ops.mesh.primitive_cylinder_add(
-        vertices=8, radius=0.0009, depth=foot_h, location=(0, rb + foot_h * 0.5, z)
-    )
-    foot = bpy.context.active_object
-    foot.rotation_euler = (math.pi / 2, 0, 0)
-    apply_rot(foot)
-    foot.data.materials.append(chrome)
-    bpy.ops.mesh.primitive_torus_add(
-        major_radius=ring_r,
-        minor_radius=0.00085,
-        major_segments=14,
-        minor_segments=6,
-        location=(0, rb + foot_h + ring_r * 0.15, z),
-    )
-    ring = bpy.context.active_object
-    # hole along +Z (rod axis)
-    ring.rotation_euler = (0, 0, 0)
-    apply_rot(ring)
-    ring.data.materials.append(chrome)
-    bpy.ops.object.select_all(action="DESELECT")
-    foot.select_set(True)
-    ring.select_set(True)
-    bpy.context.view_layer.objects.active = ring
-    bpy.ops.object.join()
-    g = bpy.context.active_object
-    g.name = f"Guide{i}"
-    guides.append(g)
-
-bpy.ops.mesh.primitive_torus_add(
-    major_radius=0.0034, minor_radius=0.0007, major_segments=12, minor_segments=6, location=(0, 0, TIP_Z)
-)
-tip_ring = bpy.context.active_object
-tip_ring.name = "TipRing"
-tip_ring.data.materials.append(chrome)
-
-# --- compact spinning reel hanging toward -Y (under the seat) ---
-reel_z = (SEAT[0] + SEAT[1]) * 0.5
-reel_y = -0.034
-bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.018, depth=0.032, location=(0, reel_y, reel_z))
-body = bpy.context.active_object
-body.rotation_euler = (math.pi / 2, 0, 0)
-apply_rot(body)
-body.data.materials.append(reel_body)
-bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.0045, depth=0.022, location=(0, reel_y * 0.45, reel_z))
-foot_r = bpy.context.active_object
-foot_r.rotation_euler = (math.pi / 2, 0, 0)
-apply_rot(foot_r)
-foot_r.data.materials.append(chrome)
-bpy.ops.mesh.primitive_cylinder_add(vertices=20, radius=0.0135, depth=0.016, location=(0, reel_y - 0.012, reel_z))
-spool = bpy.context.active_object
-spool.rotation_euler = (math.pi / 2, 0, 0)
-apply_rot(spool)
-spool.data.materials.append(spool_mat)
-bpy.ops.mesh.primitive_torus_add(
-    major_radius=0.017, minor_radius=0.0011, major_segments=18, minor_segments=6, location=(0, reel_y - 0.004, reel_z)
-)
-bail = bpy.context.active_object
-bail.rotation_euler = (math.pi / 2, 0, 0)
-apply_rot(bail)
+# ----- spinning reel UNDER the seat -----
+# −Y is down. Spool axis = +Z (toward tip). Open face toward +Z.
+seat_z = (SEAT[0] + SEAT[1]) * 0.5  # 0.28
+# foot clamped in the hood, along the rod
+foot = cube("ReelFoot", (0.007, 0.004, 0.055), (0, -0.015, seat_z))
+foot.data.materials.append(chrome)
+stem = cyl("ReelStem", 0.0042, 0.016, (0, -0.026, seat_z), rot=(math.pi / 2, 0, 0), verts=12)
+stem.data.materials.append(chrome)
+# body hangs below the stem
+body = sphere("ReelBody", 0.020, (0, -0.048, seat_z - 0.004), 18)
+body.data.materials.append(reel_m)
+body.scale = (0.92, 1.05, 1.12)
+apply_rs(body)
+# spool: cylinder ALONG +Z, in front of the body toward the tip
+spool = cyl("Spool", 0.0135, 0.022, (0, -0.050, seat_z + 0.018), verts=22)
+spool.data.materials.append(spool_m)
+lip = torus("SpoolLip", 0.0142, 0.0010, (0, -0.050, seat_z + 0.028), maj=18, mn=6)
+lip.data.materials.append(chrome)
+# rotor around the spool, still along Z
+rotor = cyl("Rotor", 0.0165, 0.008, (0, -0.050, seat_z + 0.008), verts=18)
+rotor.data.materials.append(reel_m)
+# bail: ring in the YZ plane around the spool (hole along X would be wrong).
+# Hole along Z so line can leave toward the tip.
+bail = torus("Bail", 0.0175, 0.00115, (0, -0.050, seat_z + 0.012), maj=20, mn=6)
 bail.data.materials.append(chrome)
-bpy.ops.object.select_all(action="DESELECT")
-for o in (body, foot_r, spool, bail):
-    o.select_set(True)
-bpy.context.view_layer.objects.active = body
-bpy.ops.object.join()
-housing = bpy.context.active_object
-housing.name = "ReelHousing"
+# line roller at the top of the bail, toward the blank
+roller = sphere("LineRoller", 0.0032, (0, -0.033, seat_z + 0.012), 10)
+roller.data.materials.append(chrome)
+housing = join([foot, stem, body, spool, lip, rotor, bail, roller], "ReelHousing")
 
-# crank
-bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.0026, depth=0.038, location=(0.019, reel_y - 0.002, reel_z))
-arm = bpy.context.active_object
-arm.rotation_euler = (0, 0, math.pi / 2)
-apply_rot(arm)
+# crank on +X side of the body
+arm = cyl("CrankArm", 0.0024, 0.034, (0.026, -0.048, seat_z - 0.004), rot=(0, 0, math.pi / 2), verts=10)
 arm.data.materials.append(chrome)
-knob = sphere("CrankKnob", 0.0064, (0.038, reel_y - 0.002, reel_z), 12)
-knob.data.materials.append(seat_mat)
-bpy.ops.object.select_all(action="DESELECT")
-arm.select_set(True)
-knob.select_set(True)
-bpy.context.view_layer.objects.active = arm
-bpy.ops.object.join()
-crank = bpy.context.active_object
-crank.name = "ReelHandleMesh"
+knob = sphere("CrankKnob", 0.0062, (0.043, -0.048, seat_z - 0.004), 12)
+knob.data.materials.append(seat_m)
+crank = join([arm, knob], "ReelHandleMesh")
 
-# --- armature along +Z ---
+# ----- guide train on the UNDERSIDE (−Y), same plane as the reel -----
+# (t along blank, inner radius of ring)
+GUIDES = [
+    (0.11, 0.0115),  # stripper — largest, nearest the reel
+    (0.23, 0.0088),
+    (0.36, 0.0068),
+    (0.50, 0.0054),
+    (0.63, 0.0044),
+    (0.75, 0.0036),
+    (0.85, 0.0029),
+    (0.93, 0.0024),
+]
+guides = []
+for i, (t, ring_r) in enumerate(GUIDES):
+    z = BLANK_Z0 + t * BLANK_LEN
+    rb = blank_r(t)
+    foot_h = 0.005 + ring_r * 0.45
+    # foot from blank surface downward (−Y)
+    gfoot = cyl(
+        f"GFoot{i}",
+        0.0008,
+        foot_h,
+        (0, -(rb + foot_h * 0.5), z),
+        rot=(math.pi / 2, 0, 0),
+        verts=8,
+    )
+    gfoot.data.materials.append(chrome)
+    # ring hole along +Z (rod axis), centre below the blank
+    gring = torus(
+        f"Guide{i}",
+        ring_r,
+        0.00075,
+        (0, -(rb + foot_h + ring_r * 0.15), z),
+        maj=14,
+        mn=6,
+    )
+    gring.data.materials.append(chrome)
+    guides.append(join([gfoot, gring], f"Guide{i}"))
+
+# tip-top: sleeve ON the blank end + tiny ring, no gap
+sleeve = cyl("TipSleeve", R1 + 0.00055, 0.009, (0, 0, TIP_Z - 0.0035), verts=12)
+sleeve.data.materials.append(chrome)
+tt_foot = cyl(
+    "TipFoot",
+    0.0006,
+    0.0045,
+    (0, -(R1 + 0.003), TIP_Z - 0.001),
+    rot=(math.pi / 2, 0, 0),
+    verts=8,
+)
+tt_foot.data.materials.append(chrome)
+tt_ring = torus("TipRing", 0.00215, 0.00055, (0, -(R1 + 0.0062), TIP_Z - 0.001), maj=12, mn=6)
+tt_ring.data.materials.append(chrome)
+tiptop = join([sleeve, tt_foot, tt_ring], "TipTop")
+
+# ----- armature along +Z -----
 bpy.ops.object.armature_add(enter_editmode=True, location=(0, 0, 0))
 arm_obj = bpy.context.active_object
 arm_obj.name = "RodArmature"
@@ -258,8 +284,7 @@ root.head = Vector((0, 0, 0.08))
 root.tail = Vector((0, 0, BLANK_Z0))
 prev = root
 for i in range(N_BONES):
-    t0 = i / N_BONES
-    t1 = (i + 1) / N_BONES
+    t0, t1 = i / N_BONES, (i + 1) / N_BONES
     b = eb.new(f"Blank_{i}")
     b.head = Vector((0, 0, BLANK_Z0 + t0 * BLANK_LEN))
     b.tail = Vector((0, 0, BLANK_Z0 + t1 * BLANK_LEN))
@@ -268,45 +293,39 @@ for i in range(N_BONES):
     prev = b
 bpy.ops.object.mode_set(mode="OBJECT")
 
-# Skin the ONE blank mesh
 bpy.ops.object.select_all(action="DESELECT")
 blank.select_set(True)
 arm_obj.select_set(True)
 bpy.context.view_layer.objects.active = arm_obj
 bpy.ops.object.parent_set(type="ARMATURE_AUTO")
 
-# Rigid parts stay on the grip / nearest blank bone, KEEP world transform
 parent_bone_keep(handle, arm_obj, "RodGripBone")
 parent_bone_keep(housing, arm_obj, "RodGripBone")
 parent_bone_keep(crank, arm_obj, "RodGripBone")
-parent_bone_keep(tip_ring, arm_obj, f"Blank_{N_BONES - 1}")
+parent_bone_keep(tiptop, arm_obj, f"Blank_{N_BONES - 1}")
 for i, g in enumerate(guides):
-    idx = min(N_BONES - 1, max(0, int(guide_ts[i] * N_BONES)))
+    idx = min(N_BONES - 1, max(0, int(GUIDES[i][0] * N_BONES)))
     parent_bone_keep(g, arm_obj, f"Blank_{idx}")
 
-# Contract anchors
+
 def bone_empty(name, loc, bone):
     o = empty(name, loc)
     parent_bone_keep(o, arm_obj, bone)
     return o
 
 
-bone_empty("RodGrip", (0, 0, 0.13), "RodGripBone")
+bone_empty("RodGrip", (0, 0, 0.12), "RodGripBone")
 bone_empty("RodTip", (0, 0, TIP_Z), f"Blank_{N_BONES - 1}")
-bone_empty("LineStart", (0, 0.004, TIP_Z), f"Blank_{N_BONES - 1}")
-bone_empty("Reel", (0, reel_y, reel_z), "RodGripBone")
-rh = bone_empty("ReelHandle", (0.038, reel_y - 0.002, reel_z), "RodGripBone")
-bone_empty("RodSupportTarget", (0, 0, 0.50), "Blank_0")
-bone_empty("ReelHandleTarget", (0.038, reel_y - 0.002, reel_z), "RodGripBone")
-bone_empty("ReelRotor", (0, reel_y - 0.004, reel_z), "RodGripBone")
+bone_empty("LineStart", (0, -(R1 + 0.006), TIP_Z), f"Blank_{N_BONES - 1}")
+bone_empty("Reel", (0, -0.048, seat_z), "RodGripBone")
+bone_empty("ReelHandle", (0.043, -0.048, seat_z - 0.004), "RodGripBone")
+bone_empty("RodSupportTarget", (0, 0, 0.48), "Blank_0")
+bone_empty("ReelHandleTarget", (0.043, -0.048, seat_z - 0.004), "RodGripBone")
+bone_empty("ReelRotor", (0, -0.050, seat_z + 0.008), "RodGripBone")
 
-# Parent crank mesh to ReelHandle empty so spinReel can rotate it
-# (keep_transform already parented to bone; leave it)
-
-tris = 0
-for o in bpy.data.objects:
-    if o.type == "MESH":
-        tris += sum(max(0, len(p.vertices) - 2) for p in o.data.polygons)
+tris = sum(
+    max(0, len(p.vertices) - 2) for o in bpy.data.objects if o.type == "MESH" for p in o.data.polygons
+)
 print("ROD_TRIS", tris, "length", TIP_Z, "bones", N_BONES)
 
 Path(OUT).parent.mkdir(parents=True, exist_ok=True)
@@ -321,4 +340,4 @@ bpy.ops.export_scene.gltf(
     export_apply=False,
 )
 print("WROTE", OUT)
-print("AXIS glTF +Y = butt → tip (built along Blender +Z, Y-up export)")
+print("AXIS glTF +Y = butt → tip; −Z (export) ≈ down = reel + guides")

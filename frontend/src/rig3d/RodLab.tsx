@@ -10,23 +10,26 @@ import { PRODUCTION } from "../scene3d/assets/paths";
 import "../rig/rig.css";
 import "./rig3d.css";
 
-type View = "side" | "top" | "front" | "34" | "handle" | "guides" | "tip";
+type View = "side" | "34" | "reel" | "spool" | "stripper" | "lastguides" | "tiptop";
 
-const CAM: Record<View, { pos: [number, number, number]; target: [number, number, number] }> = {
-  side: { pos: [0, 1.2, 4.4], target: [0, 1.2, 0] },
-  top: { pos: [0, 5.2, 0.05], target: [0, 1.2, 0] },
-  front: { pos: [0, -2.2, 0.35], target: [0, 0.8, 0] },
-  "34": { pos: [2.6, -1.4, 2.0], target: [0, 1.2, 0] },
-  handle: { pos: [0.55, -0.25, 0.35], target: [0, 0.2, 0] },
-  guides: { pos: [0.55, 1.2, 0.4], target: [0, 1.2, 0] },
-  tip: { pos: [0.35, 2.4, 0.22], target: [0, 2.42, 0] },
+const CAM: Record<View, { pos: [number, number, number]; target: [number, number, number]; fov: number }> = {
+  side: { pos: [4.6, 0.4, 1.2], target: [0, 0, 1.2], fov: 32 },
+  "34": { pos: [3.0, 1.4, -0.4], target: [0, 0, 1.2], fov: 34 },
+  reel: { pos: [0.18, 0.05, 0.28], target: [0, -0.04, 0.28], fov: 28 },
+  spool: { pos: [0.14, 0.04, 0.34], target: [0, -0.05, 0.30], fov: 26 },
+  stripper: { pos: [0.16, 0.04, 0.66], target: [0, -0.025, 0.66], fov: 26 },
+  lastguides: { pos: [0.14, 0.04, 2.16], target: [0, -0.015, 2.18], fov: 24 },
+  tiptop: { pos: [0.08, 0.025, 2.44], target: [0, -0.006, 2.445], fov: 22 },
 };
 
 function CamRig({ view }: { view: View }) {
-  const cam = useThree((s) => s.camera);
+  const cam = useThree((s) => s.camera as THREE.PerspectiveCamera);
   useEffect(() => {
     const c = CAM[view];
     cam.position.set(...c.pos);
+    cam.fov = c.fov;
+    cam.near = 0.01;
+    cam.updateProjectionMatrix();
     cam.lookAt(...c.target);
   }, [view, cam]);
   return null;
@@ -34,8 +37,16 @@ function CamRig({ view }: { view: View }) {
 
 function RodScene({ tension, view }: { tension: number; view: View }) {
   const gltf = useGLTF(PRODUCTION.rod);
-  const rod = useMemo(() => cloneSkinned(gltf.scene), [gltf.scene]);
-  const controls = useRef<any>(null);
+  const rod = useMemo(() => {
+    const r = cloneSkinned(gltf.scene);
+    r.rotation.x = Math.PI / 2;
+    return r;
+  }, [gltf.scene]);
+  const sticky = useRef(true);
+
+  useEffect(() => {
+    sticky.current = true;
+  }, [view]);
 
   useEffect(() => {
     rod.traverse((o) => {
@@ -56,18 +67,30 @@ function RodScene({ tension, view }: { tension: number; view: View }) {
     });
   }, [rod]);
 
-  useFrame(() => {
+  useFrame(({ camera }) => {
     applyRodBend(rod, tension);
-    const ctrl = controls.current;
-    if (!ctrl) return;
+    if (!sticky.current) return;
     const c = CAM[view];
-    ctrl.target.set(...c.target);
+    camera.position.set(...c.pos);
+    const p = camera as THREE.PerspectiveCamera;
+    p.fov = c.fov;
+    p.near = 0.01;
+    p.updateProjectionMatrix();
+    camera.lookAt(...c.target);
   });
 
   return (
     <>
       <primitive object={rod} />
-      <OrbitControls ref={controls} makeDefault target={CAM[view].target} />
+      <OrbitControls
+        key={view}
+        makeDefault
+        target={CAM[view].target}
+        minDistance={0.04}
+        onStart={() => {
+          sticky.current = false;
+        }}
+      />
     </>
   );
 }
@@ -82,7 +105,7 @@ export function RodLab() {
       <header className="rig-lab-top">
         <div>
           <p className="rig-lab-kicker">Рыбацкий мир · rod asset</p>
-          <h1>Production rod</h1>
+          <h1>Production rod · {view}</h1>
         </div>
         <div className="rig-lab-meta">
           <a href="/dev/rig3d" className="rig-lab-back">
@@ -111,7 +134,7 @@ export function RodLab() {
       </section>
       <nav className="rig-dock">
         <div className="rig-toggles">
-          {(["side", "top", "front", "34", "handle", "guides", "tip"] as View[]).map((v) => (
+          {(["side", "34", "reel", "spool", "stripper", "lastguides", "tiptop"] as View[]).map((v) => (
             <button key={v} type="button" className={view === v ? "is-on" : ""} onClick={() => setView(v)}>
               {v === "34" ? "3/4" : v}
             </button>
