@@ -11,12 +11,15 @@ const _basis = new THREE.Matrix4();
 const _qz = new THREE.Quaternion();
 const _axisZ = new THREE.Vector3(0, 0, 1);
 const _axisX = new THREE.Vector3(1, 0, 0);
+const _axisY = new THREE.Vector3(0, 1, 0);
 
 const DEG = Math.PI / 180;
 const PITCH = 30 * DEG;
 const REEL_SEAT_ALONG = 0.11;
 /** Tiny outward roll of the right fist, local X, absolute each frame. */
 const WRIST_OUT = 12 * DEG;
+/** Thumb 15° away from the torso, around the handle (local Y). */
+const THUMB_OUT = 15 * DEG;
 
 const REST_Q: Record<string, THREE.Quaternion> = {};
 const FIST_Z: Record<string, number> = {
@@ -64,6 +67,8 @@ export function rollRightWristOut(man: THREE.Object3D, _rod?: THREE.Object3D): v
   if (!REST_Q.Hand_R) REST_Q.Hand_R = hand.quaternion.clone();
   hand.quaternion.copy(REST_Q.Hand_R);
   _qz.setFromAxisAngle(_axisX, WRIST_OUT);
+  hand.quaternion.multiply(_qz);
+  _qz.setFromAxisAngle(_axisY, THUMB_OUT);
   hand.quaternion.multiply(_qz);
 }
 
