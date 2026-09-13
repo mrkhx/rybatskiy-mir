@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { api, setToken, token, type Player, type Session } from "./api/client";
 import { Lake } from "./scene/Lake";
 import { isVkMiniApp } from "./vk/mini-app";
 import { RigLab } from "./rig/RigLab";
+
+const Rig3DLab = lazy(() => import("./rig3d/Rig3DLab").then((m) => ({ default: m.Rig3DLab })));
 
 type Tab = "fish" | "map" | "bag" | "shop" | "log" | "profile";
 type Method = "FLOAT" | "SPINNING";
@@ -124,6 +126,13 @@ export default function App() {
   if (typeof window !== "undefined") {
     const q = new URLSearchParams(window.location.search);
     const path = window.location.pathname.replace(/\/+$/, "");
+    if (q.get("rig3d") === "1" || path.endsWith("/dev/rig3d")) {
+      return (
+        <Suspense fallback={<div className="boot">3D lab…</div>}>
+          <Rig3DLab />
+        </Suspense>
+      );
+    }
     if (q.get("rig") === "1" || path.endsWith("/dev/rig")) return <RigLab />;
   }
   return <GameApp />;

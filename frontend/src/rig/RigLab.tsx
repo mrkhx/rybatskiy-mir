@@ -105,6 +105,9 @@ export function RigLab() {
         </div>
         <div className="rig-lab-meta">
           <span className="rig-lab-state">{state.replaceAll("_", " ")}</span>
+          <a href="/dev/rig3d" className="rig-lab-back">
+            3D lab
+          </a>
           <a href="/" className="rig-lab-back">
             К озеру
           </a>
