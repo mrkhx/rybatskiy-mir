@@ -1,0 +1,383 @@
+{
+  "id": "adult-male",
+  "name": "Adult male fisherman",
+  "sourceMaster": "master.png",
+  "identityLock": "/scene/forest-lake/char/master.webp",
+  "nativeCanvasWidth": 1254,
+  "nativeCanvasHeight": 1800,
+  "baseline": 1691.0,
+  "characterScale": 1,
+  "bindPoseAngles": {
+    "pelvis": 0.0,
+    "torso": -90.55,
+    "head": -92.02,
+    "hairBack": 0.0,
+    "hairFront": 0.0,
+    "upperArm_L": 164.58,
+    "forearm_L": 152.14,
+    "hand_L": 149.42,
+    "upperArm_R": 15.52,
+    "forearm_R": 27.2,
+    "hand_R": 23.5,
+    "thigh_L": 99.52,
+    "shin_L": 93.9,
+    "foot_L": 84.92,
+    "thigh_R": 83.33,
+    "shin_R": 95.12,
+    "foot_R": 82.57
+  },
+  "parts": [
+    {
+      "id": "pelvis",
+      "image": "parts/pelvis.png",
+      "parent": "root",
+      "x": 655.0,
+      "y": 1004.0,
+      "pivotX": 217.0,
+      "pivotY": 86.0,
+      "cropX": 438,
+      "cropY": 918,
+      "width": 304,
+      "height": 312,
+      "defaultRotation": 0,
+      "zIndex": 20
+    },
+    {
+      "id": "torso",
+      "image": "parts/torso.png",
+      "parent": "pelvis",
+      "x": 655.0,
+      "y": 1004.0,
+      "pivotX": 323.0,
+      "pivotY": 682.0,
+      "cropX": 332,
+      "cropY": 322,
+      "width": 590,
+      "height": 879,
+      "defaultRotation": 0,
+      "zIndex": 30
+    },
+    {
+      "id": "head",
+      "image": "parts/head.png",
+      "parent": "torso",
+      "x": 649.0,
+      "y": 382.0,
+      "pivotX": 205.0,
+      "pivotY": 365.0,
+      "cropX": 444,
+      "cropY": 17,
+      "width": 360,
+      "height": 480,
+      "defaultRotation": 0,
+      "zIndex": 50
+    },
+    {
+      "id": "hairBack",
+      "image": "parts/hairBack.png",
+      "parent": "head",
+      "x": 643.0,
+      "y": 212.0,
+      "pivotX": 155.0,
+      "pivotY": 135.0,
+      "cropX": 488,
+      "cropY": 77,
+      "width": 276,
+      "height": 287,
+      "defaultRotation": 0,
+      "zIndex": 8
+    },
+    {
+      "id": "hairFront",
+      "image": "parts/hairFront.png",
+      "parent": "head",
+      "x": 643.0,
+      "y": 212.0,
+      "pivotX": 106.0,
+      "pivotY": 134.0,
+      "cropX": 537,
+      "cropY": 78,
+      "width": 225,
+      "height": 225,
+      "defaultRotation": 0,
+      "zIndex": 55
+    },
+    {
+      "id": "upperArm_L",
+      "image": "parts/upperArm_L.png",
+      "parent": "torso",
+      "x": 455.0,
+      "y": 492.0,
+      "pivotX": 296.0,
+      "pivotY": 72.0,
+      "cropX": 159,
+      "cropY": 420,
+      "width": 375,
+      "height": 201,
+      "defaultRotation": 0,
+      "zIndex": 12
+    },
+    {
+      "id": "forearm_L",
+      "image": "parts/forearm_L.png",
+      "parent": "upperArm_L",
+      "x": 252.0,
+      "y": 548.0,
+      "pivotX": 206.0,
+      "pivotY": 78.0,
+      "cropX": 46,
+      "cropY": 470,
+      "width": 298,
+      "height": 216,
+      "defaultRotation": 0,
+      "zIndex": 13
+    },
+    {
+      "id": "hand_L",
+      "image": "parts/hand_L.png",
+      "parent": "forearm_L",
+      "x": 112.0,
+      "y": 622.0,
+      "pivotX": 95.0,
+      "pivotY": 62.0,
+      "cropX": 17,
+      "cropY": 560,
+      "width": 161,
+      "height": 138,
+      "defaultRotation": 0,
+      "zIndex": 14
+    },
+    {
+      "id": "upperArm_R",
+      "image": "parts/upperArm_R.png",
+      "parent": "torso",
+      "x": 828.0,
+      "y": 508.0,
+      "pivotX": 79.0,
+      "pivotY": 72.0,
+      "cropX": 749,
+      "cropY": 436,
+      "width": 314,
+      "height": 196,
+      "defaultRotation": 0,
+      "zIndex": 40
+    },
+    {
+      "id": "forearm_R",
+      "image": "parts/forearm_R.png",
+      "parent": "upperArm_R",
+      "x": 1008.0,
+      "y": 558.0,
+      "pivotX": 92.0,
+      "pivotY": 73.0,
+      "cropX": 916,
+      "cropY": 485,
+      "width": 294,
+      "height": 189,
+      "defaultRotation": 0,
+      "zIndex": 41
+    },
+    {
+      "id": "hand_R",
+      "image": "parts/hand_R.png",
+      "parent": "forearm_R",
+      "x": 1152.0,
+      "y": 632.0,
+      "pivotX": 67.0,
+      "pivotY": 60.0,
+      "cropX": 1085,
+      "cropY": 572,
+      "width": 152,
+      "height": 108,
+      "defaultRotation": 0,
+      "zIndex": 42
+    },
+    {
+      "id": "thigh_L",
+      "image": "parts/thigh_L.png",
+      "parent": "pelvis",
+      "x": 567.0,
+      "y": 1030.0,
+      "pivotX": 165.0,
+      "pivotY": 129.0,
+      "cropX": 402,
+      "cropY": 901,
+      "width": 274,
+      "height": 554,
+      "defaultRotation": 0,
+      "zIndex": 18
+    },
+    {
+      "id": "shin_L",
+      "image": "parts/shin_L.png",
+      "parent": "thigh_L",
+      "x": 511.0,
+      "y": 1364.0,
+      "pivotX": 104.0,
+      "pivotY": 105.0,
+      "cropX": 407,
+      "cropY": 1259,
+      "width": 188,
+      "height": 440,
+      "defaultRotation": 0,
+      "zIndex": 17
+    },
+    {
+      "id": "foot_L",
+      "image": "parts/foot_L.png",
+      "parent": "shin_L",
+      "x": 492.0,
+      "y": 1643.0,
+      "pivotX": 81.0,
+      "pivotY": 79.0,
+      "cropX": 411,
+      "cropY": 1564,
+      "width": 171,
+      "height": 217,
+      "defaultRotation": 0,
+      "zIndex": 16
+    },
+    {
+      "id": "thigh_R",
+      "image": "parts/thigh_R.png",
+      "parent": "pelvis",
+      "x": 749.0,
+      "y": 1030.0,
+      "pivotX": 108.0,
+      "pivotY": 129.0,
+      "cropX": 641,
+      "cropY": 901,
+      "width": 206,
+      "height": 535,
+      "defaultRotation": 0,
+      "zIndex": 19
+    },
+    {
+      "id": "shin_R",
+      "image": "parts/shin_R.png",
+      "parent": "thigh_R",
+      "x": 787.0,
+      "y": 1355.0,
+      "pivotX": 110.0,
+      "pivotY": 105.0,
+      "cropX": 677,
+      "cropY": 1250,
+      "width": 173,
+      "height": 439,
+      "defaultRotation": 0,
+      "zIndex": 18
+    },
+    {
+      "id": "foot_R",
+      "image": "parts/foot_R.png",
+      "parent": "shin_R",
+      "x": 762.0,
+      "y": 1634.0,
+      "pivotX": 79.0,
+      "pivotY": 79.0,
+      "cropX": 683,
+      "cropY": 1555,
+      "width": 171,
+      "height": 157,
+      "defaultRotation": 0,
+      "zIndex": 17
+    }
+  ],
+  "anchors": {
+    "HeadAnchor": {
+      "x": 643.0,
+      "y": 212.0
+    },
+    "NeckAnchor": {
+      "x": 649.0,
+      "y": 382.0
+    },
+    "ShoulderL": {
+      "x": 455.0,
+      "y": 492.0
+    },
+    "ShoulderR": {
+      "x": 828.0,
+      "y": 508.0
+    },
+    "ElbowL": {
+      "x": 252.0,
+      "y": 548.0
+    },
+    "ElbowR": {
+      "x": 1008.0,
+      "y": 558.0
+    },
+    "WristL": {
+      "x": 112.0,
+      "y": 622.0
+    },
+    "WristR": {
+      "x": 1152.0,
+      "y": 632.0
+    },
+    "Hip": {
+      "x": 655.0,
+      "y": 1004.0
+    },
+    "HipL": {
+      "x": 567.0,
+      "y": 1030.0
+    },
+    "HipR": {
+      "x": 749.0,
+      "y": 1030.0
+    },
+    "KneeL": {
+      "x": 511.0,
+      "y": 1364.0
+    },
+    "KneeR": {
+      "x": 787.0,
+      "y": 1355.0
+    },
+    "AnkleL": {
+      "x": 492.0,
+      "y": 1643.0
+    },
+    "AnkleR": {
+      "x": 762.0,
+      "y": 1634.0
+    },
+    "RodGrip": {
+      "x": 1196.0,
+      "y": 652.0
+    },
+    "RodSupportTarget": {
+      "x": 980.0,
+      "y": 430.0
+    }
+  },
+  "rod": {
+    "image": "rod.png",
+    "parent": "hand_R",
+    "gripAnchor": "RodGrip",
+    "supportAnchor": "RodSupportTarget",
+    "width": 2200,
+    "height": 437,
+    "pivotX": 338,
+    "pivotY": 74,
+    "reelX": 410,
+    "reelY": 152,
+    "supportX": 820,
+    "supportY": 74,
+    "tipX": 2168,
+    "tipY": 74,
+    "lineStartX": 2148,
+    "lineStartY": 74,
+    "length": 1830,
+    "scale": 0.58,
+    "defaultRotation": -12
+  },
+  "boneLengths": {
+    "upperArm_L": 210.58,
+    "forearm_L": 158.35,
+    "upperArm_R": 186.82,
+    "forearm_R": 161.9
+  }
+}
