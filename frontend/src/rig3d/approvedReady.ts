@@ -12,7 +12,7 @@
  * - rod in the closed right fist, 4 cm toward torso
  * Chain (line + float) locked in approvedTackle.ts
  * at HEAD c804d16dd2b4c4ec1b0d478fa441377145b6875c
- *
+ */
 import * as THREE from "three";
 
 export const APPROVED_READY_COMMIT =

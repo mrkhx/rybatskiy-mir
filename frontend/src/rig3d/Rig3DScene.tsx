@@ -14,6 +14,7 @@ import { importHumanoid } from "../scene3d/assets/retarget";
 import { twoBoneIK } from "./ik";
 import { applyRodBend, aimRod, spinReel, worldOf } from "./rodBend";
 import { placeRodReady, closeRightFist, rollRightWristOut } from "./grip";
+import { applyAimPose, AIM_PITCH, AIM_YAW, AIM_LINE_TENSION } from "./aim";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
 import { FishingLineView, LakeFloat, WaterPlane } from "./FloatActor";
 
@@ -244,7 +245,7 @@ export function Rig3DScene({
   }, [manMixer, onCharFinished]);
 
   useEffect(() => {
-    const next = manActions[charClip];
+    const next = manActions[charClip] ?? (charClip === "AIM" ? manActions.READY : undefined);
     if (!next) return;
     const fade = charClip.startsWith("CAST") || charClip === "HOOKSET" || charClip === "BITE_REACTION" ? 0.12 : 0.22;
     for (const a of Object.values(manActions)) {
@@ -284,11 +285,12 @@ export function Rig3DScene({
     fishMixer.update(dt);
 
     const clip = charRef.current;
-    const wantsRod = clip === "READY";
+    const wantsRod = clip === "READY" || clip === "AIM";
     if (wantsRod) {
       closeRightFist(man, rod);
       rollRightWristOut(man, rod);
-      attached.current = placeRodReady(man, rod);
+      if (clip === "AIM") applyAimPose(man);
+      attached.current = placeRodReady(man, rod, clip === "AIM" ? AIM_PITCH : undefined, clip === "AIM" ? AIM_YAW : undefined);
       rod.visible = true;
     } else if (attached.current) {
       rod.removeFromParent();
@@ -296,8 +298,8 @@ export function Rig3DScene({
       attached.current = false;
     }
 
-    if (attached.current && clip !== "READY") aimRod(man, rod, clip);
-    applyRodBend(rod, clip === "READY" ? 0 : tensionFor(clip));
+    if (attached.current && clip !== "READY" && clip !== "AIM") aimRod(man, rod, clip);
+    applyRodBend(rod, clip === "READY" || clip === "AIM" ? 0 : tensionFor(clip));
     spinReel(rod, dt, clip === "REEL");
 
     const ikMode = ikFor(clip);
@@ -343,10 +345,10 @@ export function Rig3DScene({
     <group>
       <group rotation={[0, yaw + extraYaw.current + Math.PI, 0]}>
         <primitive object={man} position={[0, 0, 0]} />
-        <WaterPlane active={charClip === "READY"} floatOn={floatOn} />
-        <LakeFloat ref={floatRef} floatOn={floatOn} wave={wave} active={charClip === "READY"} />
+        <WaterPlane active={charClip === "READY" || charClip === "AIM"} floatOn={floatOn} />
+        <LakeFloat ref={floatRef} floatOn={floatOn} wave={wave} active={charClip === "READY" || charClip === "AIM"} />
       </group>
-      <group position={[0.55, 0.55, -1.65]} scale={fishScale} visible={!(floatOn && charClip === "READY")}>
+      <group position={[0.55, 0.55, -1.65]} scale={fishScale} visible={!(floatOn && (charClip === "READY" || charClip === "AIM"))}>
         <primitive object={pike} />
       </group>
       <primitive object={helpers.skel} />
@@ -356,10 +358,10 @@ export function Rig3DScene({
         floatRef={floatRef}
         lineOn={lineOn}
         floatOn={floatOn}
-        tension={lineTension}
+        tension={charClip === "AIM" ? AIM_LINE_TENSION : lineTension}
         wave={wave}
         debug={debug.line}
-        active={charClip === "READY"}
+        active={charClip === "READY" || charClip === "AIM"}
       />
       {debug.line && charClip !== "READY" && (
         <line>

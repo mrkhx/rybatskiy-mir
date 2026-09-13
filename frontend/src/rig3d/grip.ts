@@ -65,15 +65,24 @@ function worldPos(b: THREE.Object3D, out: THREE.Vector3): THREE.Vector3 {
   return out.setFromMatrixPosition(b.matrixWorld);
 }
 
-/** Cork through the closed right fist. Angle unchanged. */
-export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean {
+/** Cork through the closed right fist. Optional AIM pitch/yaw; READY defaults unchanged. */
+export function placeRodReady(
+  man: THREE.Object3D,
+  rod: THREE.Object3D,
+  pitch: number = READY_PITCH,
+  yaw: number = 0,
+): boolean {
   const handR = getBone(man, "Hand_R") ?? man.getObjectByName("Hand_R");
   if (!handR) return false;
   if (rod.parent !== man) man.add(rod);
   rod.visible = true;
   rod.scale.setScalar(1);
 
-  _y.set(-Math.cos(READY_PITCH), Math.sin(READY_PITCH), 0).normalize();
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  _y.set(-cp * cy, sp, cp * sy).normalize();
   _z.set(0, -1, 0);
   _z.addScaledVector(_y, -_z.dot(_y));
   if (_z.lengthSq() < 1e-8) _z.set(0, 0, 1);
