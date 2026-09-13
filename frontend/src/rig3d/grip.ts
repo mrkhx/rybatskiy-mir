@@ -9,16 +9,14 @@ const _z = new THREE.Vector3();
 const _invMan = new THREE.Matrix4();
 const _basis = new THREE.Matrix4();
 const _qz = new THREE.Quaternion();
-const _manQ = new THREE.Quaternion();
-const _handQ = new THREE.Quaternion();
 const _axisZ = new THREE.Vector3(0, 0, 1);
-const _axis = new THREE.Vector3();
+const _axisX = new THREE.Vector3(1, 0, 0);
 
 const DEG = Math.PI / 180;
 const PITCH = 30 * DEG;
 const REEL_SEAT_ALONG = 0.11;
-/** Small outward roll of the right wrist around the handle. */
-const WRIST_OUT = 14 * DEG;
+/** Tiny outward roll of the right fist, local X, absolute each frame. */
+const WRIST_OUT = 12 * DEG;
 
 const REST_Q: Record<string, THREE.Quaternion> = {};
 const FIST_Z: Record<string, number> = {
@@ -59,18 +57,13 @@ export function closeRightFist(man: THREE.Object3D, _rod?: THREE.Object3D): void
   }
 }
 
-/** Tiny roll around the cork, outward. Does not replace the clip wrist. */
-export function rollRightWristOut(man: THREE.Object3D, rod: THREE.Object3D): void {
+/** Tiny outward roll from clip wrist. Absolute pose — no per-frame axis rebuild. */
+export function rollRightWristOut(man: THREE.Object3D, _rod?: THREE.Object3D): void {
   const hand = getBone(man, "Hand_R");
   if (!hand) return;
-  man.updateWorldMatrix(true, false);
-  hand.updateWorldMatrix(true, false);
-  _axis.set(0, 1, 0).applyQuaternion(rod.quaternion);
-  man.getWorldQuaternion(_manQ);
-  _axis.applyQuaternion(_manQ).normalize();
-  hand.getWorldQuaternion(_handQ);
-  _axis.applyQuaternion(_handQ.invert()).normalize();
-  _qz.setFromAxisAngle(_axis, WRIST_OUT);
+  if (!REST_Q.Hand_R) REST_Q.Hand_R = hand.quaternion.clone();
+  hand.quaternion.copy(REST_Q.Hand_R);
+  _qz.setFromAxisAngle(_axisX, WRIST_OUT);
   hand.quaternion.multiply(_qz);
 }
 
