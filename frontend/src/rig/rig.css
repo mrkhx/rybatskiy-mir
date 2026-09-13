@@ -218,6 +218,14 @@
   gap: 8px;
 }
 
+.rig-actions-more button {
+  opacity: 0.78;
+}
+
+.rig-lab.is-close .rig-stage {
+  align-items: center;
+}
+
 .rig-dock button {
   appearance: none;
   border: 1px solid var(--rig-line);

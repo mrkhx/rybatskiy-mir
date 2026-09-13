@@ -14,9 +14,10 @@ type Props = {
   showBones?: boolean;
   showAnchors?: boolean;
   scale?: number;
+  panY?: number;
 };
 
-export function CharacterRig({ manifest, pose, showBones, showAnchors, scale = 1 }: Props) {
+export function CharacterRig({ manifest, pose, showBones, showAnchors, scale = 1, panY = 0 }: Props) {
   const solved = useMemo(() => applyLeftArmIk(manifest, pose), [manifest, pose]);
   const world = useMemo(() => computeWorld(manifest, solved), [manifest, solved]);
   const byId = useMemo(
@@ -71,6 +72,7 @@ export function CharacterRig({ manifest, pose, showBones, showAnchors, scale = 1
       style={{
         width: w * scale,
         height: h * scale,
+        transform: panY ? `translateY(${panY}px)` : undefined,
       }}
     >
       <div

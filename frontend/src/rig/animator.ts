@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { clampPose } from "./limits";
 import { CLIPS, LOOPING, POSES, easeT, type ClipStep, type EaseName } from "./poses";
 import { emptyPose, type AnimState, type BoneName, type RigPose } from "./types";
 
@@ -36,7 +37,7 @@ export function mixPose(a: RigPose, b: RigPose, t: number): RigPose {
   for (const id of BONES) {
     rot[id] = lerpAngle(a.rot[id] ?? 0, b.rot[id] ?? 0, t);
   }
-  return {
+  return clampPose({
     rot,
     originX: lerp(a.originX, b.originX, t),
     originY: lerp(a.originY, b.originY, t),
@@ -44,7 +45,7 @@ export function mixPose(a: RigPose, b: RigPose, t: number): RigPose {
     rodBend: lerp(a.rodBend, b.rodBend, t),
     ik: t > 0.5 ? b.ik : a.ik,
     crank: lerp(a.crank, b.crank, t),
-  };
+  });
 }
 
 function applyCycle(pose: RigPose, state: AnimState, t: number): RigPose {
@@ -56,44 +57,48 @@ function applyCycle(pose: RigPose, state: AnimState, t: number): RigPose {
   let crank = pose.crank;
 
   if (state === "IDLE" || state === "READY" || state === "RETURN_IDLE") {
-    const b = Math.sin(t * 2.05);
-    originY += b * 2.4;
-    rot.torso = (rot.torso ?? 0) + b * 1.1;
-    rot.head = (rot.head ?? 0) + Math.sin(t * 1.35) * 0.8;
-    rot.pelvis = (rot.pelvis ?? 0) + Math.sin(t * 1.02) * 0.6;
+    const b = Math.sin(t * 1.85);
+    originY += b * 1.8;
+    rot.torso = (rot.torso ?? 0) + b * 0.7;
+    rot.head = (rot.head ?? 0) + Math.sin(t * 1.2) * 0.5;
+    rot.pelvis = (rot.pelvis ?? 0) + Math.sin(t * 0.92) * 0.45;
   }
   if (state === "WAIT" || state === "AIM") {
-    const bob = Math.sin(t * 1.55);
-    rodRot += bob * 3.2;
-    rodBend += (bob + 1) * 1.4;
-    rot.torso = (rot.torso ?? 0) + Math.sin(t * 1.9) * 0.8;
-    originY += Math.sin(t * 1.9) * 1.6;
+    const bob = Math.sin(t * 1.35);
+    rodRot += bob * 2.2;
+    rodBend += (bob + 1) * 0.8;
+    rot.torso = (rot.torso ?? 0) + Math.sin(t * 1.7) * 0.5;
+    originY += Math.sin(t * 1.7) * 1.2;
   }
   if (state === "REEL") {
-    crank = (t * 1.35) % 1;
-    rot.torso = (rot.torso ?? 0) + Math.sin(t * 8.2) * 0.7;
-    rot.upperArm_R = (rot.upperArm_R ?? 0) + Math.sin(t * 8.2) * 1.4;
-    rodBend += 2 + Math.sin(t * 3) * 1.2;
+    crank = (t * 1.05) % 1;
+    rot.torso = (rot.torso ?? 0) + Math.sin(t * 6.6) * 0.28;
+    rot.upperArm_R = (rot.upperArm_R ?? 0) + Math.sin(t * 6.6) * 0.9;
+    rot.forearm_R = (rot.forearm_R ?? 0) + Math.sin(t * 6.6) * 1.4;
+    rot.hand_R = (rot.hand_R ?? 0) + Math.sin(t * 6.6) * 2.2;
+    rodBend += 1.1 + Math.sin(t * 2.4) * 0.5;
   }
   if (state === "FIGHT_LIGHT") {
-    const w = Math.sin(t * 5.1);
-    originX += w * 3.2;
-    rot.torso = (rot.torso ?? 0) + w * 3.4;
-    rot.pelvis = (rot.pelvis ?? 0) + w * 2;
-    rodBend += 4 + (Math.sin(t * 6.2) + 1) * 3;
-    rodRot += Math.sin(t * 5.1) * 4;
+    const w = Math.sin(t * 3.6);
+    originX += w * 1.4;
+    rot.torso = (rot.torso ?? 0) + w * 1.6;
+    rot.pelvis = (rot.pelvis ?? 0) + w * 0.9;
+    rot.upperArm_R = (rot.upperArm_R ?? 0) + Math.sin(t * 4.4) * 1.1;
+    rot.forearm_R = (rot.forearm_R ?? 0) + Math.sin(t * 4.4) * 1.4;
+    rodBend += 2 + (Math.sin(t * 4.8) + 1) * 1.4;
+    rodRot += Math.sin(t * 3.6) * 1.8;
   }
   if (state === "FIGHT_HEAVY") {
-    const w = Math.sin(t * 6.8);
-    originX += w * 7;
-    originY += Math.abs(Math.sin(t * 3.4)) * 3;
-    rot.torso = (rot.torso ?? 0) + w * 6;
-    rot.pelvis = (rot.pelvis ?? 0) + Math.sin(t * 3.4) * 4;
-    rot.head = (rot.head ?? 0) + Math.sin(t * 7.1) * 3;
-    rodBend += 8 + (Math.sin(t * 8.4) + 1) * 5;
-    rodRot += w * 7;
+    const w = Math.sin(t * 6.2);
+    originX += w * 4;
+    originY += Math.abs(Math.sin(t * 3.1)) * 2;
+    rot.torso = (rot.torso ?? 0) + w * 4;
+    rot.pelvis = (rot.pelvis ?? 0) + Math.sin(t * 3.1) * 2.4;
+    rot.head = (rot.head ?? 0) + Math.sin(t * 6.4) * 2;
+    rodBend += 5 + (Math.sin(t * 7.2) + 1) * 3;
+    rodRot += w * 4;
   }
-  return { ...pose, rot, originX, originY, rodRot, rodBend, crank };
+  return clampPose({ ...pose, rot, originX, originY, rodRot, rodBend, crank });
 }
 
 type PlayCmd =
