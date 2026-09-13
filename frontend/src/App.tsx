@@ -414,7 +414,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
     if (session.state === "FIGHTING") return "Вываживание. Держите натяжение, подматывайте.";
     if (session.state === "HOOKED") return "Подсечка! Рыба на крючке.";
     if (session.state === "BITE") return `Поклёвка! ${fishName(speciesName, session.speciesId)}. Подсекайте.`;
-    if (session.state === "WAITING_BITE") return session.playerHint ?? "Ждём поклёвку…";
+    if (session.state === "WAITING_BITE") return session.playerHint ?? (shownMethod === "SPINNING" ? "Ждём поклёвку. Можно сменить глубину или проводку." : "Поплавок на воде. Можно сменить глубину и перезабросить.");
     if (session.state === "LOST" || session.state === "BROKEN") return LOSE[session.loseReason ?? ""] ?? "Сход";
     if (session.state === "READY") return "Прицельтесь и забросьте.";
     return status;
@@ -491,20 +491,22 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   const hud = (() => {
     if (!session) return null;
     if (session.state === "WAITING_BITE") {
+      const isSpin = shownMethod === "SPINNING";
       return (
         <>
-          {session.playerHint && <p className="warn">{session.playerHint}</p>}
-          <p className="muted">Поплавок на воде. Можно сменить глубину или проводку и перезабросить.</p>
           <label className="muted">Глубина {depth.toFixed(1)} м</label>
           <input type="range" min={0.5} max={5.2} step={0.1} value={depth} onChange={(e) => setDepth(Number(e.target.value))} />
-          {shownMethod === "SPINNING" && (
-            <div className="chip-row">
-              {RETRIEVE.map((r) => (
-                <button key={r.id} type="button" className={`chip-btn ${retrieve === r.id ? "on" : ""}`} onClick={() => setRetrieve(r.id)}>
-                  {r.label}
-                </button>
-              ))}
-            </div>
+          {isSpin && (
+            <>
+              <p className="muted">Проводка</p>
+              <div className="chip-row">
+                {RETRIEVE.map((r) => (
+                  <button key={r.id} type="button" className={`chip-btn ${retrieve === r.id ? "on" : ""}`} onClick={() => setRetrieve(r.id)}>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
           <button className="btn primary" type="button" onClick={() => void cast()}>Перезабросить</button>
         </>
