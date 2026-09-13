@@ -15,14 +15,17 @@ const AZIMUTHS = [0, 45, 90, 135, 180, 225, 270, 315] as const;
 const CHAR_PRIMARY: Array<{ id: CharClip | "CAST"; label: string }> = [
   { id: "IDLE", label: "Idle" },
   { id: "WALK", label: "Walk" },
+  { id: "READY", label: "Ready" },
   { id: "AIM", label: "Aim" },
   { id: "CAST", label: "Cast" },
   { id: "WAIT", label: "Wait" },
+  { id: "BITE_REACTION", label: "Bite" },
   { id: "HOOKSET", label: "Hookset" },
   { id: "REEL", label: "Reel" },
   { id: "FIGHT_LIGHT", label: "Fight light" },
   { id: "FIGHT_HEAVY", label: "Fight heavy" },
   { id: "LAND", label: "Land" },
+  { id: "RETURN_IDLE", label: "Return idle" },
 ];
 
 const FISH_BTNS: Array<{ id: FishClip; label: string }> = [
@@ -72,6 +75,7 @@ export function Rig3DLab() {
     line: true,
     fps: true,
     orbit: false,
+    fingers: false,
   });
 
   useEffect(() => {
@@ -226,6 +230,7 @@ export function Rig3DLab() {
               ["skeleton", "Skeleton"],
               ["ik", "IK targets"],
               ["rodAnchors", "Rod anchors"],
+              ["fingers", "Finger bones"],
               ["fishSkeleton", "Fish skeleton"],
               ["line", "Line"],
               ["fps", "FPS"],

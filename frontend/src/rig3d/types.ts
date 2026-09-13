@@ -39,6 +39,7 @@ export type DebugFlags = {
   line: boolean;
   fps: boolean;
   orbit: boolean;
+  fingers: boolean;
 };
 
 export const LOOPING_CHAR = new Set<CharClip>([
@@ -95,8 +96,16 @@ export function tensionFor(clip: CharClip): number {
 }
 
 export function ikFor(clip: CharClip): IkMode {
-  if (clip.startsWith("CAST") || clip === "WALK" || clip.startsWith("TURN") || clip.startsWith("STEP")) return "none";
-  if (clip === "LAND" || clip === "RETURN_IDLE") return "support";
+  if (
+    clip === "IDLE" ||
+    clip === "WALK" ||
+    clip === "RETURN_IDLE" ||
+    clip.startsWith("CAST") ||
+    clip.startsWith("TURN") ||
+    clip.startsWith("STEP")
+  ) {
+    return "none";
+  }
   if (clip === "REEL") return "reel";
   return "support";
 }

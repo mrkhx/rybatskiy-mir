@@ -12,7 +12,8 @@ import { DEBUG_PROXY, type AssetSource } from "../scene3d/assets/paths";
 import type { AdapterReport } from "../scene3d/assets/contract";
 import { importHumanoid } from "../scene3d/assets/retarget";
 import { twoBoneIK } from "./ik";
-import { applyRodBend, spinReel, worldOf } from "./rodBend";
+import { applyRodBend, aimRod, spinReel, worldOf } from "./rodBend";
+import { applyRightGrip, attachRodToHand } from "./grip";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
 
 useGLTF.preload(DEBUG_PROXY.fisherman);
@@ -98,10 +99,13 @@ export function Rig3DScene({
   const manMixer = useMemo(() => new THREE.AnimationMixer(man), [man]);
   const fishMixer = useMemo(() => new THREE.AnimationMixer(pike), [pike]);
   const manActions = useMemo(() => {
+    importHumanoid(manGltf);
     const m: Record<string, THREE.AnimationAction> = {};
-    for (const clip of manGltf.animations) m[clip.name] = manMixer.clipAction(clip);
+    for (const clip of manGltf.animations) {
+      m[clip.name] = manMixer.clipAction(clip);
+    }
     return m;
-  }, [manGltf.animations, manMixer]);
+  }, [manGltf, manMixer]);
   const fishActions = useMemo(() => {
     const m: Record<string, THREE.AnimationAction> = {};
     for (const clip of pikeGltf.animations) m[clip.name] = fishMixer.clipAction(clip);
@@ -167,14 +171,16 @@ export function Rig3DScene({
   useEffect(() => {
     const next = manActions[charClip];
     if (!next) return;
+    const fade = charClip.startsWith("CAST") || charClip === "HOOKSET" || charClip === "BITE_REACTION" ? 0.12 : 0.22;
     for (const a of Object.values(manActions)) {
-      if (a !== next && a.isRunning()) a.fadeOut(0.22);
+      if (a !== next && a.isRunning()) a.fadeOut(fade);
     }
     next.enabled = true;
     next.reset();
+    next.timeScale = charClip === "HOOKSET" ? 1.4 : charClip === "BITE_REACTION" ? 1.15 : charClip === "REEL" ? 1.1 : 1;
     next.setLoop(LOOPING_CHAR.has(charClip) ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
     next.clampWhenFinished = !LOOPING_CHAR.has(charClip);
-    next.fadeIn(charClip.startsWith("CAST") ? 0.08 : 0.22);
+    next.fadeIn(fade);
     next.play();
     charRef.current = charClip;
   }, [charClip, manActions]);
@@ -189,7 +195,7 @@ export function Rig3DScene({
   }, [fishClip, fishActions]);
 
   useEffect(() => {
-    helpers.skel.visible = debug.skeleton;
+    helpers.skel.visible = debug.skeleton || debug.fingers;
     helpers.fishSkel.visible = debug.fishSkeleton;
   }, [debug.skeleton, debug.fishSkeleton, helpers]);
 
@@ -201,17 +207,12 @@ export function Rig3DScene({
     fishMixer.update(dt);
 
     if (!attached.current) {
-      const grip = man.getObjectByName("RodGrip") ?? man.getObjectByName("Hand_R");
-      if (grip) {
-        grip.add(rod);
-        rod.position.set(0.01, 0.0, 0.02);
-        rod.rotation.set(0.05, 0.15, -0.18);
-        rod.scale.setScalar(1);
-        attached.current = true;
-      }
+      attached.current = attachRodToHand(man, rod);
     }
 
     const clip = charRef.current;
+    applyRightGrip(man, clip);
+    if (attached.current) aimRod(man, rod, clip);
     applyRodBend(rod, tensionFor(clip));
     spinReel(rod, dt, clip === "REEL");
 

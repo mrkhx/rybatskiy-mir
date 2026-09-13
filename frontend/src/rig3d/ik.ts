@@ -62,5 +62,21 @@ export function twoBoneIK(
 ) {
   const chain = boneChain(root, names);
   if (chain.length < 3) return;
+  const upper = chain[0]!;
+  const lower = chain[1]!;
+  const hand = chain[2]!;
+  upper.updateWorldMatrix(true, false);
+  lower.updateWorldMatrix(true, false);
+  hand.updateWorldMatrix(true, false);
+  const shoulder = new THREE.Vector3().setFromMatrixPosition(upper.matrixWorld);
+  const elbow = new THREE.Vector3().setFromMatrixPosition(lower.matrixWorld);
+  const wrist = new THREE.Vector3().setFromMatrixPosition(hand.matrixWorld);
+  const len = shoulder.distanceTo(elbow) + elbow.distanceTo(wrist);
+  const to = target.clone().sub(shoulder);
+  const dist = to.length();
+  if (dist > len * 0.98) {
+    to.setLength(len * 0.98);
+    target = shoulder.clone().add(to);
+  }
   ccdIK(chain, target, iterations, 1);
 }

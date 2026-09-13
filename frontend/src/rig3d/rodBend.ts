@@ -1,16 +1,17 @@
 import * as THREE from "three";
+import type { CharClip } from "./types";
 
-/** Skinned blank: 8 bones. Tension 0..1 bends the tip toward -Y in rod local space. */
+/** Skinned blank: 8–12 bones. Tension 0..1 bends the tip toward -Y in rod local space. */
 export function applyRodBend(rod: THREE.Object3D, tension: number) {
   const t = Math.max(0, Math.min(1, tension));
   const max = 0.22 * t;
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 12; i++) {
     const bone = rod.getObjectByName(`Blank_${i}`);
     if (!bone) continue;
-    const along = (i + 1) / 8;
-    bone.rotation.z = -max * along * along * 2.4;
+    const along = (i + 1) / 10;
+    bone.rotation.x = -max * along * along * 2.2;
     bone.rotation.y = 0;
-    bone.rotation.x = 0;
+    bone.rotation.z = 0;
   }
 }
 
@@ -32,4 +33,99 @@ export function worldOf(root: THREE.Object3D, name: string, out: THREE.Vector3):
   if (!o) return null;
   o.updateWorldMatrix(true, false);
   return out.setFromMatrixPosition(o.matrixWorld);
+}
+
+const _a = new THREE.Vector3();
+const _b = new THREE.Vector3();
+const _dir = new THREE.Vector3();
+const _cur = new THREE.Vector3();
+const _qAim = new THREE.Quaternion();
+const _parentQ = new THREE.Quaternion();
+const _rodWorldQ = new THREE.Quaternion();
+const _worldQ = new THREE.Quaternion();
+const _fwd = new THREE.Vector3();
+const _down = new THREE.Vector3(0, -1, 0);
+const _reelOff = new THREE.Vector3();
+const _from = new THREE.Vector3();
+const _qRoll = new THREE.Quaternion();
+
+const FISHING_AIM: Set<CharClip> = new Set([
+  "READY",
+  "AIM",
+  "CAST_BACKSWING",
+  "CAST_FORWARD",
+  "CAST_FOLLOW",
+  "WAIT",
+  "BITE_REACTION",
+  "HOOKSET",
+  "REEL",
+  "FIGHT_LIGHT",
+  "FIGHT_HEAVY",
+  "LAND",
+]);
+
+/**
+ * Keep RodGrip in the right hand (parent) and rotate the rod so the blank
+ * follows the two-hand line (fishing) or hangs from the forearm (idle/walk).
+ */
+export function aimRod(man: THREE.Object3D, rod: THREE.Object3D, clip: CharClip) {
+  const parent = rod.parent;
+  const grip = rod.getObjectByName("RodGrip");
+  const tip = rod.getObjectByName("RodTip");
+  const handR = man.getObjectByName("Hand_R");
+  const handL = man.getObjectByName("Hand_L");
+  if (!parent || !grip || !tip || !handR) return;
+
+  man.updateWorldMatrix(true, false);
+  _worldQ.setFromRotationMatrix(man.matrixWorld);
+
+  if (FISHING_AIM.has(clip) && handL) {
+    handR.getWorldPosition(_a);
+    handL.getWorldPosition(_b);
+    _dir.subVectors(_b, _a);
+    if (_dir.lengthSq() < 4e-4) {
+      _dir.set(0, 0.2, 1).applyQuaternion(_worldQ);
+    } else {
+      _dir.normalize();
+      _fwd.set(0, 0.18, 1).applyQuaternion(_worldQ);
+      const blend = clip.startsWith("CAST") || clip === "HOOKSET" ? 0.25 : 0.7;
+      _dir.addScaledVector(_fwd, blend).normalize();
+    }
+  } else {
+    _dir.set(0.52, -0.74, -0.28).applyQuaternion(_worldQ).normalize();
+  }
+
+  grip.updateWorldMatrix(true, false);
+  tip.updateWorldMatrix(true, false);
+  _a.setFromMatrixPosition(grip.matrixWorld);
+  _b.setFromMatrixPosition(tip.matrixWorld);
+  _cur.subVectors(_b, _a);
+  if (_cur.lengthSq() < 1e-8) return;
+  _cur.normalize();
+  _qAim.setFromUnitVectors(_cur, _dir);
+
+  parent.updateWorldMatrix(true, false);
+  _parentQ.setFromRotationMatrix(parent.matrixWorld);
+  _rodWorldQ.copy(_parentQ).multiply(rod.quaternion);
+  _rodWorldQ.premultiply(_qAim);
+  rod.quaternion.copy(_parentQ.invert().multiply(_rodWorldQ));
+  rod.updateMatrixWorld(true);
+
+  const reel = rod.getObjectByName("Reel");
+  if (!reel) return;
+  reel.updateWorldMatrix(true, false);
+  grip.updateWorldMatrix(true, false);
+  _a.setFromMatrixPosition(grip.matrixWorld);
+  _reelOff.setFromMatrixPosition(reel.matrixWorld).sub(_a);
+  _reelOff.projectOnPlane(_dir);
+  if (_reelOff.lengthSq() < 1e-8) return;
+  _reelOff.normalize();
+  _from.copy(_down).projectOnPlane(_dir);
+  if (_from.lengthSq() < 1e-8) return;
+  _from.normalize();
+  _qRoll.setFromUnitVectors(_reelOff, _from);
+  _parentQ.setFromRotationMatrix(parent.matrixWorld);
+  _rodWorldQ.copy(_parentQ).multiply(rod.quaternion);
+  _rodWorldQ.premultiply(_qRoll);
+  rod.quaternion.copy(_parentQ.invert().multiply(_rodWorldQ));
 }
