@@ -1,5 +1,6 @@
 export type CharClip =
   | "IDLE"
+  | "WALK"
   | "READY"
   | "AIM"
   | "CAST_BACKSWING"
@@ -12,7 +13,11 @@ export type CharClip =
   | "FIGHT_LIGHT"
   | "FIGHT_HEAVY"
   | "LAND"
-  | "RETURN_IDLE";
+  | "RETURN_IDLE"
+  | "TURN_LEFT"
+  | "TURN_RIGHT"
+  | "STEP_LEFT"
+  | "STEP_RIGHT";
 
 export type FishClip =
   | "SWIM_IDLE"
@@ -38,12 +43,15 @@ export type DebugFlags = {
 
 export const LOOPING_CHAR = new Set<CharClip>([
   "IDLE",
+  "WALK",
   "READY",
   "AIM",
   "WAIT",
   "REEL",
   "FIGHT_LIGHT",
   "FIGHT_HEAVY",
+  "TURN_LEFT",
+  "TURN_RIGHT",
 ]);
 
 export const LOOPING_FISH = new Set<FishClip>([
@@ -87,7 +95,7 @@ export function tensionFor(clip: CharClip): number {
 }
 
 export function ikFor(clip: CharClip): IkMode {
-  if (clip.startsWith("CAST")) return "none";
+  if (clip.startsWith("CAST") || clip === "WALK" || clip.startsWith("TURN") || clip.startsWith("STEP")) return "none";
   if (clip === "LAND" || clip === "RETURN_IDLE") return "support";
   if (clip === "REEL") return "reel";
   return "support";

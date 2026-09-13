@@ -5,30 +5,47 @@ import { useFrame } from "@react-three/fiber";
 import { ContactShadows, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
+import { inspectFisherman } from "../scene3d/assets/characterAdapter";
+import { inspectRod } from "../scene3d/assets/rodAdapter";
+import { inspectPike } from "../scene3d/assets/fishAdapter";
+import { DEBUG_PROXY, type AssetSource } from "../scene3d/assets/paths";
+import type { AdapterReport } from "../scene3d/assets/contract";
+import { importHumanoid } from "../scene3d/assets/retarget";
 import { twoBoneIK } from "./ik";
 import { applyRodBend, spinReel, worldOf } from "./rodBend";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
 
-const FISHERMAN_URL = "/models/rig3d/fisherman.glb";
-const ROD_URL = "/models/rig3d/rod.glb";
-const PIKE_URL = "/models/rig3d/pike.glb";
-
-useGLTF.preload(FISHERMAN_URL);
-useGLTF.preload(ROD_URL);
-useGLTF.preload(PIKE_URL);
+useGLTF.preload(DEBUG_PROXY.fisherman);
+useGLTF.preload(DEBUG_PROXY.rod);
+useGLTF.preload(DEBUG_PROXY.pike);
 
 const _target = new THREE.Vector3();
 const _fishMouth = new THREE.Vector3();
 const _tip = new THREE.Vector3();
 const _mid = new THREE.Vector3();
 
+export type SceneReports = {
+  fisherman: AdapterReport;
+  rod: AdapterReport;
+  pike: AdapterReport;
+};
+
 type Props = {
+  fishermanUrl: string;
+  rodUrl: string;
+  pikeUrl: string;
+  fishermanSource: AssetSource;
+  rodSource: AssetSource;
+  pikeSource: AssetSource;
+  yaw: number;
+  autoYaw?: boolean;
   charClip: CharClip;
   fishClip: FishClip;
   fishScale: number;
   debug: DebugFlags;
   onFps?: (n: number) => void;
   onCharFinished?: (name: string) => void;
+  onReports?: (reports: SceneReports) => void;
 };
 
 function hardenMaterials(root: THREE.Object3D) {
@@ -50,29 +67,31 @@ function hardenMaterials(root: THREE.Object3D) {
   });
 }
 
-function ensureReelHandleVisual(rod: THREE.Object3D) {
-  const handle = rod.getObjectByName("ReelHandle");
-  if (!handle) return;
-  let hasMesh = false;
-  handle.traverse((o) => {
-    if ((o as THREE.Mesh).isMesh) hasMesh = true;
-  });
-  if (hasMesh) return;
-  const metal = new THREE.MeshStandardMaterial({ color: 0x2c3034, metalness: 0.72, roughness: 0.32 });
-  const gold = new THREE.MeshStandardMaterial({ color: 0xb08a48, metalness: 0.62, roughness: 0.36 });
-  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.056, 8), metal);
-  arm.position.set(0, 0.028, 0);
-  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 10), gold);
-  knob.position.set(0, 0.058, 0);
-  handle.add(arm, knob);
-}
+export function Rig3DScene({
+  fishermanUrl,
+  rodUrl,
+  pikeUrl,
+  fishermanSource,
+  rodSource,
+  pikeSource,
+  yaw,
+  autoYaw = false,
+  charClip,
+  fishClip,
+  fishScale,
+  debug,
+  onFps,
+  onCharFinished,
+  onReports,
+}: Props) {
+  const manGltf = useGLTF(fishermanUrl);
+  const rodGltf = useGLTF(rodUrl);
+  const pikeGltf = useGLTF(pikeUrl);
 
-export function Rig3DScene({ charClip, fishClip, fishScale, debug, onFps, onCharFinished }: Props) {
-  const manGltf = useGLTF(FISHERMAN_URL);
-  const rodGltf = useGLTF(ROD_URL);
-  const pikeGltf = useGLTF(PIKE_URL);
-
-  const man = useMemo(() => cloneSkinned(manGltf.scene), [manGltf.scene]);
+  const man = useMemo(() => {
+    importHumanoid(manGltf);
+    return cloneSkinned(manGltf.scene);
+  }, [manGltf]);
   const rod = useMemo(() => cloneSkinned(rodGltf.scene), [rodGltf.scene]);
   const pike = useMemo(() => cloneSkinned(pikeGltf.scene), [pikeGltf.scene]);
 
@@ -94,6 +113,7 @@ export function Rig3DScene({ charClip, fishClip, fishScale, debug, onFps, onChar
   const linePts = useMemo(() => new Float32Array(9), []);
   const fpsAcc = useRef({ t: 0, frames: 0 });
   const attached = useRef(false);
+  const extraYaw = useRef(0);
   const helpers = useMemo(() => {
     const skel = new THREE.SkeletonHelper(man);
     skel.visible = false;
@@ -103,16 +123,37 @@ export function Rig3DScene({ charClip, fishClip, fishScale, debug, onFps, onChar
   }, [man, pike]);
 
   useEffect(() => {
+    attached.current = false;
     hardenMaterials(man);
     hardenMaterials(rod);
     hardenMaterials(pike);
-    ensureReelHandleVisual(rod);
     pike.rotation.y = Math.PI / 2;
+    onReports?.({
+      fisherman: inspectFisherman(manGltf, fishermanUrl, fishermanSource),
+      rod: inspectRod(rodGltf, rodUrl, rodSource),
+      pike: inspectPike(pikeGltf, pikeUrl, pikeSource),
+    });
     return () => {
       manMixer.stopAllAction();
       fishMixer.stopAllAction();
     };
-  }, [man, rod, pike, manMixer, fishMixer]);
+  }, [
+    man,
+    rod,
+    pike,
+    manMixer,
+    fishMixer,
+    manGltf,
+    rodGltf,
+    pikeGltf,
+    fishermanUrl,
+    rodUrl,
+    pikeUrl,
+    fishermanSource,
+    rodSource,
+    pikeSource,
+    onReports,
+  ]);
 
   useEffect(() => {
     const onFin = (e: THREE.Event<"finished", THREE.AnimationMixer> & { action: THREE.AnimationAction }) => {
@@ -154,6 +195,8 @@ export function Rig3DScene({ charClip, fishClip, fishScale, debug, onFps, onChar
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
+    if (autoYaw) extraYaw.current += dt * 0.45;
+    else extraYaw.current = 0;
     manMixer.update(dt);
     fishMixer.update(dt);
 
@@ -213,7 +256,9 @@ export function Rig3DScene({ charClip, fishClip, fishScale, debug, onFps, onChar
 
   return (
     <group>
-      <primitive object={man} position={[0, 0, 0]} rotation={[0, 0.35, 0]} />
+      <group rotation={[0, yaw + extraYaw.current, 0]}>
+        <primitive object={man} position={[0, 0, 0]} />
+      </group>
       <group position={[0.55, 0.55, -1.65]} scale={fishScale}>
         <primitive object={pike} />
       </group>
@@ -287,6 +332,7 @@ export function Lights() {
       <directionalLight position={[3.4, 6.5, 2.8]} intensity={1.55} color="#fff4e0" />
       <directionalLight position={[-2.4, 2.2, -2.8]} intensity={0.7} color="#9eb4c8" />
       <directionalLight position={[0.2, 1.8, 4.0]} intensity={0.45} color="#ffffff" />
+      <directionalLight position={[0.0, 2.4, -4.2]} intensity={0.55} color="#d7e3ea" />
     </>
   );
 }

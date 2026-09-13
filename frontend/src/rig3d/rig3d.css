@@ -37,3 +37,86 @@
   color: var(--rig-accent);
   min-width: 2.4em;
 }
+
+.rig3d-banner {
+  position: absolute;
+  z-index: 4;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  pointer-events: none;
+  font-size: 0.78rem;
+  color: var(--rig-ink);
+}
+
+.rig3d-banner strong.is-fail {
+  color: #e8b4aa;
+}
+
+.rig3d-banner strong.is-pass {
+  color: #b7d7c4;
+}
+
+.rig3d-banner span {
+  color: var(--rig-muted);
+}
+
+.rig3d-report {
+  position: absolute;
+  z-index: 4;
+  top: 38px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.rig3d-chip {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--rig-line);
+  background: color-mix(in oklab, #101214 78%, transparent);
+  color: var(--rig-muted);
+}
+
+.rig3d-chip.is-pass {
+  color: #d7ece0;
+  border-color: color-mix(in oklab, #b7d7c4 35%, transparent);
+}
+
+.rig3d-chip.is-fail {
+  color: #f0d4ce;
+  border-color: color-mix(in oklab, #e8b4aa 35%, transparent);
+}
+
+.rig3d-az-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px 0 2px;
+  color: var(--rig-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rig3d-fail-note {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--rig-muted);
+}
+
+.rig-dock button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
