@@ -62,7 +62,9 @@ body {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: var(--sky-top);
+  background: #6a8480;
+  perspective: 1600px;
+  perspective-origin: 34% 42%;
   --px: 0;
   --py: 0;
   --sky-top: #7eb4c4;
@@ -150,199 +152,117 @@ body {
   user-select: none;
   max-width: none;
 }
-.par-far { transform: translate3d(calc(var(--px) * -8px), calc(var(--py) * -4px), 0); }
-.par-mid { transform: translate3d(calc(var(--px) * -18px), calc(var(--py) * -8px), 0); }
-.par-play { transform: translate3d(calc(var(--px) * -10px), calc(var(--py) * -5px), 0); }
-.par-fg { transform: translate3d(calc(var(--px) * -28px), calc(var(--py) * -12px), 0); }
 
-.sky {
+.cam {
+  position: absolute;
+  inset: -5%;
+  transform-origin: 32% 48%;
+  transform-style: preserve-3d;
+  animation: camIdle 26s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes camIdle {
+  0%, 100% { transform: translate3d(-0.7%, 0.35%, 0) scale(1.045); }
+  50% { transform: translate3d(0.85%, -0.45%, 0) scale(1.075); }
+}
+
+.par-sky { transform: translate3d(calc(var(--px) * -4px), calc(var(--py) * -2px), -120px); }
+.par-far { transform: translate3d(calc(var(--px) * -8px), calc(var(--py) * -4px), -70px); }
+.par-stage { transform: translate3d(calc(var(--px) * -18px), calc(var(--py) * -9px), 0); }
+.par-fg { transform: translate3d(calc(var(--px) * -42px), calc(var(--py) * -18px), 55px); }
+
+.plane-sky {
+  position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
-  filter: saturate(0.86) brightness(1.02);
+  z-index: 0;
+  pointer-events: none;
 }
 .sun-glow {
   position: absolute;
-  width: 42%;
-  height: 38%;
-  right: 4%;
-  top: -6%;
-  background: radial-gradient(circle at 55% 45%, color-mix(in oklab, var(--sun) 80%, transparent), transparent 68%);
+  width: 46%;
+  height: 40%;
+  right: 2%;
+  top: -8%;
+  background: radial-gradient(circle at 55% 45%, color-mix(in oklab, var(--sun) 70%, transparent), transparent 68%);
   pointer-events: none;
 }
-.far-forest {
-  left: -5%;
-  top: 2%;
-  width: 110%;
-  height: 50%;
+
+.plate-far {
+  inset: -12% -12% auto -12%;
+  width: 124%;
+  height: 68%;
   object-fit: cover;
-  object-position: center bottom;
-  animation: driftX 42s ease-in-out infinite;
-  filter: saturate(0.8) contrast(0.98) brightness(0.94);
+  object-position: 28% 0%;
+  z-index: 1;
+  filter: saturate(0.88) brightness(1.04) contrast(0.96);
+  mask-image: linear-gradient(180deg, #000 0%, #000 42%, transparent 78%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 42%, transparent 78%);
 }
-.trees-l {
-  left: -8%;
-  top: 10%;
-  height: 38%;
-  width: auto;
-  filter: saturate(0.78) contrast(0.98) brightness(0.9);
-  animation: driftX 34s ease-in-out infinite reverse;
+.plate-stage {
+  inset: -2%;
+  width: 104%;
+  height: 104%;
+  object-fit: cover;
+  object-position: 26% 58%;
+  z-index: 2;
+  filter: saturate(0.92) contrast(1.02) brightness(0.98);
 }
-.trees-r {
-  right: -6%;
-  top: 8%;
-  height: 40%;
-  width: auto;
-  filter: saturate(0.76) contrast(0.98) brightness(0.88);
-  transform: translate3d(calc(var(--px) * -18px), calc(var(--py) * -8px), 0);
-  animation: driftX 38s ease-in-out infinite;
-}
-.water {
+
+.water-plane {
   left: 0;
   right: 0;
-  top: 45%;
+  top: 46%;
   bottom: 0;
+  z-index: 3;
   overflow: hidden;
-}
-.water-tex {
-  position: absolute;
-  left: -6%;
-  top: -8%;
-  width: 112%;
-  height: 116%;
-  object-fit: cover;
-  object-position: center 40%;
-  animation: waterDrift 22s ease-in-out infinite;
-  filter: saturate(0.84) brightness(0.96) hue-rotate(-6deg);
-}
-.water-reflect {
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 28%;
-  background: linear-gradient(180deg, rgba(16, 40, 32, 0.28), transparent);
-  mix-blend-mode: multiply;
-  opacity: 0.55;
+  mask-image: linear-gradient(180deg, transparent, #000 14%);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 14%);
+  pointer-events: none;
 }
 .water-sheen {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(180, 220, 230, 0.16), transparent 18%),
-    radial-gradient(ellipse 50% 24% at 36% 18%, rgba(255,255,255,0.18), transparent 70%),
-    radial-gradient(ellipse 40% 18% at 72% 42%, rgba(160, 220, 230, 0.12), transparent 70%);
+    linear-gradient(180deg, rgba(210, 230, 235, 0.1), transparent 22%),
+    radial-gradient(ellipse 48% 22% at 38% 16%, rgba(255,255,255,0.14), transparent 70%),
+    radial-gradient(ellipse 36% 16% at 72% 44%, rgba(170, 210, 220, 0.1), transparent 70%);
   mix-blend-mode: screen;
-  animation: glint 9s ease-in-out infinite;
+  animation: glint 11s ease-in-out infinite;
 }
-.water-svg {
+.water-caustic {
   position: absolute;
+  inset: -8%;
+  background:
+    radial-gradient(ellipse 40% 18% at 30% 20%, rgba(255,255,255,0.12), transparent 70%),
+    radial-gradient(ellipse 28% 12% at 64% 48%, rgba(180,230,240,0.08), transparent 70%);
+  mix-blend-mode: screen;
+  opacity: 0.65;
+  animation: waterDrift 18s ease-in-out infinite;
+}
+
+.stage-rig {
   inset: 0;
-  width: 100%;
-  height: 100%;
+  z-index: 4;
 }
-
-.lilies-a {
-  left: 7%;
-  top: 58%;
-  width: 11%;
-  filter: saturate(0.82) brightness(0.94) drop-shadow(0 5px 6px rgba(0,20,24,0.28));
-  transform: translate3d(calc(var(--px) * -10px + var(--wind, 0) * 6px), calc(var(--py) * -5px), 0);
-}
-.lilies-b {
-  right: 9%;
-  top: 54%;
-  width: 9%;
-  opacity: 0.9;
-  filter: saturate(0.82) brightness(0.94);
-  transform: translate3d(calc(var(--px) * -10px + var(--wind, 0) * -5px), calc(var(--py) * -5px), 0) scaleX(-1);
-}
-.rocks {
-  left: 1%;
-  top: 51%;
-  width: 13%;
-  filter: saturate(0.76) brightness(0.92) contrast(1.04) drop-shadow(0 8px 10px rgba(0,16,20,0.3));
-}
-
-.play-rig {
-  left: 1%;
-  top: 42%;
-  width: 78%;
-  aspect-ratio: 1240 / 480;
-  z-index: 2;
-}
-.play-rig .pier,
-.play-rig .angler,
-.play-rig .pier-wet {
+.stage-rig .angler {
   position: absolute;
-}
-.play-rig .pier {
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: left center;
-  z-index: 1;
-  filter: saturate(0.74) contrast(1.06) brightness(0.96);
-}
-.pier-reflect {
-  position: absolute;
-  left: 6%;
-  top: 58%;
-  width: 86%;
-  height: 38%;
-  object-fit: contain;
-  object-position: left top;
-  transform: scaleY(-1);
-  transform-origin: center top;
-  opacity: 0.22;
-  filter: blur(2.4px) saturate(0.5) brightness(0.58);
-  mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 78%);
-  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 78%);
-  z-index: 0;
-}
-.pier-shadow {
-  position: absolute;
-  left: 12%;
-  top: 52%;
-  width: 72%;
-  height: 24%;
-  background: radial-gradient(ellipse 72% 55% at 48% 35%, rgba(4, 14, 16, 0.55), transparent 72%);
-  filter: blur(7px);
-  z-index: 0;
-}
-.pier-wet {
-  position: absolute;
-  left: 12%;
-  top: 42%;
-  width: 70%;
-  height: 16%;
-  background: linear-gradient(180deg, transparent 10%, rgba(10, 32, 36, 0.34) 48%, transparent 100%);
-  z-index: 2;
-  pointer-events: none;
-}
-.play-rig .angler {
-  left: 13%;
-  width: clamp(170px, 36vw, 290px);
-  aspect-ratio: 652 / 1282;
-  top: auto;
-  bottom: 46%;
+  left: 16%;
+  top: 36%;
+  width: clamp(92px, 11.2vw, 138px);
+  aspect-ratio: 904 / 1361;
   height: auto;
-  z-index: 3;
-  background: none;
-  animation: none;
-  filter: saturate(0.92) brightness(1.03) contrast(1.04);
+  z-index: 4;
+  filter: saturate(0.78) brightness(0.92) contrast(1.04) drop-shadow(0 10px 8px rgba(8, 16, 18, 0.45));
 }
+
 .angler-rig {
   width: 100%;
   height: 100%;
   display: block;
   overflow: visible;
   position: relative;
-  filter: drop-shadow(0 8px 6px rgba(0, 10, 14, 0.48));
-  transform: translate3d(0, calc(var(--breath, 0) * 1.5px), 0) rotate(calc(var(--lean, 0) * 0.55deg));
-  transform-origin: 50% 86%;
+  transform: translate3d(0, calc(var(--breath, 0) * 1.2px), 0) rotate(calc(var(--lean, 0) * 0.45deg));
+  transform-origin: 50% 88%;
 }
 .angler-rig.painted { pointer-events: none; }
 .angler-rig .master {
@@ -358,8 +278,8 @@ body {
 }
 .angler-rig .wrist {
   position: absolute;
-  left: 74%;
-  top: 49%;
+  left: 58%;
+  top: 58%;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -372,37 +292,43 @@ body {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 3;
+  z-index: 5;
 }
 
 .reeds-l {
-  left: -2%;
-  bottom: 36%;
-  height: 18%;
+  left: -6%;
+  bottom: -8%;
+  height: 46%;
   width: auto;
   transform-origin: 50% 100%;
-  z-index: 4;
-  filter: saturate(0.76) brightness(0.88) contrast(1.08);
-  transform: translate3d(calc(var(--px) * -28px), calc(var(--py) * -12px), 0) rotate(calc(var(--wind, 0) * 8deg));
+  z-index: 6;
+  filter: saturate(0.72) brightness(0.78) contrast(1.08);
+}
+.reed-wind-a {
+  transform: translate3d(calc(var(--px) * -42px), calc(var(--py) * -18px), 55px) rotate(calc(var(--wind, 0) * 7deg));
 }
 .reeds-r {
-  right: -3%;
-  bottom: 38%;
-  height: 16%;
+  right: -8%;
+  bottom: -10%;
+  height: 42%;
   width: auto;
   transform-origin: 70% 100%;
-  z-index: 4;
-  filter: saturate(0.76) brightness(0.88) contrast(1.08);
-  transform: translate3d(calc(var(--px) * -28px), calc(var(--py) * -12px), 0) scaleX(-1) rotate(calc(var(--wind, 0) * -6.5deg));
+  z-index: 6;
+  filter: saturate(0.7) brightness(0.74) contrast(1.08);
+}
+.reed-wind-b {
+  transform: translate3d(calc(var(--px) * -42px), calc(var(--py) * -18px), 55px) scaleX(-1) rotate(calc(var(--wind, 0) * -6deg));
 }
 .branch {
-  left: -4%;
-  top: -6%;
-  width: 34%;
-  z-index: 5;
+  left: -10%;
+  top: -12%;
+  width: 48%;
+  z-index: 7;
   transform-origin: 0 0;
-  filter: saturate(0.7) brightness(0.88) contrast(1.04) drop-shadow(0 8px 10px rgba(0,0,0,0.2));
-  transform: translate3d(calc(var(--px) * -28px), calc(var(--py) * -12px), 0) rotate(calc(var(--wind, 0) * 3.5deg));
+  filter: saturate(0.68) brightness(0.72) contrast(1.06) drop-shadow(0 10px 12px rgba(0,0,0,0.28));
+}
+.branch-wind {
+  transform: translate3d(calc(var(--px) * -42px), calc(var(--py) * -18px), 55px) rotate(calc(var(--wind, 0) * 3deg));
 }
 
 .tackle {
@@ -933,13 +859,13 @@ body {
     margin-left: 24px;
     margin-right: auto;
   }
-  .play-rig {
-    left: 3%;
-    top: 38%;
-    width: min(54%, 640px);
+  .stage-rig .angler {
+    left: 18%;
+    top: 34%;
+    width: clamp(100px, 10vw, 150px);
   }
-  .reeds-l { height: 20%; bottom: 18%; }
-  .reeds-r { height: 18%; bottom: 16%; }
+  .reeds-l { height: 52%; }
+  .reeds-r { height: 48%; }
 }
 
 @media (max-width: 640px) {
@@ -953,10 +879,11 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .cam { animation: none; }
   .far-forest, .trees-l, .trees-r, .sway-a, .sway-b,
   .wave-a, .wave-b, .wave-c, .wave-d, .water-tex, .angler,
   .weather-rain, .weather-snow, .float-bob, .feed-ring, .splash,
-  .caustic-sheet, .ripple, .water-sheen {
+  .caustic-sheet, .ripple, .water-sheen, .water-caustic {
     animation: none;
   }
 }

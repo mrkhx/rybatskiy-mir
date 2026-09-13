@@ -20,7 +20,7 @@ export const AnglerRig = forwardRef<AnglerHandle>(function AnglerRig(_, ref) {
 
   return (
     <div className="angler-rig painted" ref={root} aria-hidden="true">
-      <img className="master" src={`${C}/master.webp`} alt="" draggable={false} />
+      <img className="master" src={`${C}/master.webp?v=9`} alt="" draggable={false} />
       <i className="wrist" />
     </div>
   );

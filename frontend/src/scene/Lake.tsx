@@ -18,7 +18,7 @@ type LakeProps = {
 };
 
 const A = "/scene/forest-lake";
-const V = "v=8";
+const V = "v=9";
 
 export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, hookNonce = 0 }: LakeProps) {
   const root = useRef<HTMLDivElement>(null);
@@ -79,14 +79,14 @@ export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, h
         if (b.width > 0) {
           const aspect = a.width / a.height;
           const ang = (pose.rodAngle * Math.PI) / 180;
-          const len = 21;
+          const len = 14;
           pose = {
             ...pose,
             gripX: ((b.left + b.width / 2 - a.left) / a.width) * 100,
             gripY: ((b.top + b.height / 2 - a.top) / a.height) * 100,
           };
           pose.tipX = pose.gripX + Math.cos(ang) * len;
-          pose.tipY = pose.gripY + Math.sin(ang) * len * aspect + pose.rodBend * 4 * aspect;
+          pose.tipY = pose.gripY + Math.sin(ang) * len * aspect + pose.rodBend * 3 * aspect;
         }
       }
       poseRef.current = pose;
@@ -115,42 +115,35 @@ export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, h
       data-feed={feeding ? "1" : "0"}
       data-quality={quality}
     >
-      <img className="lyr sky par-far" src={`${A}/sky.webp?${V}`} alt="" />
-      <div className="sun-glow par-far" />
-      <img className="lyr far-forest par-far" src={`${A}/far-forest.webp?${V}`} alt="" />
-      <img className="lyr trees-l par-mid" src={`${A}/trees.webp?${V}`} alt="" />
-      <img className="lyr trees-r par-mid" src={`${A}/trees-b.webp?${V}`} alt="" />
-
-      <div className="lyr water par-play">
-        <img className="water-tex" src={`${A}/water.webp?${V}`} alt="" />
-        <div className="water-reflect" />
-        <div className="water-sheen" />
-      </div>
-
-      <img className="lyr lilies-a par-play lily-sway" src={`${A}/lilies.webp?${V}`} alt="" />
-      <img className="lyr lilies-b lily-sway-b" src={`${A}/lilies.webp?${V}`} alt="" />
-      <img className="lyr rocks par-play" src={`${A}/rocks.webp?${V}`} alt="" />
-
-      <div className="lyr play-rig par-play">
-        <img className="pier-reflect" src={`${A}/pier.webp?${V}`} alt="" />
-        <div className="pier-shadow" />
-        <img className="pier" src={`${A}/pier.webp?${V}`} alt="" />
-        <div className="pier-wet" />
-        <div className="angler">
-          <AnglerRig ref={angler} />
+      <div className="cam">
+        <div className="plane plane-sky par-sky">
+          <div className="sun-glow" />
         </div>
+
+        <img className="lyr plate-far par-far" src={`${A}/stage.webp?${V}`} alt="" />
+        <img className="lyr plate-stage par-stage" src={`${A}/stage.webp?${V}`} alt="" />
+
+        <div className="lyr water-plane par-stage">
+          <div className="water-sheen" />
+          <div className="water-caustic" />
+        </div>
+
+        <div className="lyr stage-rig par-stage">
+          <div className="angler">
+            <AnglerRig ref={angler} />
+          </div>
+        </div>
+
+        <LiveCanvas ref={live} />
+
+        <img className="lyr reeds-l par-fg reed-wind-a" src={`${A}/reeds.webp?${V}`} alt="" />
+        <img className="lyr reeds-r par-fg reed-wind-b" src={`${A}/reeds.webp?${V}`} alt="" />
+        <img className="lyr branch par-fg branch-wind" src={`${A}/branch.webp?${V}`} alt="" />
       </div>
-
-      <LiveCanvas ref={live} />
-
-      <img className="lyr reeds-l par-fg reed-wind-a" src={`${A}/reeds.webp?${V}`} alt="" />
-      <img className="lyr reeds-r par-fg reed-wind-b" src={`${A}/reeds.webp?${V}`} alt="" />
-      <img className="lyr branch par-fg branch-wind" src={`${A}/branch.webp?${V}`} alt="" />
 
       <div className="wash" />
       <div className="fog-sheet" />
       <div className="vignette-sheet" />
-      <div className="caustic-sheet" />
       <div className="weather-rain" />
       <div className="weather-snow" />
       <div className="lightning" />

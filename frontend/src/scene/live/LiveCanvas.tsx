@@ -70,7 +70,7 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
 
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, h * 0.44, w, h * 0.56);
+      ctx.rect(0, h * 0.48, w, h * 0.52);
       ctx.clip();
 
       const waves = q === "LOW" ? 2 : 5;
