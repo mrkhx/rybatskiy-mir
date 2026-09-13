@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { CharClip } from "./types";
 
-/** Skinned blank: 8–12 bones. Tension 0..1 bends the tip toward -Y in rod local space. */
+/** Skinned blank. Tension bends the tip toward the reel/guide underside. */
 export function applyRodBend(rod: THREE.Object3D, tension: number) {
   const t = Math.max(0, Math.min(1, tension));
   const max = 0.22 * t;
@@ -9,7 +9,7 @@ export function applyRodBend(rod: THREE.Object3D, tension: number) {
     const bone = rod.getObjectByName(`Blank_${i}`);
     if (!bone) continue;
     const along = (i + 1) / 10;
-    bone.rotation.x = -max * along * along * 2.2;
+    bone.rotation.x = max * along * along * 2.2;
     bone.rotation.y = 0;
     bone.rotation.z = 0;
   }
