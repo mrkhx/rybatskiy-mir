@@ -1,9 +1,13 @@
 .rig3d-lab {
   --rig-bg: #10140f;
   --rig-stage: #151a16;
+  height: 100dvh;
+  min-height: 100dvh;
 }
 
 .rig3d-stage {
+  min-height: 0;
+  height: 100%;
   background:
     radial-gradient(1000px 520px at 50% 28%, #3d4c58 0%, transparent 62%),
     linear-gradient(180deg, #5a6a74 0%, #2e3a42 48%, #1c2428 100%);
