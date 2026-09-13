@@ -28,11 +28,14 @@ import {
   WATER_SIZE,
   WATER_Y,
 } from "./approvedTackle";
+import { PRECAST_HANG_DROP, PRECAST_HANG_IN } from "./aim";
 
 useGLTF.preload(PRODUCTION.float);
 
 const _tip = new THREE.Vector3();
 const _attach = new THREE.Vector3();
+const _hang = new THREE.Vector3();
+const _in = new THREE.Vector3();
 
 export type TackleProps = {
   rod: THREE.Object3D;
@@ -45,8 +48,10 @@ export type TackleProps = {
   active: boolean;
 };
 
-export const LakeFloat = forwardRef<THREE.Group, Pick<TackleProps, "floatOn" | "wave" | "active">>(
-  function LakeFloat({ floatOn, wave, active }, ref) {
+export const LakeFloat = forwardRef<
+  THREE.Group,
+  Pick<TackleProps, "floatOn" | "wave" | "active"> & { hanging?: boolean; rod?: THREE.Object3D }
+>(function LakeFloat({ floatOn, wave, active, hanging = false, rod }, ref) {
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
@@ -65,12 +70,29 @@ export const LakeFloat = forwardRef<THREE.Group, Pick<TackleProps, "floatOn" | "
       g.visible = show;
       if (!show) return;
       const t = clock.current;
-      g.position.set(FLOAT_X, WATER_Y + FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ), 0);
-      g.rotation.set(
-        FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ),
-        0,
-        FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ),
-      );
+      if (hanging && rod) {
+        worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
+        _hang.copy(_tip);
+        _hang.y -= PRECAST_HANG_DROP;
+        _in.set(_tip.x, 0, _tip.z);
+        if (_in.lengthSq() > 1e-4) {
+          _in.normalize().multiplyScalar(-PRECAST_HANG_IN);
+          _hang.x += _in.x;
+          _hang.z += _in.z;
+        }
+        _hang.x += 0.03 * Math.sin(t * 1.35);
+        _hang.z += 0.022 * Math.sin(t * 0.95);
+        if (g.parent) g.parent.worldToLocal(_hang);
+        g.position.copy(_hang);
+        g.rotation.set(0.06 * Math.sin(t * 0.95), 0, 0.08 * Math.sin(t * 1.35));
+      } else {
+        g.position.set(FLOAT_X, WATER_Y + FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ), 0);
+        g.rotation.set(
+          FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ),
+          0,
+          FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ),
+        );
+      }
     });
 
     return (

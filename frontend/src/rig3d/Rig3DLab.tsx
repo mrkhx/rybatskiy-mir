@@ -143,7 +143,7 @@ export function Rig3DLab() {
         <div>
           <p className="rig-lab-kicker">Рыбацкий Мир · 3D contract</p>
           <h1>Production 360° lab</h1>
-          <p className="rig3d-kicker">READY locked · AIM = READY + 10° tip</p>
+          <p className="rig3d-kicker">PRE-CAST · поплавок на леске, не на воде</p>
         </div>
         <div className="rig-lab-meta">
           <span className="rig-lab-state">{charClip.replaceAll("_", " ")}</span>

@@ -346,7 +346,14 @@ export function Rig3DScene({
       <group rotation={[0, yaw + extraYaw.current + Math.PI, 0]}>
         <primitive object={man} position={[0, 0, 0]} />
         <WaterPlane active={charClip === "READY" || charClip === "AIM"} floatOn={floatOn} />
-        <LakeFloat ref={floatRef} floatOn={floatOn} wave={wave} active={charClip === "READY" || charClip === "AIM"} />
+        <LakeFloat
+          ref={floatRef}
+          floatOn={floatOn}
+          wave={wave}
+          active={charClip === "READY" || charClip === "AIM"}
+          hanging={charClip === "AIM"}
+          rod={rod}
+        />
       </group>
       <group position={[0.55, 0.55, -1.65]} scale={fishScale} visible={!(floatOn && (charClip === "READY" || charClip === "AIM"))}>
         <primitive object={pike} />
