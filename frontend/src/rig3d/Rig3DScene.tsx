@@ -8,7 +8,7 @@ import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { inspectFisherman } from "../scene3d/assets/characterAdapter";
 import { inspectRod } from "../scene3d/assets/rodAdapter";
 import { inspectPike } from "../scene3d/assets/fishAdapter";
-import { DEBUG_PROXY, type AssetSource } from "../scene3d/assets/paths";
+import { DEBUG_PROXY, PRODUCTION, type AssetSource } from "../scene3d/assets/paths";
 import type { AdapterReport } from "../scene3d/assets/contract";
 import { importHumanoid } from "../scene3d/assets/retarget";
 import { twoBoneIK } from "./ik";
@@ -16,6 +16,8 @@ import { applyRodBend, aimRod, spinReel, worldOf } from "./rodBend";
 import { applyRightGrip, attachRodToHand } from "./grip";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
 
+useGLTF.preload(PRODUCTION.fisherman);
+useGLTF.preload(PRODUCTION.rod);
 useGLTF.preload(DEBUG_PROXY.fisherman);
 useGLTF.preload(DEBUG_PROXY.rod);
 useGLTF.preload(DEBUG_PROXY.pike);

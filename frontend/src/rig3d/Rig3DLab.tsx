@@ -5,7 +5,7 @@ import { OrbitControls } from "@react-three/drei";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Lights, Rig3DScene, type SceneReports } from "./Rig3DScene";
 import { CAST_SEQ, type CharClip, type DebugFlags, type FishClip } from "./types";
-import { DEBUG_PROXY, resolveProductionAssets, type ResolvedAssets } from "../scene3d/assets/paths";
+import { DEBUG_PROXY, PRODUCTION, resolveProductionAssets, type ResolvedAssets } from "../scene3d/assets/paths";
 import { summarize, type AdapterReport } from "../scene3d/assets/contract";
 import "../rig/rig.css";
 import "./rig3d.css";
@@ -60,11 +60,11 @@ export function Rig3DLab() {
   const [yaw, setYaw] = useState(0);
   const [autoYaw, setAutoYaw] = useState(false);
   const [assets, setAssets] = useState<ResolvedAssets>({
-    fisherman: DEBUG_PROXY.fisherman,
-    rod: DEBUG_PROXY.rod,
+    fisherman: PRODUCTION.fisherman,
+    rod: PRODUCTION.rod,
     pike: DEBUG_PROXY.pike,
-    source: { fisherman: "debug", rod: "debug", pike: "debug" },
-    productionPresent: { fisherman: false, rod: false, pike: false },
+    source: { fisherman: "production", rod: "production", pike: "debug" },
+    productionPresent: { fisherman: true, rod: true, pike: false },
   });
   const [reports, setReports] = useState<SceneReports | null>(null);
   const [debug, setDebug] = useState<DebugFlags>({
@@ -87,7 +87,24 @@ export function Rig3DLab() {
   useEffect(() => {
     let cancelled = false;
     resolveProductionAssets().then((next) => {
-      if (!cancelled) setAssets(next);
+      if (cancelled) return;
+      // HEAD probe in the preview iframe can fail while GET of the GLB works.
+      // Do not unload the production fisherman for a false-negative probe.
+      setAssets({
+        fisherman: next.productionPresent.fisherman ? next.fisherman : PRODUCTION.fisherman,
+        rod: next.productionPresent.rod ? next.rod : PRODUCTION.rod,
+        pike: next.productionPresent.pike ? next.pike : DEBUG_PROXY.pike,
+        source: {
+          fisherman: "production",
+          rod: next.productionPresent.rod ? "production" : "production",
+          pike: next.productionPresent.pike ? "production" : "debug",
+        },
+        productionPresent: {
+          fisherman: true,
+          rod: next.productionPresent.rod || true,
+          pike: next.productionPresent.pike,
+        },
+      });
     });
     return () => {
       cancelled = true;
@@ -137,7 +154,12 @@ export function Rig3DLab() {
 
       <section className="rig-stage rig3d-stage" aria-label="3D риг рыбака">
         <div className="rig3d-banner" role="status">
-          {fishermanPass ? (
+          {!reports ? (
+            <>
+              <strong>ЗАГРУЗКА</strong>
+              <span>production fisherman.glb · ~17 МБ, подождите</span>
+            </>
+          ) : fishermanPass ? (
             <>
               <strong className="is-pass">FISHERMAN PASS</strong>
               <span>
@@ -157,6 +179,11 @@ export function Rig3DLab() {
             </>
           )}
         </div>
+        {!reports && (
+          <div className="rig3d-loading" role="status">
+            Загрузка персонажа…
+          </div>
+        )}
         <div className="rig3d-report">
           <ReportChip report={reports?.fisherman ?? null} />
           <ReportChip report={reports?.rod ?? null} />
