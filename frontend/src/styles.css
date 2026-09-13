@@ -271,6 +271,11 @@ body {
   aspect-ratio: 1240 / 480;
   z-index: 2;
 }
+.play-rig .pier,
+.play-rig .angler,
+.play-rig .pier-wet {
+  position: absolute;
+}
 .play-rig .pier {
   left: 0;
   top: 0;
@@ -318,10 +323,12 @@ body {
   pointer-events: none;
 }
 .play-rig .angler {
-  left: 16.5%;
-  top: -8%;
-  width: 15.5%;
-  aspect-ratio: 2 / 3.9;
+  left: 13%;
+  width: clamp(170px, 36vw, 290px);
+  aspect-ratio: 652 / 1282;
+  top: auto;
+  bottom: 46%;
+  height: auto;
   z-index: 3;
   background: none;
   animation: none;

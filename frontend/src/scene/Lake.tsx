@@ -18,7 +18,7 @@ type LakeProps = {
 };
 
 const A = "/scene/forest-lake";
-const V = "v=7";
+const V = "v=8";
 
 export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, hookNonce = 0 }: LakeProps) {
   const root = useRef<HTMLDivElement>(null);

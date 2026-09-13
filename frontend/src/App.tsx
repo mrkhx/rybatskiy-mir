@@ -361,7 +361,19 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   }, [session?.state, session?.speciesId, session?.weightG, session?.tier, session?.loseReason, speciesName]);
 
   useEffect(() => {
-    if (session?.state !== "FIGHTING" && session?.state !== "HOOKED") return;
+    if (session?.state !== "HOOKED") return;
+    void api<Session>("/fishing/tick", {
+      method: "POST",
+      body: JSON.stringify({ reel: 0.55, rodPressure: 0.5, rodDir: 0, drag: 0.4 }),
+    })
+      .then(setSession)
+      .catch(() => {
+        /* first fight tick can race; interval will retry while FIGHTING */
+      });
+  }, [session?.state]);
+
+  useEffect(() => {
+    if (session?.state !== "FIGHTING") return;
     let busy = false;
     const t = window.setInterval(() => {
       if (busy) return;
@@ -374,6 +386,9 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
           setSession(s);
           if (s.state === "LANDED") onPlayer(await api<Player>("/players/me"));
         })
+        .catch(() => {
+          /* session already left FIGHTING */
+        })
         .finally(() => {
           busy = false;
         });
@@ -383,10 +398,27 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
 
   const tod = world?.clock.timeOfDay ?? "DAY";
   const wx = world?.clock.weather ?? "CLEAR";
-  const fighting = session?.state === "FIGHTING" || session?.state === "HOOKED";
+  const fighting = session?.state === "FIGHTING";
+  const hooked = session?.state === "HOOKED";
+  const landed = session?.state === "LANDED" && Boolean(session.speciesId);
   const shownSpotId = session?.spotId ?? spotId;
   const shownMethod: Method = session?.method === "SPINNING" ? "SPINNING" : session?.method === "FLOAT" ? "FLOAT" : method;
   const spot = world?.waterbody.spots.find((s) => s.id === shownSpotId);
+
+  const lineStatus = (() => {
+    if (spinHint) return SPIN_HINT;
+    if (!session) return status;
+    if (session.state === "LANDED" && session.speciesId) {
+      return `Улов: ${fishName(speciesName, session.speciesId)} · ${session.weightG} г · ${TIER[session.tier ?? ""] ?? session.tier}`;
+    }
+    if (session.state === "FIGHTING") return "Вываживание. Держите натяжение, подматывайте.";
+    if (session.state === "HOOKED") return "Подсечка! Рыба на крючке.";
+    if (session.state === "BITE") return `Поклёвка! ${fishName(speciesName, session.speciesId)}. Подсекайте.`;
+    if (session.state === "WAITING_BITE") return session.playerHint ?? "Ждём поклёвку…";
+    if (session.state === "LOST" || session.state === "BROKEN") return LOSE[session.loseReason ?? ""] ?? "Сход";
+    if (session.state === "READY") return "Прицельтесь и забросьте.";
+    return status;
+  })();
 
   async function cast() {
     setCastNonce((n) => n + 1);
@@ -423,7 +455,9 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
       setSession(s);
       if (s.state === "LANDED") onPlayer(await api<Player>("/players/me"));
     } catch (e) {
-      setStatus(e instanceof Error ? e.message : "Ошибка");
+      const msg = e instanceof Error ? e.message : "Ошибка";
+      if (msg === "Нет вываживания") return;
+      setStatus(msg);
     }
   }
 
@@ -481,7 +515,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
         <button className="btn primary" type="button" onClick={() => void hook()}>Подсечь</button>
       );
     }
-    if (fighting) {
+    if (fighting || hooked) {
       return (
         <div className="fight">
           <button className="btn" type="button" onClick={() => void tick({ reel: 0.85 })}>Подмотка</button>
@@ -491,10 +525,10 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
         </div>
       );
     }
-    if (session.state === "LANDED") {
+    if (landed) {
       return (
         <div className="fight">
-          <button className="btn primary" type="button" onClick={() => void decide(true)}>Оставить</button>
+          <button className="btn primary" type="button" onClick={() => void decide(true)}>В садок</button>
           <button className="btn" type="button" onClick={() => void decide(false)}>Отпустить</button>
         </div>
       );
@@ -592,11 +626,11 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
                 {world?.feeding?.find((f) => f.spotId === shownSpotId) && (
                   <p className="ok">{world.feeding.find((f) => f.spotId === shownSpotId)?.label}</p>
                 )}
-                {spinHint ? <p className="muted">{SPIN_HINT}</p> : <p>{status}</p>}
+                {spinHint ? <p className="muted">{SPIN_HINT}</p> : <p>{lineStatus}</p>}
                 {spinHint && (
                   <button className="btn primary" type="button" onClick={() => setTab("shop")}>Открыть лавку</button>
                 )}
-                {session && (fighting || session.state === "LANDED") && (
+                {session && (fighting || hooked) && (
                   <>
                     <p className="muted">Натяжение</p>
                     <div className={`bar ${session.tension > 0.85 ? "err" : "warn"}`}><span style={{ ["--w" as string]: `${Math.min(100, session.tension * 80)}%` }} /></div>
