@@ -1,5 +1,5 @@
 export const PRODUCTION = {
-  fisherman: "/models/production/fisherman.glb?v=nativeWalk2",
+  fisherman: "/models/production/fisherman.glb?v=reverted1",
   rod: "/models/production/rod.glb?v=1",
   pike: "/models/production/pike.glb",
 } as const;
