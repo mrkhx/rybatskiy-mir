@@ -80,7 +80,19 @@ export function aimRod(man: THREE.Object3D, rod: THREE.Object3D, clip: CharClip)
   man.updateWorldMatrix(true, false);
   _worldQ.setFromRotationMatrix(man.matrixWorld);
 
-  if (FISHING_AIM.has(clip) && handL) {
+  if (clip === "READY") {
+    // Character-forward, slight up. Hand line only a light bias so the
+    // blank does not become a bar across the belly.
+    _dir.set(0, 0.06, 1).applyQuaternion(_worldQ).normalize();
+    if (handL) {
+      handR.getWorldPosition(_a);
+      handL.getWorldPosition(_b);
+      _b.sub(_a);
+      if (_b.lengthSq() > 4e-4) {
+        _dir.addScaledVector(_b.normalize(), 0.08).normalize();
+      }
+    }
+  } else if (FISHING_AIM.has(clip) && handL) {
     handR.getWorldPosition(_a);
     handL.getWorldPosition(_b);
     _dir.subVectors(_b, _a);
@@ -89,11 +101,8 @@ export function aimRod(man: THREE.Object3D, rod: THREE.Object3D, clip: CharClip)
     } else {
       _dir.normalize();
       _fwd.set(0, 0.18, 1).applyQuaternion(_worldQ);
-      const blend = clip === "READY" ? 0.45 : clip.startsWith("CAST") || clip === "HOOKSET" ? 0.25 : 0.7;
+      const blend = clip.startsWith("CAST") || clip === "HOOKSET" ? 0.25 : 0.7;
       _dir.addScaledVector(_fwd, blend).normalize();
-      if (clip === "READY") {
-        _dir.addScaledVector(_up, 0.12).normalize();
-      }
     }
   } else {
     _dir.set(0.52, -0.74, -0.28).applyQuaternion(_worldQ).normalize();

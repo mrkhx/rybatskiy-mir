@@ -58,7 +58,7 @@ for side, pref in (("L", "Bip01 L"), ("R", "Bip01 R")):
 
 # Joint limits in local Euler degrees relative to bind.
 LIMITS = {
-    "UpperArm_L": {"x": (0, 45), "y": (0, 0), "z": (0, 35)},
+    "UpperArm_L": {"x": (0, 42), "y": (0, 0), "z": (0, 38)},
     "UpperArm_R": {"x": (-45, 0), "y": (0, 0), "z": (0, 35)},
     "LowerArm_L": {"x": (0, 12), "y": (0, 0), "z": (0, 40)},
     "LowerArm_R": {"x": (-12, 0), "y": (0, 0), "z": (0, 40)},
@@ -88,13 +88,16 @@ def ready_at(t: float) -> dict[str, tuple[float, float, float]]:
     c = math.cos(2 * math.pi * t)
     # IDLE used UpperArm (33, 0, 12) / (-33, 0, 12) and LowerArm (4, 0, 20).
     # READY: less drop, more forward flexion, more elbow — still a1=0.
+    # Right arm stays the accepted no-rod READY (grip).
+    # Left: extra forward flexion + elbow so the hand sits along a
+    # forward-and-up blank. UpperArm a1 stays 0 (no humerus twist).
     return clamp_pose(
         {
-            "UpperArm_L": (24.0 + 1.0 * s, 0.0, 20.0),
+            "UpperArm_L": (28.0 + 1.0 * s, 0.0, 32.0),
             "UpperArm_R": (-24.0 - 1.0 * s, 0.0, 20.0),
-            "LowerArm_L": (6.0 + 0.5 * s, 0.0, 28.0),
+            "LowerArm_L": (6.0 + 0.5 * s, 0.0, 36.0),
             "LowerArm_R": (-6.0 - 0.5 * s, 0.0, 28.0),
-            "Shoulder_L": (5.0 + 0.8 * s, -6.0, 4.0),
+            "Shoulder_L": (5.0 + 0.8 * s, -8.0, 5.0),
             "Shoulder_R": (-5.0 - 0.8 * s, 6.0, 4.0),
             "Chest": (0.0, 0.0, -6.0 + 1.2 * s),
             "Spine": (0.0, 0.0, -3.0 + 0.6 * c),
@@ -179,7 +182,7 @@ hr = wpos(arm, "Hand_R")
 hd = wpos(arm, "Head")
 # Hands in front of the torso, not through it, not in T-pose.
 assert hl.y < -0.10 and hr.y < -0.10, (hl, hr)
-assert 0.10 < hl.x < 0.40, hl
+assert 0.04 < hl.x < 0.40, hl
 assert -0.40 < hr.x < -0.10, hr
 assert 0.85 < hl.z < 1.15, hl
 assert 0.85 < hr.z < 1.15, hr
