@@ -8,9 +8,6 @@ const _z = new THREE.Vector3();
 const _invMan = new THREE.Matrix4();
 const _basis = new THREE.Matrix4();
 const _qz = new THREE.Quaternion();
-const _worldQ = new THREE.Quaternion();
-const _parentQ = new THREE.Quaternion();
-const _manQ = new THREE.Quaternion();
 const _axisZ = new THREE.Vector3(0, 0, 1);
 const _palm = new THREE.Vector3(0, 0.055, 0.012);
 
@@ -45,28 +42,8 @@ function getBone(man: THREE.Object3D, name: string): THREE.Bone | null {
   return found;
 }
 
-function orientRightWrist(man: THREE.Object3D, rod: THREE.Object3D): void {
-  const hand = getBone(man, "Hand_R");
-  if (!hand || !hand.parent) return;
-  _x.set(0, 1, 0).applyQuaternion(rod.quaternion).normalize();
-  _y.set(0, 0, -1);
-  _y.addScaledVector(_x, -_y.dot(_x));
-  if (_y.lengthSq() < 1e-8) _y.set(0, -1, 0);
-  _y.normalize();
-  _z.crossVectors(_x, _y).normalize();
-  _y.crossVectors(_z, _x).normalize();
-  _basis.makeBasis(_x, _y, _z);
-  _worldQ.setFromRotationMatrix(_basis);
-  man.updateWorldMatrix(true, false);
-  hand.parent.updateWorldMatrix(true, false);
-  _parentQ.setFromRotationMatrix(hand.parent.matrixWorld);
-  _manQ.setFromRotationMatrix(man.matrixWorld);
-  _worldQ.premultiply(_manQ);
-  hand.quaternion.copy(_parentQ).invert().multiply(_worldQ);
-}
-
-export function closeRightFist(man: THREE.Object3D, rod: THREE.Object3D): void {
-  orientRightWrist(man, rod);
+/** Fingers only. Does not touch Hand_R / wrist / arm. */
+export function closeRightFist(man: THREE.Object3D, _rod?: THREE.Object3D): void {
   for (const name of Object.keys(FIST_Z)) {
     const b = getBone(man, name);
     if (!b) continue;
