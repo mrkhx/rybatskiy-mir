@@ -276,8 +276,8 @@ export function Rig3DScene({
     const clip = charRef.current;
     const wantsRod = clip === "READY";
     if (wantsRod) {
-      attached.current = placeRodReady(man, rod);
       closeRightFist(man, rod);
+      attached.current = placeRodReady(man, rod);
       rod.visible = true;
     } else if (attached.current) {
       rod.removeFromParent();

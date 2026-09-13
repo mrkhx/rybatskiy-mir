@@ -2,6 +2,7 @@ import * as THREE from "three";
 
 const _gripOff = new THREE.Vector3();
 const _anchor = new THREE.Vector3();
+const _tmp = new THREE.Vector3();
 const _x = new THREE.Vector3();
 const _y = new THREE.Vector3();
 const _z = new THREE.Vector3();
@@ -9,9 +10,6 @@ const _invMan = new THREE.Matrix4();
 const _basis = new THREE.Matrix4();
 const _qz = new THREE.Quaternion();
 const _axisZ = new THREE.Vector3(0, 0, 1);
-const _palm = new THREE.Vector3(0, 0.055, 0.012);
-/** Man-local nudge toward the marked palm (character left / slightly back). */
-const _nudge = new THREE.Vector3(0, 0, 0.07);
 
 const DEG = Math.PI / 180;
 const PITCH = 30 * DEG;
@@ -56,6 +54,12 @@ export function closeRightFist(man: THREE.Object3D, _rod?: THREE.Object3D): void
   }
 }
 
+function worldPos(b: THREE.Object3D, out: THREE.Vector3): THREE.Vector3 {
+  b.updateWorldMatrix(true, false);
+  return out.setFromMatrixPosition(b.matrixWorld);
+}
+
+/** Cork through the closed right fist. Angle unchanged. */
 export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean {
   const handR = getBone(man, "Hand_R") ?? man.getObjectByName("Hand_R");
   if (!handR) return false;
@@ -74,11 +78,22 @@ export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean
   rod.quaternion.setFromRotationMatrix(_basis);
 
   man.updateWorldMatrix(true, false);
-  handR.updateWorldMatrix(true, false);
+  worldPos(handR, _anchor);
+  const mid = getBone(man, "Middle_R_1");
+  const idx = getBone(man, "Index_R_1");
+  if (mid) {
+    worldPos(mid, _tmp);
+    _anchor.lerp(_tmp, 0.5);
+  }
+  if (idx) {
+    worldPos(idx, _tmp);
+    _anchor.lerp(_tmp, 0.25);
+  }
   _invMan.copy(man.matrixWorld).invert();
-  _anchor.copy(_palm).applyMatrix4(handR.matrixWorld).applyMatrix4(_invMan);
+  _anchor.applyMatrix4(_invMan);
+
   _gripOff.set(0, REEL_SEAT_ALONG, 0).applyQuaternion(rod.quaternion);
-  rod.position.copy(_anchor).sub(_gripOff).add(_nudge);
+  rod.position.copy(_anchor).sub(_gripOff);
   return true;
 }
 
