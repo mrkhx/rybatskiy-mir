@@ -79,7 +79,7 @@ export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, h
         if (b.width > 0) {
           const aspect = a.width / a.height;
           const ang = (pose.rodAngle * Math.PI) / 180;
-          const len = 11;
+          const len = 7.2;
           pose = {
             ...pose,
             gripX: ((b.left + b.width / 2 - a.left) / a.width) * 100,
@@ -129,8 +129,10 @@ export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, h
         </div>
 
         <div className="lyr stage-rig par-stage">
-          <div className="angler">
-            <AnglerRig ref={angler} />
+          <div className="pier-seat">
+            <div className="angler">
+              <AnglerRig ref={angler} />
+            </div>
           </div>
         </div>
 
