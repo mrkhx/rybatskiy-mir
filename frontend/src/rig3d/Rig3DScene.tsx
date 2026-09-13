@@ -70,6 +70,28 @@ function hardenMaterials(root: THREE.Object3D) {
   });
 }
 
+function hardenRodMaterials(root: THREE.Object3D) {
+  root.traverse((o: THREE.Object3D) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.frustumCulled = false;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const cloned = mats.map((mat) => {
+      const std = (mat as THREE.MeshStandardMaterial).clone();
+      std.side = THREE.DoubleSide;
+      if (std.envMapIntensity !== undefined) std.envMapIntensity = 0.55;
+      if (std.roughness !== undefined) std.roughness = Math.min(0.55, std.roughness ?? 0.4);
+      if (std.metalness !== undefined) std.metalness = Math.max(0.18, std.metalness ?? 0);
+      if (std.emissive) std.emissive.setHex(0x1a1814);
+      if (std.emissiveIntensity !== undefined) std.emissiveIntensity = 0.22;
+      return std;
+    });
+    mesh.material = Array.isArray(mesh.material) ? cloned : cloned[0]!;
+  });
+}
+
 export function Rig3DScene({
   fishermanUrl,
   rodUrl,
@@ -158,7 +180,7 @@ export function Rig3DScene({
   useEffect(() => {
     attached.current = false;
     hardenMaterials(man);
-    hardenMaterials(rod);
+    hardenRodMaterials(rod);
     hardenMaterials(pike);
     pike.rotation.y = Math.PI / 2;
     onReports?.({

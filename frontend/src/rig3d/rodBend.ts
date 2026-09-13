@@ -81,17 +81,9 @@ export function aimRod(man: THREE.Object3D, rod: THREE.Object3D, clip: CharClip)
   _worldQ.setFromRotationMatrix(man.matrixWorld);
 
   if (clip === "READY") {
-    // Character-forward, slight up. Hand line only a light bias so the
-    // blank does not become a bar across the belly.
-    _dir.set(0, 0.06, 1).applyQuaternion(_worldQ).normalize();
-    if (handL) {
-      handR.getWorldPosition(_a);
-      handL.getWorldPosition(_b);
-      _b.sub(_a);
-      if (_b.lengthSq() > 4e-4) {
-        _dir.addScaledVector(_b.normalize(), 0.08).normalize();
-      }
-    }
+    // Local +Z = facing, +X = character's right after world matrix.
+    // 26° right, 19° up so 0° sees a diagonal blank, not an end-on sliver.
+    _dir.set(0.36, 0.42, 1).applyQuaternion(_worldQ).normalize();
   } else if (FISHING_AIM.has(clip) && handL) {
     handR.getWorldPosition(_a);
     handL.getWorldPosition(_b);
