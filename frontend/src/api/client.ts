@@ -17,12 +17,13 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, { ...init, headers });
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
+    const raw = await res.text();
     try {
-      const body = (await res.json()) as { message?: string | string[] };
+      const body = JSON.parse(raw) as { message?: string | string[] };
       if (Array.isArray(body.message)) message = body.message.join(", ");
       else if (body.message) message = body.message;
     } catch {
-      /* ignore */
+      if (res.status >= 500) message = "Сервер недоступен. Подождите и войдите снова.";
     }
     throw new Error(message);
   }
