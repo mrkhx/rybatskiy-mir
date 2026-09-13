@@ -10,6 +10,8 @@ const _basis = new THREE.Matrix4();
 const _qz = new THREE.Quaternion();
 const _axisZ = new THREE.Vector3(0, 0, 1);
 const _palm = new THREE.Vector3(0, 0.055, 0.012);
+/** Man-local nudge toward the marked palm (character left / slightly back). */
+const _nudge = new THREE.Vector3(0.02, 0, -0.05);
 
 const DEG = Math.PI / 180;
 const PITCH = 30 * DEG;
@@ -76,7 +78,7 @@ export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean
   _invMan.copy(man.matrixWorld).invert();
   _anchor.copy(_palm).applyMatrix4(handR.matrixWorld).applyMatrix4(_invMan);
   _gripOff.set(0, REEL_SEAT_ALONG, 0).applyQuaternion(rod.quaternion);
-  rod.position.copy(_anchor).sub(_gripOff);
+  rod.position.copy(_anchor).sub(_gripOff).add(_nudge);
   return true;
 }
 
