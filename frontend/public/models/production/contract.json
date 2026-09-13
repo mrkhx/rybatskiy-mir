@@ -1,0 +1,66 @@
+{
+  "version": "1.0.0",
+  "paths": {
+    "fisherman": "/models/production/fisherman.glb",
+    "rod": "/models/production/rod.glb",
+    "pike": "/models/production/pike.glb"
+  },
+  "debugPaths": {
+    "fisherman": "/models/rig3d/fisherman.glb",
+    "rod": "/models/rig3d/rod.glb",
+    "pike": "/models/rig3d/pike.glb"
+  },
+  "forbiddenGenerators": ["rybatskiy-mir-rig3d", "rybatskiy-mir"],
+  "fisherman": {
+    "tris": [30000, 70000],
+    "heightM": [1.55, 1.95],
+    "pbr": ["baseColor", "normal", "roughness"],
+    "bones": [
+      "Hips",
+      "Spine",
+      "Spine1",
+      "Chest",
+      "Neck",
+      "Head",
+      "UpperArm_L",
+      "LowerArm_L",
+      "Hand_L",
+      "UpperArm_R",
+      "LowerArm_R",
+      "Hand_R",
+      "UpperLeg_L",
+      "LowerLeg_L",
+      "Foot_L",
+      "UpperLeg_R",
+      "LowerLeg_R",
+      "Foot_R"
+    ],
+    "clips": [
+      "IDLE",
+      "WALK",
+      "READY",
+      "AIM",
+      "CAST_BACKSWING",
+      "CAST_FORWARD",
+      "CAST_FOLLOW",
+      "WAIT",
+      "BITE_REACTION",
+      "HOOKSET",
+      "REEL",
+      "FIGHT_LIGHT",
+      "FIGHT_HEAVY",
+      "LAND",
+      "RETURN_IDLE"
+    ]
+  },
+  "rodNodes": [
+    "RodGrip",
+    "RodTip",
+    "LineStart",
+    "Reel",
+    "ReelHandle",
+    "RodSupportTarget",
+    "ReelHandleTarget"
+  ],
+  "pikeBones": ["PikeRoot", "Spine_0", "Tail", "Jaw", "Pectoral_L", "Pectoral_R", "Dorsal", "Anal"]
+}
