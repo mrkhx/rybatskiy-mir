@@ -91,18 +91,21 @@ def ready_at(t: float) -> dict[str, tuple[float, float, float]]:
     # Right arm stays the accepted no-rod READY (grip).
     # Left: extra forward flexion + elbow so the hand sits along a
     # forward-and-up blank. UpperArm a1 stays 0 (no humerus twist).
+    # Hands in FRONT of the torso (fishing ready), not out to the sides.
+    # a1 stays 0 (no humerus twist). No Hand keys.
+    # Hips yaw 0 so the rod is not carried off to one side.
     return clamp_pose(
         {
-            "UpperArm_L": (28.0 + 1.0 * s, 0.0, 32.0),
-            "UpperArm_R": (-24.0 - 1.0 * s, 0.0, 20.0),
-            "LowerArm_L": (6.0 + 0.5 * s, 0.0, 36.0),
-            "LowerArm_R": (-6.0 - 0.5 * s, 0.0, 28.0),
-            "Shoulder_L": (5.0 + 0.8 * s, -8.0, 5.0),
-            "Shoulder_R": (-5.0 - 0.8 * s, 6.0, 4.0),
-            "Chest": (0.0, 0.0, -6.0 + 1.2 * s),
-            "Spine": (0.0, 0.0, -3.0 + 0.6 * c),
-            "Neck": (0.0, 0.0, 3.0 + 1.0 * c),
-            "Hips": (3.0 + 0.8 * s, 20.0, 0.0),
+            "UpperArm_L": (12.0 + 0.8 * s, 0.0, 36.0),
+            "UpperArm_R": (-12.0 - 0.8 * s, 0.0, 34.0),
+            "LowerArm_L": (4.0 + 0.4 * s, 0.0, 38.0),
+            "LowerArm_R": (-4.0 - 0.4 * s, 0.0, 38.0),
+            "Shoulder_L": (4.0 + 0.5 * s, -6.0, 6.0),
+            "Shoulder_R": (-4.0 - 0.5 * s, 6.0, 6.0),
+            "Chest": (0.0, 0.0, -4.0 + 0.8 * s),
+            "Spine": (0.0, 0.0, -2.0 + 0.4 * c),
+            "Neck": (0.0, 0.0, 2.0 + 0.6 * c),
+            "Hips": (2.0 + 0.6 * s, 0.0, 0.0),
             "UpperLeg_L": (2.0, 0.0, -5.0),
             "LowerLeg_L": (0.0, 0.0, -8.0 + 1.2 * s),
             "UpperLeg_R": (-1.0, 0.0, -2.0),
@@ -180,12 +183,13 @@ report("READY t0", arm)
 hl = wpos(arm, "Hand_L")
 hr = wpos(arm, "Hand_R")
 hd = wpos(arm, "Head")
-# Hands in front of the torso, not through it, not in T-pose.
-assert hl.y < -0.10 and hr.y < -0.10, (hl, hr)
-assert 0.04 < hl.x < 0.40, hl
-assert -0.45 < hr.x < 0.05, hr
-assert 0.85 < hl.z < 1.15, hl
-assert 0.85 < hr.z < 1.15, hr
+# Hands in front of the torso (negative Y), close to midline, belly height.
+print("ASSERT hands", "L", tuple(round(c, 3) for c in hl), "R", tuple(round(c, 3) for c in hr), "HD", tuple(round(c, 3) for c in hd))
+assert hl.y < -0.08 and hr.y < -0.08, (hl, hr)
+assert 0.02 < hl.x < 0.35, hl
+assert -0.35 < hr.x < 0.08, hr
+assert 0.80 < hl.z < 1.25, hl
+assert 0.80 < hr.z < 1.25, hr
 assert abs(hd.x) < 0.12 and hd.z > 1.50, hd
 # No wrist keys: Hand matrix_basis must stay identity.
 assert arm.pose.bones["Hand_L"].matrix_basis.to_euler("XYZ").x == 0

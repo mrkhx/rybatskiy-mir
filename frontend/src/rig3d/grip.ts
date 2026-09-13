@@ -36,8 +36,12 @@ const FISHING: Set<CharClip> = new Set([
 const _e = new THREE.Euler();
 const _q = new THREE.Quaternion();
 const _gripLocal = new THREE.Vector3();
-const _mountPos = new THREE.Vector3();
-const _mountScl = new THREE.Vector3();
+const _a = new THREE.Vector3();
+const _x = new THREE.Vector3();
+const _y = new THREE.Vector3();
+const _z = new THREE.Vector3();
+const _invMan = new THREE.Matrix4();
+const _basis = new THREE.Matrix4();
 
 export function applyRightGrip(root: THREE.Object3D, clip: CharClip, amount = 1) {
   if (!FISHING.has(clip)) return;
@@ -51,45 +55,45 @@ export function applyRightGrip(root: THREE.Object3D, clip: CharClip, amount = 1)
 }
 
 /**
- * Local mount on Hand_R. Scale undoes Rocketbox 0.01.
- * Rotation stays axis-aligned to the hand so ancestor scale cannot shear
- * the blank. Extra lift/roll is a small local Euler on the rod.
+ * READY attach. Parent to the character root (uniform scale) so Rocketbox
+ * arm shear cannot stretch the blank. Position tracks Hand_R in *character
+ * space*; rotation is a fixed man-local bind:
+ *   blank = mostly character +Z (forward), 10–20° up, ≤10° right
+ *   reel  = world/character down
+ * Viewer yaw lives on the group above `man`, so it cannot change the bind.
  */
-export function ensureRodGrip(man: THREE.Object3D): THREE.Object3D | null {
+export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean {
   const hand = man.getObjectByName("Hand_R");
-  if (!hand) return null;
-  hand.updateWorldMatrix(true, false);
-  hand.matrixWorld.decompose(_mountPos, _q, _mountScl);
-  const boneScale = (Math.abs(_mountScl.x) + Math.abs(_mountScl.y) + Math.abs(_mountScl.z)) / 3;
-  const compensate = boneScale > 1e-8 ? 1 / boneScale : 100;
+  if (!hand) return false;
+  if (rod.parent !== man) man.add(rod);
+  rod.visible = true;
+  rod.scale.setScalar(1);
 
-  let g = man.getObjectByName("CharRodMount");
-  if (!g || g.parent !== hand) {
-    g = new THREE.Object3D();
-    g.name = "CharRodMount";
-    hand.add(g);
+  // man +Z = character forward, +Y = up, +X = right.
+  _y.set(0.08, 0.28, 0.96).normalize();
+  _z.set(0, -1, 0);
+  _z.addScaledVector(_y, -_z.dot(_y));
+  if (_z.lengthSq() < 1e-8) _z.set(1, 0, 0);
+  _z.normalize();
+  _x.crossVectors(_y, _z).normalize();
+  _z.crossVectors(_x, _y).normalize();
+  _basis.makeBasis(_x, _y, _z);
+  rod.quaternion.setFromRotationMatrix(_basis);
+
+  man.updateWorldMatrix(true, false);
+  hand.updateWorldMatrix(true, false);
+  _invMan.copy(man.matrixWorld).invert();
+  _a.setFromMatrixPosition(hand.matrixWorld).applyMatrix4(_invMan);
+  const grip = rod.getObjectByName("RodGrip");
+  if (grip) {
+    _gripLocal.set(0, 0.12, 0).applyQuaternion(rod.quaternion);
+  } else {
+    _gripLocal.set(0, 0, 0);
   }
-  g.scale.setScalar(compensate);
-  g.position.set(0, 5, 1.2);
-  g.rotation.set(Math.PI / 2, Math.PI, Math.PI / 2);
-  return g;
+  rod.position.copy(_a).sub(_gripLocal);
+  return true;
 }
 
 export function attachRodToHand(man: THREE.Object3D, rod: THREE.Object3D): boolean {
-  const mount = ensureRodGrip(man);
-  if (!mount) return false;
-  if (rod.parent !== mount) mount.add(rod);
-  rod.position.set(0, 0, 0);
-  // Local: roll so the reel hangs under the blank, small lift.
-  rod.rotation.set(-0.5, 0, 0.1);
-  rod.scale.setScalar(1);
-  rod.updateMatrixWorld(true);
-  const grip = rod.getObjectByName("RodGrip");
-  if (grip) {
-    grip.updateWorldMatrix(true, false);
-    _gripLocal.setFromMatrixPosition(grip.matrixWorld);
-    mount.worldToLocal(_gripLocal);
-    rod.position.sub(_gripLocal);
-  }
-  return true;
+  return placeRodReady(man, rod);
 }

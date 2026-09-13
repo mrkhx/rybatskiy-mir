@@ -13,7 +13,7 @@ import type { AdapterReport } from "../scene3d/assets/contract";
 import { importHumanoid } from "../scene3d/assets/retarget";
 import { twoBoneIK } from "./ik";
 import { applyRodBend, aimRod, spinReel, worldOf } from "./rodBend";
-import { applyRightGrip, attachRodToHand } from "./grip";
+import { applyRightGrip, placeRodReady } from "./grip";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
 
 useGLTF.preload(PRODUCTION.fisherman);
@@ -275,17 +275,15 @@ export function Rig3DScene({
 
     const clip = charRef.current;
     const wantsRod = clip === "READY";
-    if (wantsRod && !attached.current) {
-      attached.current = attachRodToHand(man, rod);
+    if (wantsRod) {
+      attached.current = placeRodReady(man, rod);
       rod.visible = true;
-    } else if (!wantsRod && attached.current) {
+    } else if (attached.current) {
       rod.removeFromParent();
       rod.visible = false;
       attached.current = false;
     }
 
-    // READY: local bind only. Do not aimRod — that was world-space and
-    // broke when the viewer yawed.
     if (attached.current && clip !== "READY") aimRod(man, rod, clip);
     applyRodBend(rod, clip === "READY" ? 0 : tensionFor(clip));
     spinReel(rod, dt, clip === "REEL");
