@@ -1,8 +1,7 @@
 import * as THREE from "three";
 
 const _gripOff = new THREE.Vector3();
-const _hr = new THREE.Vector3();
-const _hl = new THREE.Vector3();
+const _palm = new THREE.Vector3();
 const _x = new THREE.Vector3();
 const _y = new THREE.Vector3();
 const _z = new THREE.Vector3();
@@ -10,20 +9,18 @@ const _invMan = new THREE.Matrix4();
 const _basis = new THREE.Matrix4();
 
 const DEG = Math.PI / 180;
-/** Character space: +X left, +Y up, +Z forward. Yaw to the RIGHT is −X. */
-const PITCH = 12 * DEG;
+/** Match reference: blank forward-up 30–45°, small yaw right, reel under. */
+const PITCH = 38 * DEG;
 const YAW = 6 * DEG;
 const REEL_SEAT_ALONG = 0.22;
+/** Hand local: +Y along the fingers. Puts the cork through the palm, not the wrist joint. */
+const PALM_IN_HAND = new THREE.Vector3(0, 0.07, 0.01);
 
 /**
- * READY rod — orientation and position only. Does not touch bones.
- * Blank: +12° pitch, +6° yaw right, reel under.
- * Handle sits between the two hands, slightly below the wrist joints
- * so the mesh is not pierced.
+ * READY rod — translation/rotation of the rod only. Does not write any bones.
  */
 export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean {
   const handR = man.getObjectByName("Hand_R");
-  const handL = man.getObjectByName("Hand_L");
   if (!handR) return false;
   if (rod.parent !== man) man.add(rod);
   rod.visible = true;
@@ -42,16 +39,9 @@ export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean
   man.updateWorldMatrix(true, false);
   handR.updateWorldMatrix(true, false);
   _invMan.copy(man.matrixWorld).invert();
-  _hr.setFromMatrixPosition(handR.matrixWorld).applyMatrix4(_invMan);
-  if (handL) {
-    handL.updateWorldMatrix(true, false);
-    _hl.setFromMatrixPosition(handL.matrixWorld).applyMatrix4(_invMan);
-    // 70% right (reel seat) / 30% left (rear grip), then drop below the wrist bones.
-    _hr.lerp(_hl, 0.3);
-  }
-  _hr.y -= 0.03;
+  _palm.copy(PALM_IN_HAND).applyMatrix4(handR.matrixWorld).applyMatrix4(_invMan);
   _gripOff.set(0, REEL_SEAT_ALONG, 0).applyQuaternion(rod.quaternion);
-  rod.position.copy(_hr).sub(_gripOff);
+  rod.position.copy(_palm).sub(_gripOff);
   return true;
 }
 
