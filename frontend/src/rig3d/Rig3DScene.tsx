@@ -274,7 +274,7 @@ export function Rig3DScene({
     fishMixer.update(dt);
 
     const clip = charRef.current;
-    const wantsRod = false;
+    const wantsRod = clip === "READY";
     if (wantsRod && !attached.current) {
       attached.current = attachRodToHand(man, rod);
       rod.visible = true;
@@ -284,8 +284,10 @@ export function Rig3DScene({
       attached.current = false;
     }
 
-    if (attached.current) aimRod(man, rod, clip);
-    applyRodBend(rod, tensionFor(clip));
+    // READY: local bind only. Do not aimRod — that was world-space and
+    // broke when the viewer yawed.
+    if (attached.current && clip !== "READY") aimRod(man, rod, clip);
+    applyRodBend(rod, clip === "READY" ? 0 : tensionFor(clip));
     spinReel(rod, dt, clip === "REEL");
 
     const ikMode = ikFor(clip);
@@ -344,7 +346,7 @@ export function Rig3DScene({
         </line>
       )}
       {debug.ik && <IkDots rod={rod} />}
-      {debug.rodAnchors && <AnchorDots rod={rod} />}
+      {debug.rodAnchors && <AnchorDots rod={rod} man={man} />}
       <gridHelper args={[6, 12, "#7a8a94", "#3d4a52"]} />
       <ContactShadows position={[0, 0.001, 0]} opacity={0.42} scale={4.5} blur={2.4} far={3.5} color="#1a1c18" />
     </group>
@@ -372,27 +374,33 @@ function IkDots({ rod }: { rod: THREE.Object3D }) {
   );
 }
 
-function AnchorDots({ rod }: { rod: THREE.Object3D }) {
+function AnchorDots({ rod, man }: { rod: THREE.Object3D; man: THREE.Object3D }) {
   const refs = {
     RodTip: useRef<THREE.Mesh>(null),
-    LineStart: useRef<THREE.Mesh>(null),
-    Reel: useRef<THREE.Mesh>(null),
     RodGrip: useRef<THREE.Mesh>(null),
+    RodSupportTarget: useRef<THREE.Mesh>(null),
+    Hand_R: useRef<THREE.Mesh>(null),
   };
   useFrame(() => {
-    (Object.keys(refs) as Array<keyof typeof refs>).forEach((name) => {
+    (["RodTip", "RodGrip", "RodSupportTarget"] as const).forEach((name) => {
       const mesh = refs[name].current;
       if (mesh && worldOf(rod, name, _tip)) mesh.position.copy(_tip);
     });
+    const hr = refs.Hand_R.current;
+    if (hr && worldOf(man, "Hand_R", _mid)) hr.position.copy(_mid);
   });
   return (
     <group>
-      {(["RodTip", "LineStart", "Reel", "RodGrip"] as const).map((name) => (
+      {(["RodTip", "RodGrip", "RodSupportTarget"] as const).map((name) => (
         <mesh key={name} ref={refs[name]}>
           <sphereGeometry args={[0.018, 10, 10]} />
           <meshBasicMaterial color="#7ec8ff" />
         </mesh>
       ))}
+      <mesh ref={refs.Hand_R}>
+        <sphereGeometry args={[0.022, 10, 10]} />
+        <meshBasicMaterial color="#e3b27e" />
+      </mesh>
     </group>
   );
 }
