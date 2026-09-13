@@ -224,22 +224,27 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
 
       if (p.floatVisible) {
         const fx = X(p.floatX);
-        const fy = Y(p.floatY + p.floatSub * 1.1);
+        const fy = Y(p.floatY);
         ctx.save();
         ctx.translate(fx, fy);
         ctx.rotate((p.floatTilt * Math.PI) / 180);
-        ctx.fillStyle = "rgba(180,220,230,0.28)";
+        ctx.fillStyle = "rgba(16, 36, 40, 0.28)";
         ctx.beginPath();
-        ctx.ellipse(0, 10, 16, 6, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 1.2, 7, 2.4, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = "rgba(210, 230, 234, 0.22)";
+        ctx.beginPath();
+        ctx.ellipse(0, 0.4, 6.2, 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        const dip = p.floatSub * 5;
         const fi = floatImg.current;
         if (fi && fi.complete && fi.naturalHeight > 0) {
-          ctx.drawImage(fi, -5, -22 + p.floatSub * 6, 10, 28);
+          ctx.drawImage(fi, -3.5, -11 + dip, 7, 16);
         } else {
           ctx.fillStyle = "#c45c4a";
-          ctx.fillRect(-4.5, -14 + p.floatSub * 8, 9, 22);
+          ctx.fillRect(-2.6, -8 + dip, 5.2, 12);
           ctx.fillStyle = "#f2eee6";
-          ctx.fillRect(-3.2, -20 + p.floatSub * 8, 6.4, 8);
+          ctx.fillRect(-1.8, -12 + dip, 3.6, 5);
         }
         ctx.restore();
       }

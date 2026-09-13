@@ -67,13 +67,13 @@ export function solvePose(state: AnimState, age: number, t: number, snap: SceneS
 
   switch (state) {
     case "IDLE": {
-      p.lean = br * 0.8;
-      p.head = br * 0.6;
-      p.armRSh = -18 + br * 2;
-      p.armREl = 22 + br * 1.5;
-      p.armLSh = 12 + br * 1.2;
+      p.lean = 0;
+      p.head = br * 0.3;
+      p.armRSh = -18 + br * 1;
+      p.armREl = 22 + br;
+      p.armLSh = 12;
       p.armLEl = 16;
-      p.rodAngle = 14 + br * 1.4 + wave;
+      p.rodAngle = 12 + br * 0.6 + wave * 0.4;
       p.rodBend = 0.05;
       p.floatVisible = false;
       p.fishVis = lerp(p.fishVis, 0, 0.08);
@@ -140,12 +140,12 @@ export function solvePose(state: AnimState, age: number, t: number, snap: SceneS
       break;
     }
     case "WAITING": {
-      p.lean = br * 0.7;
-      p.head = br * 0.5;
-      p.armRSh = -16 + br * 1.5;
+      p.lean = 0;
+      p.head = br * 0.25;
+      p.armRSh = -16 + br;
       p.armREl = 20 + br;
-      p.armLSh = 10 + br;
-      p.rodAngle = 12 + br * 1.2 + wave * 0.6;
+      p.armLSh = 10;
+      p.rodAngle = 11 + br * 0.5 + wave * 0.3;
       p.rodBend = 0.07;
       p.floatVisible = true;
       p.floatX = REST_FLOAT.x + Math.sin(t * 0.9) * 0.35 * wind;
