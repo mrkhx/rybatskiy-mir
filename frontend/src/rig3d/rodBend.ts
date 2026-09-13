@@ -81,9 +81,10 @@ export function aimRod(man: THREE.Object3D, rod: THREE.Object3D, clip: CharClip)
   _worldQ.setFromRotationMatrix(man.matrixWorld);
 
   if (clip === "READY") {
-    // Local +Z = facing, +X = character's right after world matrix.
-    // 26° right, 19° up so 0° sees a diagonal blank, not an end-on sliver.
-    _dir.set(0.36, 0.42, 1).applyQuaternion(_worldQ).normalize();
+    // Character facing (world +Z) plus 20° up. Body yaw in the READY clip
+    // already turns the fisherman 3/4 so 0° is not end-on.
+    man.getWorldDirection(_fwd);
+    _dir.copy(_fwd).addScaledVector(_up, 0.36).normalize();
   } else if (FISHING_AIM.has(clip) && handL) {
     handR.getWorldPosition(_a);
     handL.getWorldPosition(_b);

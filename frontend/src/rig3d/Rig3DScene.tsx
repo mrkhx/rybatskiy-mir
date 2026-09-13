@@ -77,15 +77,28 @@ function hardenRodMaterials(root: THREE.Object3D) {
     mesh.frustumCulled = false;
     mesh.castShadow = false;
     mesh.receiveShadow = false;
+    const meshName = (mesh.name || "").toLowerCase();
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     const cloned = mats.map((mat) => {
       const std = (mat as THREE.MeshStandardMaterial).clone();
       std.side = THREE.DoubleSide;
-      if (std.envMapIntensity !== undefined) std.envMapIntensity = 0.55;
-      if (std.roughness !== undefined) std.roughness = Math.min(0.55, std.roughness ?? 0.4);
-      if (std.metalness !== undefined) std.metalness = Math.max(0.18, std.metalness ?? 0);
-      if (std.emissive) std.emissive.setHex(0x1a1814);
-      if (std.emissiveIntensity !== undefined) std.emissiveIntensity = 0.22;
+      const n = `${std.name || ""} ${meshName}`.toLowerCase();
+      if (std.envMapIntensity !== undefined) std.envMapIntensity = 0.7;
+      if (n.includes("graphite") || n.includes("blank")) {
+        if (std.color) std.color.setHex(0x4a463c);
+        if (std.roughness !== undefined) std.roughness = 0.42;
+        if (std.metalness !== undefined) std.metalness = 0.28;
+      } else if (n.includes("cork") || n.includes("tape") || n.includes("handle")) {
+        if (std.color) std.color.setHex(0xc4a574);
+        if (std.roughness !== undefined) std.roughness = 0.72;
+        if (std.metalness !== undefined) std.metalness = 0.02;
+      } else if (n.includes("reel") || n.includes("chrome") || n.includes("seat") || n.includes("spool")) {
+        if (std.color) std.color.setHex(0xc0bbb3);
+        if (std.roughness !== undefined) std.roughness = 0.28;
+        if (std.metalness !== undefined) std.metalness = 0.55;
+      }
+      if (std.emissive) std.emissive.setHex(0x2c2a24);
+      if (std.emissiveIntensity !== undefined) std.emissiveIntensity = 0.32;
       return std;
     });
     mesh.material = Array.isArray(mesh.material) ? cloned : cloned[0]!;
@@ -282,7 +295,7 @@ export function Rig3DScene({
       }
     }
 
-    if (debug.line !== false) {
+    if (debug.line && clip !== "READY") {
       worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
       const jaw = pike.getObjectByName("Jaw") ?? pike.getObjectByName("PikeRoot");
       if (jaw) {
@@ -323,7 +336,7 @@ export function Rig3DScene({
       </group>
       <primitive object={helpers.skel} />
       <primitive object={helpers.fishSkel} />
-      {debug.line && (
+      {debug.line && charClip !== "READY" && (
         <line>
           <primitive object={lineGeo} attach="geometry" />
           <lineBasicMaterial color="#d8dde4" transparent opacity={0.75} />

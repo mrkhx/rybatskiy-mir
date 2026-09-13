@@ -72,7 +72,7 @@ export function Rig3DLab() {
     ik: false,
     rodAnchors: false,
     fishSkeleton: false,
-    line: true,
+    line: false,
     fps: true,
     orbit: false,
     fingers: false,

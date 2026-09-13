@@ -102,7 +102,7 @@ def ready_at(t: float) -> dict[str, tuple[float, float, float]]:
             "Chest": (0.0, 0.0, -6.0 + 1.2 * s),
             "Spine": (0.0, 0.0, -3.0 + 0.6 * c),
             "Neck": (0.0, 0.0, 3.0 + 1.0 * c),
-            "Hips": (3.0 + 0.8 * s, -1.0, 0.0),
+            "Hips": (3.0 + 0.8 * s, 20.0, 0.0),
             "UpperLeg_L": (2.0, 0.0, -5.0),
             "LowerLeg_L": (0.0, 0.0, -8.0 + 1.2 * s),
             "UpperLeg_R": (-1.0, 0.0, -2.0),
@@ -183,7 +183,7 @@ hd = wpos(arm, "Head")
 # Hands in front of the torso, not through it, not in T-pose.
 assert hl.y < -0.10 and hr.y < -0.10, (hl, hr)
 assert 0.04 < hl.x < 0.40, hl
-assert -0.40 < hr.x < -0.10, hr
+assert -0.45 < hr.x < 0.05, hr
 assert 0.85 < hl.z < 1.15, hl
 assert 0.85 < hr.z < 1.15, hr
 assert abs(hd.x) < 0.12 and hd.z > 1.50, hd

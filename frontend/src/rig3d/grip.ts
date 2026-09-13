@@ -76,7 +76,19 @@ export function attachRodToHand(man: THREE.Object3D, rod: THREE.Object3D): boole
   mount.add(rod);
   rod.position.set(0, 0, 0);
   rod.rotation.set(0, 0, 0);
-  rod.scale.setScalar(1);
+  rod.scale.setScalar(1.18);
+  const blank = rod.getObjectByName("BlankMesh");
+  if (blank) blank.scale.set(2.2, 2.2, 1);
+  if (!rod.getObjectByName("RodReadCore")) {
+    const core = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.011, 0.006, 1.72, 8),
+      new THREE.MeshBasicMaterial({ color: 0x6a6458 }),
+    );
+    core.name = "RodReadCore";
+    core.rotation.x = Math.PI / 2;
+    core.position.set(0, 0, -1.05);
+    rod.add(core);
+  }
   rod.updateMatrixWorld(true);
   const grip = rod.getObjectByName("RodGrip");
   if (grip) {
