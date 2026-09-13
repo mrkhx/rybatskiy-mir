@@ -2,40 +2,26 @@ import * as THREE from "three";
 import type { CharClip } from "./types";
 
 const CURL: Record<string, [number, number, number]> = {
-  Thumb_R_1: [0.35, 0.5, 0.15],
-  Thumb_R_2: [0.15, 0.4, 0],
-  Thumb_R_3: [0.1, 0.25, 0],
-  Index_R_1: [0, 0, 0.85],
-  Index_R_2: [0, 0, 1.05],
-  Index_R_3: [0, 0, 0.7],
-  Middle_R_1: [0, 0, 0.9],
-  Middle_R_2: [0, 0, 1.1],
-  Middle_R_3: [0, 0, 0.7],
-  Ring_R_1: [0, 0, 0.88],
-  Ring_R_2: [0, 0, 1.05],
-  Ring_R_3: [0, 0, 0.65],
-  Pinky_R_1: [0, 0, 0.8],
-  Pinky_R_2: [0, 0, 0.95],
-  Pinky_R_3: [0, 0, 0.6],
+  Thumb_R_1: [0.2, 0.3, 0.1],
+  Thumb_R_2: [0.1, 0.22, 0.04],
+  Thumb_R_3: [0.05, 0.12, 0],
+  Index_R_1: [0, 0, 0.55],
+  Index_R_2: [0, 0, 0.7],
+  Index_R_3: [0, 0, 0.42],
+  Middle_R_1: [0, 0, 0.6],
+  Middle_R_2: [0, 0, 0.75],
+  Middle_R_3: [0, 0, 0.42],
+  Ring_R_1: [0, 0, 0.55],
+  Ring_R_2: [0, 0, 0.68],
+  Ring_R_3: [0, 0, 0.38],
+  Pinky_R_1: [0, 0, 0.48],
+  Pinky_R_2: [0, 0, 0.58],
+  Pinky_R_3: [0, 0, 0.32],
 };
-
-const FISHING: Set<CharClip> = new Set([
-  "AIM",
-  "CAST_BACKSWING",
-  "CAST_FORWARD",
-  "CAST_FOLLOW",
-  "WAIT",
-  "BITE_REACTION",
-  "HOOKSET",
-  "REEL",
-  "FIGHT_LIGHT",
-  "FIGHT_HEAVY",
-  "LAND",
-]);
 
 const _e = new THREE.Euler();
 const _q = new THREE.Quaternion();
-const _gripLocal = new THREE.Vector3();
+const _gripOff = new THREE.Vector3();
 const _a = new THREE.Vector3();
 const _x = new THREE.Vector3();
 const _y = new THREE.Vector3();
@@ -43,24 +29,34 @@ const _z = new THREE.Vector3();
 const _invMan = new THREE.Matrix4();
 const _basis = new THREE.Matrix4();
 
+const DEG = Math.PI / 180;
+/** Character space: +X left, +Y up, +Z forward. Yaw to the RIGHT is −X. */
+const PITCH = 12 * DEG;
+const YAW = 6 * DEG;
+const REEL_SEAT_ALONG = 0.24;
+
 export function applyRightGrip(root: THREE.Object3D, clip: CharClip, amount = 1) {
-  if (!FISHING.has(clip)) return;
+  if (clip !== "READY") return;
+  const w = amount;
   for (const [name, xyz] of Object.entries(CURL)) {
     const b = root.getObjectByName(name);
     if (!b) continue;
-    _e.set(xyz[0] * amount, xyz[1] * amount, xyz[2] * amount, "XYZ");
+    _e.set(xyz[0] * w, xyz[1] * w, xyz[2] * w, "XYZ");
     _q.setFromEuler(_e);
     b.quaternion.multiply(_q);
+    const left = root.getObjectByName(name.replace("_R_", "_L_"));
+    if (left) {
+      _e.set(xyz[0] * w, xyz[1] * w, xyz[2] * w, "XYZ");
+      _q.setFromEuler(_e);
+      left.quaternion.multiply(_q);
+    }
   }
 }
 
 /**
- * READY attach. Parent to the character root (uniform scale) so Rocketbox
- * arm shear cannot stretch the blank. Position tracks Hand_R in *character
- * space*; rotation is a fixed man-local bind:
- *   blank = mostly character +Z (forward), 10–20° up, ≤10° right
- *   reel  = world/character down
- * Viewer yaw lives on the group above `man`, so it cannot change the bind.
+ * READY rod in character space, independent of viewer yaw.
+ * Blank: +12° pitch, +6° yaw to the character's right, reel under (−Y).
+ * Reel-seat sits in the right palm.
  */
 export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean {
   const hand = man.getObjectByName("Hand_R");
@@ -69,8 +65,7 @@ export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean
   rod.visible = true;
   rod.scale.setScalar(1);
 
-  // man +Z = character forward, +Y = up, +X = right.
-  _y.set(0.08, 0.28, 0.96).normalize();
+  _y.set(-Math.sin(YAW), Math.sin(PITCH), Math.cos(PITCH) * Math.cos(YAW)).normalize();
   _z.set(0, -1, 0);
   _z.addScaledVector(_y, -_z.dot(_y));
   if (_z.lengthSq() < 1e-8) _z.set(1, 0, 0);
@@ -84,13 +79,8 @@ export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean
   hand.updateWorldMatrix(true, false);
   _invMan.copy(man.matrixWorld).invert();
   _a.setFromMatrixPosition(hand.matrixWorld).applyMatrix4(_invMan);
-  const grip = rod.getObjectByName("RodGrip");
-  if (grip) {
-    _gripLocal.set(0, 0.12, 0).applyQuaternion(rod.quaternion);
-  } else {
-    _gripLocal.set(0, 0, 0);
-  }
-  rod.position.copy(_a).sub(_gripLocal);
+  _gripOff.set(0, REEL_SEAT_ALONG, 0).applyQuaternion(rod.quaternion);
+  rod.position.copy(_a).sub(_gripOff);
   return true;
 }
 

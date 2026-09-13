@@ -278,6 +278,7 @@ export function Rig3DScene({
     if (wantsRod) {
       attached.current = placeRodReady(man, rod);
       rod.visible = true;
+      applyRightGrip(man, clip);
     } else if (attached.current) {
       rod.removeFromParent();
       rod.visible = false;
@@ -376,28 +377,60 @@ function AnchorDots({ rod, man }: { rod: THREE.Object3D; man: THREE.Object3D }) 
   const refs = {
     RodTip: useRef<THREE.Mesh>(null),
     RodGrip: useRef<THREE.Mesh>(null),
-    RodSupportTarget: useRef<THREE.Mesh>(null),
+    RearGrip: useRef<THREE.Mesh>(null),
+    Reel: useRef<THREE.Mesh>(null),
     Hand_R: useRef<THREE.Mesh>(null),
+    Hand_L: useRef<THREE.Mesh>(null),
   };
   useFrame(() => {
-    (["RodTip", "RodGrip", "RodSupportTarget"] as const).forEach((name) => {
-      const mesh = refs[name].current;
-      if (mesh && worldOf(rod, name, _tip)) mesh.position.copy(_tip);
-    });
-    const hr = refs.Hand_R.current;
-    if (hr && worldOf(man, "Hand_R", _mid)) hr.position.copy(_mid);
+    const grip = rod.getObjectByName("RodGrip");
+    const tip = rod.getObjectByName("RodTip");
+    const reel = rod.getObjectByName("Reel");
+    if (refs.RodTip.current && tip) {
+      tip.updateWorldMatrix(true, false);
+      refs.RodTip.current.position.setFromMatrixPosition(tip.matrixWorld);
+    }
+    if (refs.RodGrip.current && grip) {
+      grip.updateWorldMatrix(true, false);
+      refs.RodGrip.current.position.setFromMatrixPosition(grip.matrixWorld);
+    }
+    if (refs.Reel.current && reel) {
+      reel.updateWorldMatrix(true, false);
+      refs.Reel.current.position.setFromMatrixPosition(reel.matrixWorld);
+    }
+    if (refs.RearGrip.current) {
+      _mid.set(0, 0.04, 0);
+      rod.localToWorld(_mid);
+      refs.RearGrip.current.position.copy(_mid);
+    }
+    if (refs.Hand_R.current && worldOf(man, "Hand_R", _mid)) refs.Hand_R.current.position.copy(_mid);
+    if (refs.Hand_L.current && worldOf(man, "Hand_L", _tip)) refs.Hand_L.current.position.copy(_tip);
   });
   return (
     <group>
-      {(["RodTip", "RodGrip", "RodSupportTarget"] as const).map((name) => (
-        <mesh key={name} ref={refs[name]}>
-          <sphereGeometry args={[0.018, 10, 10]} />
-          <meshBasicMaterial color="#7ec8ff" />
-        </mesh>
-      ))}
-      <mesh ref={refs.Hand_R}>
+      <mesh ref={refs.RodTip}>
+        <sphereGeometry args={[0.02, 10, 10]} />
+        <meshBasicMaterial color="#7ec8ff" />
+      </mesh>
+      <mesh ref={refs.RodGrip}>
         <sphereGeometry args={[0.022, 10, 10]} />
         <meshBasicMaterial color="#e3b27e" />
+      </mesh>
+      <mesh ref={refs.RearGrip}>
+        <sphereGeometry args={[0.022, 10, 10]} />
+        <meshBasicMaterial color="#8dcc9a" />
+      </mesh>
+      <mesh ref={refs.Reel}>
+        <sphereGeometry args={[0.018, 10, 10]} />
+        <meshBasicMaterial color="#c9b896" />
+      </mesh>
+      <mesh ref={refs.Hand_R}>
+        <sphereGeometry args={[0.016, 10, 10]} />
+        <meshBasicMaterial color="#ff8866" />
+      </mesh>
+      <mesh ref={refs.Hand_L}>
+        <sphereGeometry args={[0.016, 10, 10]} />
+        <meshBasicMaterial color="#66aaff" />
       </mesh>
     </group>
   );

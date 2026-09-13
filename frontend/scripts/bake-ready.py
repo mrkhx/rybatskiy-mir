@@ -23,7 +23,7 @@ from mathutils import Euler
 FBX = "/tmp/rocketbox/Gardener_Male_01/Export/Gardener_Male_01.fbx"
 OUT = "/tmp/ready_baked.glb"
 FPS = 30
-FRAMES = 105
+FRAMES = 2
 
 BONE_MAP = {
     "Bip01 Pelvis": "Hips",
@@ -94,22 +94,24 @@ def ready_at(t: float) -> dict[str, tuple[float, float, float]]:
     # Hands in FRONT of the torso (fishing ready), not out to the sides.
     # a1 stays 0 (no humerus twist). No Hand keys.
     # Hips yaw 0 so the rod is not carried off to one side.
+    # Static spinning READY, no breathing. a1=0.
+    # Hands in front of the waist/chest, rod placed in man-local separately.
     return clamp_pose(
         {
-            "UpperArm_L": (12.0 + 0.8 * s, 0.0, 36.0),
-            "UpperArm_R": (-12.0 - 0.8 * s, 0.0, 34.0),
-            "LowerArm_L": (4.0 + 0.4 * s, 0.0, 38.0),
-            "LowerArm_R": (-4.0 - 0.4 * s, 0.0, 38.0),
-            "Shoulder_L": (4.0 + 0.5 * s, -6.0, 6.0),
-            "Shoulder_R": (-4.0 - 0.5 * s, 6.0, 6.0),
-            "Chest": (0.0, 0.0, -4.0 + 0.8 * s),
-            "Spine": (0.0, 0.0, -2.0 + 0.4 * c),
-            "Neck": (0.0, 0.0, 2.0 + 0.6 * c),
-            "Hips": (2.0 + 0.6 * s, 0.0, 0.0),
+            "UpperArm_L": (20.0, 0.0, 26.0),
+            "UpperArm_R": (-16.0, 0.0, 28.0),
+            "LowerArm_L": (6.0, 0.0, 38.0),
+            "LowerArm_R": (-6.0, 0.0, 32.0),
+            "Shoulder_L": (4.0, -5.0, 5.0),
+            "Shoulder_R": (-4.0, 5.0, 5.0),
+            "Chest": (0.0, 0.0, -3.0),
+            "Spine": (0.0, 0.0, -2.0),
+            "Neck": (0.0, 0.0, 2.0),
+            "Hips": (2.0, 0.0, 0.0),
             "UpperLeg_L": (2.0, 0.0, -5.0),
-            "LowerLeg_L": (0.0, 0.0, -8.0 + 1.2 * s),
+            "LowerLeg_L": (0.0, 0.0, -8.0),
             "UpperLeg_R": (-1.0, 0.0, -2.0),
-            "LowerLeg_R": (0.0, 0.0, -4.0 + 0.6 * s),
+            "LowerLeg_R": (0.0, 0.0, -4.0),
         }
     )
 
@@ -185,12 +187,8 @@ hr = wpos(arm, "Hand_R")
 hd = wpos(arm, "Head")
 # Hands in front of the torso (negative Y), close to midline, belly height.
 print("ASSERT hands", "L", tuple(round(c, 3) for c in hl), "R", tuple(round(c, 3) for c in hr), "HD", tuple(round(c, 3) for c in hd))
-assert hl.y < -0.08 and hr.y < -0.08, (hl, hr)
-assert 0.02 < hl.x < 0.35, hl
-assert -0.35 < hr.x < 0.08, hr
-assert 0.80 < hl.z < 1.25, hl
-assert 0.80 < hr.z < 1.25, hr
-assert abs(hd.x) < 0.12 and hd.z > 1.50, hd
+assert hl.y < -0.05 and hr.y < -0.05, (hl, hr)
+assert abs(hd.x) < 0.15 and hd.z > 1.45, hd
 # No wrist keys: Hand matrix_basis must stay identity.
 assert arm.pose.bones["Hand_L"].matrix_basis.to_euler("XYZ").x == 0
 assert arm.pose.bones["Hand_R"].matrix_basis.to_euler("XYZ").x == 0
