@@ -11,7 +11,7 @@ const _qz = new THREE.Quaternion();
 const _axisZ = new THREE.Vector3(0, 0, 1);
 const _palm = new THREE.Vector3(0, 0.055, 0.012);
 /** Man-local nudge toward the marked palm (character left / slightly back). */
-const _nudge = new THREE.Vector3(0.02, 0, -0.05);
+const _nudge = new THREE.Vector3(0, 0, 0.07);
 
 const DEG = Math.PI / 180;
 const PITCH = 30 * DEG;
