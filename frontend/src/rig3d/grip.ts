@@ -20,6 +20,8 @@ const REEL_SEAT_ALONG = 0.11;
 const WRIST_OUT = 12 * DEG;
 /** Thumb 15° away from the torso, around the handle (local Y). */
 const THUMB_OUT = 33 * DEG;
+/** Man-local +Z = toward torso at 90°. Small inward shift only. */
+const _nudgeIn = new THREE.Vector3(0, 0, 0.04);
 
 const REST_Q: Record<string, THREE.Quaternion> = {};
 const FIST_Z: Record<string, number> = {
@@ -111,7 +113,7 @@ export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean
   _anchor.applyMatrix4(_invMan);
 
   _gripOff.set(0, REEL_SEAT_ALONG, 0).applyQuaternion(rod.quaternion);
-  rod.position.copy(_anchor).sub(_gripOff);
+  rod.position.copy(_anchor).sub(_gripOff).add(_nudgeIn);
   return true;
 }
 
