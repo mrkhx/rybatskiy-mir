@@ -179,16 +179,19 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
         }
       }
 
-      const endX = p.lureFlying ? p.lureX : p.floatVisible ? p.floatX : p.fishVis > 0.2 ? p.fishX : p.tipX + 4;
-      const endY = p.lureFlying ? p.lureY : p.floatVisible ? p.floatY : p.fishVis > 0.2 ? p.fishY : p.tipY + 8;
-      const sag = p.lineSag * 10;
-      ctx.beginPath();
-      ctx.moveTo(X(p.tipX), Y(p.tipY));
-      if (p.lineBroken) ctx.lineTo(X(p.tipX + 4), Y(p.tipY + 8));
-      else ctx.quadraticCurveTo(X((p.tipX + endX) / 2), Y((p.tipY + endY) / 2) + sag, X(endX), Y(endY));
-      ctx.strokeStyle = p.lineBroken ? "rgba(220,210,190,0.25)" : "rgba(236,228,214,0.84)";
-      ctx.lineWidth = p.lineSag < 0.12 ? 1.7 : 1.15;
-      ctx.stroke();
+      const showLine = p.lureFlying || p.floatVisible || p.fishVis > 0.2;
+      if (showLine) {
+        const endX = p.lureFlying ? p.lureX : p.floatVisible ? p.floatX : p.fishVis > 0.2 ? p.fishX : p.tipX + 4;
+        const endY = p.lureFlying ? p.lureY : p.floatVisible ? p.floatY : p.fishVis > 0.2 ? p.fishY : p.tipY + 8;
+        const sag = p.lineSag * 10;
+        ctx.beginPath();
+        ctx.moveTo(X(p.tipX), Y(p.tipY));
+        if (p.lineBroken) ctx.lineTo(X(p.tipX + 4), Y(p.tipY + 8));
+        else ctx.quadraticCurveTo(X((p.tipX + endX) / 2), Y((p.tipY + endY) / 2) + sag, X(endX), Y(endY));
+        ctx.strokeStyle = p.lineBroken ? "rgba(220,210,190,0.25)" : "rgba(236,228,214,0.84)";
+        ctx.lineWidth = p.lineSag < 0.12 ? 1.7 : 1.15;
+        ctx.stroke();
+      }
 
       const mx = (p.gripX + p.tipX) / 2;
       const my = (p.gripY + p.tipY) / 2 + p.rodBend * 2.6;
@@ -196,20 +199,20 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
       ctx.moveTo(X(p.gripX), Y(p.gripY));
       ctx.quadraticCurveTo(X(mx), Y(my + 0.6), X(p.tipX), Y(p.tipY));
       ctx.strokeStyle = "#2a1c10";
-      ctx.lineWidth = 3.3;
+      ctx.lineWidth = 2.35;
       ctx.lineCap = "round";
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(X(p.gripX), Y(p.gripY));
       ctx.quadraticCurveTo(X(mx), Y(my), X(p.tipX), Y(p.tipY));
       ctx.strokeStyle = "#c4a06a";
-      ctx.lineWidth = 1.85;
+      ctx.lineWidth = 1.35;
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(X(p.gripX + 0.15), Y(p.gripY - 0.15));
       ctx.quadraticCurveTo(X(mx), Y(my - 0.3), X(p.tipX - 0.1), Y(p.tipY - 0.15));
       ctx.strokeStyle = "#ead9b4";
-      ctx.lineWidth = 0.7;
+      ctx.lineWidth = 0.5;
       ctx.stroke();
 
       if (p.lureFlying) {

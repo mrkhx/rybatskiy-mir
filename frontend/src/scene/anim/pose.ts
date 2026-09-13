@@ -10,7 +10,7 @@ export function idlePose(): Pose {
     armREl: 22,
     armLSh: 12,
     armLEl: 16,
-    rodAngle: -28,
+    rodAngle: 14,
     rodBend: 0.04,
     gripX: REST_GRIP.x,
     gripY: REST_GRIP.y,
@@ -73,7 +73,7 @@ export function solvePose(state: AnimState, age: number, t: number, snap: SceneS
       p.armREl = 22 + br * 1.5;
       p.armLSh = 12 + br * 1.2;
       p.armLEl = 16;
-      p.rodAngle = -28 + br * 1.4 + wave;
+      p.rodAngle = 14 + br * 1.4 + wave;
       p.rodBend = 0.05;
       p.floatVisible = false;
       p.fishVis = lerp(p.fishVis, 0, 0.08);
@@ -86,7 +86,7 @@ export function solvePose(state: AnimState, age: number, t: number, snap: SceneS
       p.armRSh = -38;
       p.armREl = 8;
       p.armLSh = 6;
-      p.rodAngle = -52;
+      p.rodAngle = -18;
       p.rodBend = 0.12;
       p.floatVisible = false;
       p.lineSag = 0.85;
@@ -98,7 +98,7 @@ export function solvePose(state: AnimState, age: number, t: number, snap: SceneS
       p.head = lerp(0, -8, k);
       p.armRSh = lerp(-18, -58, k);
       p.armREl = lerp(22, 4, k);
-      p.rodAngle = lerp(-28, -68, k);
+      p.rodAngle = lerp(14, -42, k);
       p.rodBend = lerp(0.05, 0.45, k);
       p.floatVisible = false;
       p.lineSag = 0.9;
@@ -110,7 +110,7 @@ export function solvePose(state: AnimState, age: number, t: number, snap: SceneS
       p.head = lerp(-8, 4, k);
       p.armRSh = lerp(-58, 8, k);
       p.armREl = lerp(4, 28, k);
-      p.rodAngle = lerp(-68, -8, k);
+      p.rodAngle = lerp(-42, 18, k);
       p.rodBend = lerp(0.45, 0.08, k);
       p.lureFlying = true;
       p.lureX = lerp(REST_GRIP.x, REST_FLOAT.x * 0.55, k);
@@ -125,7 +125,7 @@ export function solvePose(state: AnimState, age: number, t: number, snap: SceneS
       p.head = lerp(4, 0, k);
       p.armRSh = lerp(8, -16, k);
       p.armREl = lerp(28, 20, k);
-      p.rodAngle = lerp(-8, -26, k);
+      p.rodAngle = lerp(18, 12, k);
       p.rodBend = 0.1;
       p.lureFlying = k < 0.92;
       const arc = Math.sin(k * Math.PI) * -18;
@@ -145,7 +145,7 @@ export function solvePose(state: AnimState, age: number, t: number, snap: SceneS
       p.armRSh = -16 + br * 1.5;
       p.armREl = 20 + br;
       p.armLSh = 10 + br;
-      p.rodAngle = -27 + br * 1.2 + wave * 0.6;
+      p.rodAngle = 12 + br * 1.2 + wave * 0.6;
       p.rodBend = 0.07;
       p.floatVisible = true;
       p.floatX = REST_FLOAT.x + Math.sin(t * 0.9) * 0.35 * wind;
@@ -163,7 +163,7 @@ export function solvePose(state: AnimState, age: number, t: number, snap: SceneS
       p.head = 3;
       p.armRSh = -14;
       p.armREl = 18;
-      p.rodAngle = -24 + nibble * 3;
+      p.rodAngle = 14 + nibble * 3;
       p.rodBend = 0.18 + dip * 0.12;
       p.floatVisible = true;
       p.floatX = REST_FLOAT.x + Math.sin(t * 9) * 1.1;
@@ -181,7 +181,7 @@ export function solvePose(state: AnimState, age: number, t: number, snap: SceneS
       p.head = -6;
       p.armRSh = lerp(-14, -42, k);
       p.armREl = lerp(18, 6, k);
-      p.rodAngle = lerp(-24, -58, k);
+      p.rodAngle = lerp(14, -38, k);
       p.rodBend = lerp(0.2, 0.7, k);
       p.floatVisible = k < 0.55;
       p.floatSub = lerp(0.4, 1, k);

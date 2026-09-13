@@ -54,5 +54,5 @@ export type Pose = {
   rings: number;
 };
 
-export const REST_FLOAT = { x: 67.4, y: 57.6 };
-export const REST_GRIP = { x: 26.2, y: 47.8 };
+export const REST_FLOAT = { x: 63.5, y: 61.2 };
+export const REST_GRIP = { x: 28.4, y: 54.8 };

@@ -155,15 +155,15 @@ body {
 
 .cam {
   position: absolute;
-  inset: -5%;
-  transform-origin: 32% 48%;
+  inset: -4%;
+  transform-origin: 28% 62%;
   transform-style: preserve-3d;
-  animation: camIdle 26s ease-in-out infinite;
+  animation: camIdle 28s ease-in-out infinite;
   will-change: transform;
 }
 @keyframes camIdle {
-  0%, 100% { transform: translate3d(-0.7%, 0.35%, 0) scale(1.045); }
-  50% { transform: translate3d(0.85%, -0.45%, 0) scale(1.075); }
+  0%, 100% { transform: translate3d(-0.35%, 0.15%, 0) scale(1.02); }
+  50% { transform: translate3d(0.4%, -0.2%, 0) scale(1.038); }
 }
 
 .par-sky { transform: translate3d(calc(var(--px) * -4px), calc(var(--py) * -2px), -120px); }
@@ -203,7 +203,7 @@ body {
   width: 104%;
   height: 104%;
   object-fit: cover;
-  object-position: 26% 58%;
+  object-position: 22% 62%;
   z-index: 2;
   filter: saturate(0.92) contrast(1.02) brightness(0.98);
 }
@@ -246,13 +246,25 @@ body {
 }
 .stage-rig .angler {
   position: absolute;
-  left: 16%;
-  top: 36%;
-  width: clamp(92px, 11.2vw, 138px);
+  left: 18%;
+  top: auto;
+  bottom: 39%;
+  width: clamp(78px, 9vw, 112px);
   aspect-ratio: 904 / 1361;
   height: auto;
   z-index: 4;
-  filter: saturate(0.78) brightness(0.92) contrast(1.04) drop-shadow(0 10px 8px rgba(8, 16, 18, 0.45));
+  filter: saturate(0.78) brightness(0.92) contrast(1.04);
+}
+.stage-rig .angler::after {
+  content: "";
+  position: absolute;
+  left: 28%;
+  width: 44%;
+  bottom: 3%;
+  height: 8%;
+  background: radial-gradient(ellipse at center, rgba(6, 12, 14, 0.5), transparent 70%);
+  filter: blur(3px);
+  pointer-events: none;
 }
 
 .angler-rig {
@@ -278,8 +290,8 @@ body {
 }
 .angler-rig .wrist {
   position: absolute;
-  left: 58%;
-  top: 58%;
+  left: 62%;
+  top: 64%;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -861,8 +873,9 @@ body {
   }
   .stage-rig .angler {
     left: 18%;
-    top: 34%;
-    width: clamp(100px, 10vw, 150px);
+    top: auto;
+    bottom: 32%;
+    width: clamp(88px, 8.2vw, 118px);
   }
   .reeds-l { height: 52%; }
   .reeds-r { height: 48%; }
@@ -876,6 +889,11 @@ body {
   }
   .meta { justify-content: flex-start; flex: 1 1 auto; }
   .chip { padding: 4px 8px; font-size: 0.72rem; }
+  .stage-rig .angler {
+    left: 13%;
+    bottom: 42%;
+    width: clamp(74px, 22vw, 104px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
