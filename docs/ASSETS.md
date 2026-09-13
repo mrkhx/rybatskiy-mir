@@ -1,6 +1,25 @@
-# Assets & licenses — Рыбацкий Мир 3D slice
+# Assets & licenses — Рыбацкий Мир
+
+## 2.5D browser scene (production client)
+
+| Asset | Source | License | Notes |
+|---|---|---|---|
+| `scene/forest-lake/char/master.webp` | Imagine, keyed | original | identity lock, no rod |
+| `char/body.webp` `head.webp` `arm-l.webp` `arm-r.webp` | Imagine from master | original | layered rig |
+| `char/forearm-r.webp` `upper-r.webp` | crop of arm-r | original | elbow split |
+| `float.webp` `trees-b.webp` | Imagine, keyed | original | props |
+| sky / far-forest / pier / reeds / lilies / rocks / branch / trees / water | existing scene pack | original | keep; alpha-checked |
+| rod, line, ripples, rain | `LiveCanvas.tsx` | original | runtime |
+| poses IDLE..LOSE | `scene/anim` | original | server FSM visual |
+
+Budget = 0. No paid packs. Magenta leftovers stripped by `frontend/scripts/key_magenta.py`.
+
+---
+
+## Unity 3D slice (frozen experiment)
 
 Бюджет арта = 0. Всё ниже либо **собственный** (права проекта), либо **CC0**.
+
 
 | Asset | Source | License | Commercial | Attribution | Modify |
 |---|---|---|---|---|---|
