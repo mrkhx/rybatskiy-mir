@@ -16,7 +16,7 @@ from mathutils import Euler
 FBX = "/tmp/rocketbox/Gardener_Male_01/Export/Gardener_Male_01.fbx"
 OUT = "/tmp/idle_baked.glb"
 FPS = 30
-FRAMES = 90  # 3.0s seamless loop
+FRAMES = 105  # 3.5s seamless loop
 
 BONE_MAP = {
     "Bip01 Pelvis": "Hips",
@@ -94,18 +94,28 @@ def apply_euler(arm, pose_deg):
 
 
 def idle_at(t: float) -> dict[str, tuple[float, float, float]]:
-    """t in [0, 1). Seamless if idle_at(0) == idle_at(1)."""
+    """t in [0, 1). Relaxed contrapposto, not military rest."""
     s = math.sin(2 * math.pi * t)
     c = math.cos(2 * math.pi * t)
     return {
-        "UpperArm_L": (48.0 + 1.4 * s, 0.0, 0.0),
-        "UpperArm_R": (-48.0 - 1.4 * s, 0.0, 0.0),
-        "LowerArm_L": (8.0 + 0.8 * s, 0.0, 0.0),
-        "LowerArm_R": (-8.0 - 0.8 * s, 0.0, 0.0),
-        "Shoulder_L": (1.2 * s, 0.0, 0.0),
-        "Shoulder_R": (-1.2 * s, 0.0, 0.0),
-        "Spine": (1.4 * s, 0.0, 0.45 * c),
-        "Chest": (1.8 * s, 0.0, 0.35 * c),
+        # Drop + forward (Z+ is forward on BOTH arms — not mirrored).
+        "UpperArm_L": (33.0 + 1.1 * s, 0.0, 12.0),
+        "UpperArm_R": (-33.0 - 1.1 * s, 0.0, 12.0),
+        "LowerArm_L": (4.0 + 0.6 * s, 0.0, 20.0),
+        "LowerArm_R": (-4.0 - 0.6 * s, 0.0, 20.0),
+        # Drop (X) + forward (Y opposite, Z same).
+        "Shoulder_L": (4.0 + 1.0 * s, -7.0, 4.0),
+        "Shoulder_R": (-4.0 - 1.0 * s, 7.0, 4.0),
+        # Negative Z rounds the chest; positive Z is the military puff.
+        "Chest": (0.0, 0.0, -7.0 + 1.4 * s),
+        "Spine": (0.0, 0.0, -4.0 + 0.7 * c),
+        "Neck": (0.0, 0.0, 2.0 + 1.2 * c),
+        # Weight on the right leg.
+        "Hips": (4.0 + 1.0 * s, -1.0, 0.0),
+        "UpperLeg_L": (2.0, 0.0, -5.0),
+        "LowerLeg_L": (0.0, 0.0, -8.0 + 1.5 * s),
+        "UpperLeg_R": (-1.0, 0.0, -2.0),
+        "LowerLeg_R": (0.0, 0.0, -4.0 + 0.8 * s),
     }
 
 
@@ -136,15 +146,16 @@ report("REST", arm)
 apply_euler(arm, idle_at(0))
 report("IDLE t0", arm)
 
-# Hands must sit near the hips, not T-pose, not through the torso.
+# Hands beside the hips and in front of the torso. Head not thrown back.
 hl = wpos(arm, "Hand_L")
 hr = wpos(arm, "Hand_R")
 hd = wpos(arm, "Head")
 assert 0.14 < hl.x < 0.32, hl
 assert -0.32 < hr.x < -0.14, hr
-assert 0.78 < hl.z < 1.02, hl
-assert 0.78 < hr.z < 1.02, hr
-assert abs(hd.x) < 0.05 and abs(hd.y) < 0.05 and 1.52 < hd.z < 1.66, hd
+assert hl.y < -0.12 and hr.y < -0.12, (hl, hr)
+assert 0.82 < hl.z < 1.05, hl
+assert 0.82 < hr.z < 1.05, hr
+assert hd.y < 0.02 and 1.50 < hd.z < 1.66, hd
 
 act = bpy.data.actions.new("IDLE")
 arm.animation_data_create()
@@ -159,6 +170,12 @@ keyed = [
     "Shoulder_R",
     "Spine",
     "Chest",
+    "Neck",
+    "Hips",
+    "UpperLeg_L",
+    "LowerLeg_L",
+    "UpperLeg_R",
+    "LowerLeg_R",
 ]
 
 for i in range(FRAMES):
