@@ -19,7 +19,7 @@ const REEL_SEAT_ALONG = 0.11;
 /** Tiny outward roll of the right fist, local X, absolute each frame. */
 const WRIST_OUT = 12 * DEG;
 /** Thumb 15° away from the torso, around the handle (local Y). */
-const THUMB_OUT = 15 * DEG;
+const THUMB_OUT = 33 * DEG;
 
 const REST_Q: Record<string, THREE.Quaternion> = {};
 const FIST_Z: Record<string, number> = {
