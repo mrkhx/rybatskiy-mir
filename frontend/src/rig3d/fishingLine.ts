@@ -1,6 +1,15 @@
 import * as THREE from "three";
+import {
+  LINE_FLOATS,
+  LINE_OPACITY_0,
+  LINE_OPACITY_SPAN,
+  LINE_SAG_BASE,
+  LINE_SAG_CAP,
+  LINE_SAG_LERP,
+  LINE_SAG_SPAN,
+  LINE_SEGMENTS,
+} from "./approvedTackle";
 
-const SEGMENTS = 22;
 const _p0 = new THREE.Vector3();
 const _p1 = new THREE.Vector3();
 const _p2 = new THREE.Vector3();
@@ -17,13 +26,13 @@ export function sampleLine(
   const t = Math.max(0, Math.min(1, tension));
   _p0.copy(tip);
   _p2.copy(attach);
-  _mid.lerpVectors(_p0, _p2, 0.48);
+  _mid.lerpVectors(_p0, _p2, LINE_SAG_LERP);
   const span = _p0.distanceTo(_p2);
-  const sag = (1 - t) * (1 - t) * Math.min(0.55, 0.18 + span * 0.12);
+  const sag = (1 - t) * (1 - t) * Math.min(LINE_SAG_CAP, LINE_SAG_BASE + span * LINE_SAG_SPAN);
   _p1.copy(_mid).addScaledVector(_down, sag);
   let o = 0;
-  for (let i = 0; i <= SEGMENTS; i++) {
-    const u = i / SEGMENTS;
+  for (let i = 0; i <= LINE_SEGMENTS; i++) {
+    const u = i / LINE_SEGMENTS;
     const a = 1 - u;
     _mid
       .copy(_p0)
@@ -36,9 +45,8 @@ export function sampleLine(
   }
 }
 
-export const LINE_SEGMENTS = SEGMENTS;
-export const LINE_FLOATS = (SEGMENTS + 1) * 3;
+export { LINE_SEGMENTS, LINE_FLOATS };
 
 export function lineOpacity(tension: number): number {
-  return 0.38 + Math.max(0, Math.min(1, tension)) * 0.18;
+  return LINE_OPACITY_0 + Math.max(0, Math.min(1, tension)) * LINE_OPACITY_SPAN;
 }

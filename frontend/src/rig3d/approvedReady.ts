@@ -10,8 +10,9 @@
  * - fisherman READY clip pose (IDLE-derived, fingers/wrist overlays below)
  * - rod local orientation: blank man-local (−cos 30°, sin 30°, 0), reel −Y
  * - rod in the closed right fist, 4 cm toward torso
- * - production rod.glb geometry (untouched)
- */
+ * Chain (line + float) locked in approvedTackle.ts
+ * at HEAD c804d16dd2b4c4ec1b0d478fa441377145b6875c
+ *
 import * as THREE from "three";
 
 export const APPROVED_READY_COMMIT =

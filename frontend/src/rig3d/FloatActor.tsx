@@ -10,13 +10,29 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { PRODUCTION } from "../scene3d/assets/paths";
 import { worldOf } from "./rodBend";
 import { LINE_FLOATS, lineOpacity, sampleLine } from "./fishingLine";
+import {
+  FLOAT_ATTACH_LOCAL,
+  FLOAT_BOB_AMP,
+  FLOAT_BOB_FREQ,
+  FLOAT_SCALE,
+  FLOAT_TILT_X,
+  FLOAT_TILT_X_FREQ,
+  FLOAT_TILT_Z,
+  FLOAT_TILT_Z_FREQ,
+  FLOAT_X,
+  LINE_COLOR,
+  LINE_WIDTH_PX,
+  WATER_COLOR,
+  WATER_OPACITY,
+  WATER_POS,
+  WATER_SIZE,
+  WATER_Y,
+} from "./approvedTackle";
 
 useGLTF.preload(PRODUCTION.float);
 
 const _tip = new THREE.Vector3();
 const _attach = new THREE.Vector3();
-const WATER_Y = 0;
-const FLOAT_X = -4.15;
 
 export type TackleProps = {
   rod: THREE.Object3D;
@@ -34,7 +50,7 @@ export const LakeFloat = forwardRef<THREE.Group, Pick<TackleProps, "floatOn" | "
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
-      s.scale.setScalar(1.35);
+      s.scale.setScalar(FLOAT_SCALE);
       return s;
     }, [gltf.scene]);
     const inner = useRef<THREE.Group>(null);
@@ -49,8 +65,12 @@ export const LakeFloat = forwardRef<THREE.Group, Pick<TackleProps, "floatOn" | "
       g.visible = show;
       if (!show) return;
       const t = clock.current;
-      g.position.set(FLOAT_X, WATER_Y + 0.007 * wave * Math.sin(t * 1.25), 0);
-      g.rotation.set(0.04 * wave * Math.sin(t * 0.85), 0, 0.032 * wave * Math.cos(t * 1.05));
+      g.position.set(FLOAT_X, WATER_Y + FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ), 0);
+      g.rotation.set(
+        FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ),
+        0,
+        FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ),
+      );
     });
 
     return (
@@ -74,16 +94,16 @@ export function WaterPlane({ active, floatOn }: { active: boolean; floatOn: bool
     <mesh
       visible={active && floatOn}
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[-4.6, -0.006, 0]}
+      position={[WATER_POS.x, WATER_POS.y, WATER_POS.z]}
       receiveShadow={false}
     >
-      <planeGeometry args={[8.2, 6.4]} />
+      <planeGeometry args={WATER_SIZE} />
       <meshPhysicalMaterial
-        color="#2a4a52"
+        color={WATER_COLOR}
         roughness={0.2}
         metalness={0.06}
         transparent
-        opacity={0.58}
+        opacity={WATER_OPACITY}
         side={THREE.DoubleSide}
       />
     </mesh>
@@ -104,8 +124,8 @@ export function FishingLineView({
     const geo = new LineGeometry();
     geo.setPositions(positions);
     const mat = new LineMaterial({
-      color: 0xc9d0d5,
-      linewidth: 1.55,
+      color: LINE_COLOR,
+      linewidth: LINE_WIDTH_PX,
       transparent: true,
       opacity: 0.5,
       dashed: false,
@@ -122,7 +142,7 @@ export function FishingLineView({
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     const m = new THREE.LineBasicMaterial({
-      color: 0xc9d0d5,
+      color: LINE_COLOR,
       transparent: true,
       opacity: 0.52,
       depthWrite: false,
@@ -157,7 +177,7 @@ export function FishingLineView({
       attachNode.updateWorldMatrix(true, false);
       _attach.setFromMatrixPosition(attachNode.matrixWorld);
     } else if (floatG) {
-      _attach.set(0, 0.114, 0);
+      _attach.copy(FLOAT_ATTACH_LOCAL);
       floatG.localToWorld(_attach);
     }
     sampleLine(_tip, _attach, tension, positions);
