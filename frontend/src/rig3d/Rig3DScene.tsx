@@ -278,7 +278,6 @@ export function Rig3DScene({
     if (wantsRod) {
       attached.current = placeRodReady(man, rod);
       rod.visible = true;
-      applyRightGrip(man, clip);
     } else if (attached.current) {
       rod.removeFromParent();
       rod.visible = false;

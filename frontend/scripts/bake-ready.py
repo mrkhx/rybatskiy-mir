@@ -154,7 +154,36 @@ def apply_euler(arm, pose_deg):
             continue
         pb.rotation_mode = "XYZ"
         pb.rotation_euler = Euler([math.radians(v) for v in xyz], "XYZ")
+    apply_fingers(arm)
     bpy.context.view_layer.update()
+
+
+FINGER_CURL_DEG = {}
+for side in ("L", "R"):
+    FINGER_CURL_DEG[f"Index_{side}_1"] = (0, 0, 100)
+    FINGER_CURL_DEG[f"Index_{side}_2"] = (0, 0, 110)
+    FINGER_CURL_DEG[f"Index_{side}_3"] = (0, 0, 72)
+    FINGER_CURL_DEG[f"Middle_{side}_1"] = (0, 0, 105)
+    FINGER_CURL_DEG[f"Middle_{side}_2"] = (0, 0, 115)
+    FINGER_CURL_DEG[f"Middle_{side}_3"] = (0, 0, 72)
+    FINGER_CURL_DEG[f"Ring_{side}_1"] = (0, 0, 100)
+    FINGER_CURL_DEG[f"Ring_{side}_2"] = (0, 0, 108)
+    FINGER_CURL_DEG[f"Ring_{side}_3"] = (0, 0, 68)
+    FINGER_CURL_DEG[f"Pinky_{side}_1"] = (0, 0, 90)
+    FINGER_CURL_DEG[f"Pinky_{side}_2"] = (0, 0, 100)
+    FINGER_CURL_DEG[f"Pinky_{side}_3"] = (0, 0, 62)
+    FINGER_CURL_DEG[f"Thumb_{side}_1"] = (14, 42, 28)
+    FINGER_CURL_DEG[f"Thumb_{side}_2"] = (8, 22, 36)
+    FINGER_CURL_DEG[f"Thumb_{side}_3"] = (0, 10, 24)
+
+
+def apply_fingers(arm):
+    for name, xyz in FINGER_CURL_DEG.items():
+        pb = arm.pose.bones.get(name)
+        if not pb:
+            continue
+        pb.rotation_mode = "XYZ"
+        pb.rotation_euler = Euler([math.radians(v) for v in xyz], "XYZ")
 
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -211,7 +240,7 @@ keyed = [
     "LowerLeg_L",
     "UpperLeg_R",
     "LowerLeg_R",
-]
+] + list(FINGER_CURL_DEG.keys())
 
 act = bpy.data.actions.new("READY")
 arm.animation_data_create()
