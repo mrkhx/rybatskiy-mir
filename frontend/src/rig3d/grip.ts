@@ -8,17 +8,52 @@ const _y = new THREE.Vector3();
 const _z = new THREE.Vector3();
 const _invMan = new THREE.Matrix4();
 const _basis = new THREE.Matrix4();
+const _euler = new THREE.Euler();
 
 const DEG = Math.PI / 180;
 const PITCH = 30 * DEG;
 const REEL_SEAT_ALONG = 0.11;
 
 /**
- * READY rod only. No bone / IK / FSM writes.
- *
- * The fisherman mesh faces man-local −X (camera is on −Z looking +Z, so at
- * yaw 180° / group identity the nose points screen-right = world −X).
- * Blank = that facing, 30° up. Reel under.
+ * Local-Z extra curl on the right fingers only (gardener flexion axis).
+ * Applied after mixer + rod placement so the rod does not move.
+ */
+const FIST_Z: Record<string, number> = {
+  Index_R_1: -50 * DEG,
+  Index_R_2: -78 * DEG,
+  Index_R_3: -42 * DEG,
+  Middle_R_1: -48 * DEG,
+  Middle_R_2: -80 * DEG,
+  Middle_R_3: -44 * DEG,
+  Ring_R_1: -46 * DEG,
+  Ring_R_2: -78 * DEG,
+  Ring_R_3: -42 * DEG,
+  Pinky_R_1: -38 * DEG,
+  Pinky_R_2: -72 * DEG,
+  Pinky_R_3: -40 * DEG,
+  Thumb_R_2: -35 * DEG,
+  Thumb_R_3: -28 * DEG,
+};
+
+export function closeRightFist(man: THREE.Object3D): void {
+  for (const name of Object.keys(FIST_Z)) {
+    const b = man.getObjectByName(name);
+    if (!b) continue;
+    _euler.setFromQuaternion(b.quaternion, "XYZ");
+    _euler.z += FIST_Z[name];
+    b.quaternion.setFromEuler(_euler);
+  }
+  const thumb = man.getObjectByName("Thumb_R_1");
+  if (thumb) {
+    _euler.setFromQuaternion(thumb.quaternion, "XYZ");
+    _euler.y += 18 * DEG;
+    _euler.z -= 12 * DEG;
+    thumb.quaternion.setFromEuler(_euler);
+  }
+}
+
+/**
+ * READY rod only. No IK / FSM / wrist writes.
  */
 export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean {
   const handR = man.getObjectByName("Hand_R");
@@ -29,7 +64,6 @@ export function placeRodReady(man: THREE.Object3D, rod: THREE.Object3D): boolean
   rod.visible = true;
   rod.scale.setScalar(1);
 
-  // man −X = character facing. Pitch 30° up from the horizon.
   _y.set(-Math.cos(PITCH), Math.sin(PITCH), 0).normalize();
   _z.set(0, -1, 0);
   _z.addScaledVector(_y, -_z.dot(_y));
