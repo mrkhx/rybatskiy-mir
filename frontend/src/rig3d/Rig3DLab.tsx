@@ -144,6 +144,9 @@ export function Rig3DLab() {
           <span className="rig-lab-state">{charClip.replaceAll("_", " ")}</span>
           <span className="rig-lab-state">{autoYaw ? "auto" : `${azimuthDeg}°`}</span>
           {debug.fps && <span className="rig-lab-state">{fps || "—"} fps</span>}
+          <a href="/dev/rod" className="rig-lab-back">
+            Rod
+          </a>
           <a href="/dev/rig" className="rig-lab-back">
             2.5D lab
           </a>
