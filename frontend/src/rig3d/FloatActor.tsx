@@ -43,7 +43,7 @@ import {
 import { BITE_SINK_DIP, sampleBiteFloat } from "./bite";
 import { sampleHookFloat } from "./hookset";
 import { sampleFight } from "./fight";
-import { prepFloatWorld } from "./landPrep";
+import { prepFloatWorld, prepLift } from "./landPrep";
 
 useGLTF.preload(PRODUCTION.float);
 
@@ -379,21 +379,21 @@ export const LakeFloat = forwardRef<
         }
         const fish = fishPointRef?.current;
         if (fish) prepFloatWorld(fightRest.current, fish, prepTimeRef?.current ?? 0, st.pos);
-        st.pos.y = WATERLINE_Y - 0.01 * Math.min(1, (prepTimeRef?.current ?? 0) / 3.2);
         _hang.copy(st.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
+        const lift = prepLift(prepTimeRef?.current ?? 0);
         g.rotation.set(
-          FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ) + 0.08,
+          FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ) * (1 - lift) + 0.35 * lift,
           0,
-          FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ),
+          FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ) * (1 - lift),
         );
-        if (simRef) simRef.current.tension = 0.7;
+        if (simRef) simRef.current.tension = 0.7 - 0.08 * lift;
         (window as unknown as { __FLOAT?: { y: number; contact: boolean; settleT: number; phase?: string } }).__FLOAT = {
           y: st.pos.y,
-          contact: true,
+          contact: st.pos.y < WATERLINE_Y + 0.04,
           settleT: prepTimeRef?.current ?? 0,
-          phase: "prep",
+          phase: lift > 0.02 ? "lift" : "prep",
         };
       } else {
         fly.current.primed = false;

@@ -630,12 +630,14 @@ export function Rig3DScene({
         prepFishWorld(fishPrepStart.current, prepT.current, fishPoint.current);
         prepT.current = Math.min(PREP_DURATION, prepT.current + dt);
         const dist = Math.hypot(fishPoint.current.x, fishPoint.current.z);
-        (window as unknown as { __PREP?: { t: number; dist: number; progress: number; ten: number; reach: number } }).__PREP = {
+        (window as unknown as { __PREP?: { t: number; dist: number; progress: number; ten: number; reach: number; lift: number; fishY: number } }).__PREP = {
           t: prepT.current,
           dist,
           progress: s.progress,
           ten: s.tension,
           reach: reelReach.current,
+          lift: s.lift,
+          fishY: fishPoint.current.y,
         };
       } else {
         castFrom.current.armed = false;
