@@ -1,12 +1,21 @@
 /**
  * FIGHT_LIGHT — compact float-rod hold after approved HOOKSET.
  * t=0 matches sampleHookPose(HOOK_DURATION). Does not start LAND / REEL.
+ *
+ * LOCKED: approvedFight.ts — FIGHT_LIGHT at 5d7e6ea3d712842444838f233345a2ad9cdb6885
+ * Tackle: RodTip → FloatAttach → FLOAT → FloatBottom → leader → FishPullPoint
  */
 import * as THREE from "three";
 import { DEG } from "./approvedReady";
 import { HOOK_DURATION, sampleHookFloat, sampleHookPose } from "./hookset";
 import { applyWaitPose, type WaitSample } from "./wait";
 import { WATER_Y } from "./approvedTackle";
+
+export {
+  APPROVED_FIGHT_COMMIT,
+  APPROVED_FIGHT_CHAIN,
+  APPROVED_FIGHT_TOPOLOGY,
+} from "./approvedFight";
 
 export const FIGHT_LOOP = 5.0;
 export const FIGHT_CLIP = "FIGHT_LIGHT" as const;
