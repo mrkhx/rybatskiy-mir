@@ -573,7 +573,7 @@ export function FishingLineView({
       (leaderThin.material as THREE.LineBasicMaterial).opacity = lineOpacity(ten) + 0.1;
     }
 
-    const showMarks = debug || hasLeader;
+    const showMarks = debug;
     if (showMarks) {
       const wl = floatG?.getObjectByName("FloatWaterline");
       const bot = floatG?.getObjectByName("FloatBottom");
@@ -597,7 +597,7 @@ export function FishingLineView({
       <primitive object={thin} />
       <primitive object={leader} />
       <primitive object={leaderThin} />
-      {(debug || fishPointRef) && active && (
+      {debug && active && (
         <group>
           <mesh ref={markers.tip}>
             <sphereGeometry args={[0.014, 8, 8]} />
