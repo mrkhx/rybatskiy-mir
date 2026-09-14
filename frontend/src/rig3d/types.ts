@@ -106,6 +106,7 @@ export function ikFor(clip: CharClip): IkMode {
     clip === "READY" ||
     clip === "AIM" ||
     clip === "FLOAT_LANDING" ||
+    clip === "WAIT" ||
     clip === "RETURN_IDLE" ||
     clip.startsWith("CAST") ||
     clip.startsWith("TURN") ||

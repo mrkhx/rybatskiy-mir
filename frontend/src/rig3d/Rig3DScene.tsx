@@ -18,6 +18,7 @@ import { applyAimArms } from "./idleLive";
 import { applyAimPose, AIM_PITCH, AIM_YAW, AIM_LINE_TENSION } from "./aim";
 import { applyCastPose, CAST_DURATION, CAST_START_PITCH, CAST_START_YAW, isCastClip, sampleCast } from "./cast";
 import { holdsCastPose, isFloatLanding, makeLandingSim } from "./floatLanding";
+import { applyWaitPose, isWaitClip, sampleWait, WAIT_AFTER_LANDING, WAIT_BLEND, WAIT_LINE_TENSION } from "./wait";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
 import { FishingLineView, LakeFloat, WaterPlane } from "./FloatActor";
 import { WaterSplash } from "./waterSplash";
@@ -59,6 +60,7 @@ type Props = {
   onFps?: (n: number) => void;
   onCharFinished?: (name: string) => void;
   onCastComplete?: () => void;
+  onLandingComplete?: () => void;
   onReports?: (reports: SceneReports) => void;
 };
 
@@ -136,6 +138,7 @@ export function Rig3DScene({
   onFps,
   onCharFinished,
   onCastComplete,
+  onLandingComplete,
   onReports,
 }: Props) {
   const manGltf = useGLTF(fishermanUrl);
@@ -178,8 +181,14 @@ export function Rig3DScene({
   const castFrom = useRef({ pitch: CAST_START_PITCH, yaw: CAST_START_YAW, armed: false });
   const castDone = useRef(false);
   const landSim = useRef(makeLandingSim());
+  const landT = useRef(0);
+  const landDone = useRef(false);
+  const waitU = useRef(0);
+  const waitClock = useRef(0);
   const onCastCompleteRef = useRef(onCastComplete);
   onCastCompleteRef.current = onCastComplete;
+  const onLandingCompleteRef = useRef(onLandingComplete);
+  onLandingCompleteRef.current = onLandingComplete;
   const helpers = useMemo(() => {
     const skel = new THREE.SkeletonHelper(man);
     skel.visible = false;
@@ -259,17 +268,19 @@ export function Rig3DScene({
   }, [manMixer, onCharFinished]);
 
   useEffect(() => {
+    const planted = charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip);
     const next =
       manActions[charClip] ??
-      (charClip === "AIM" || holdsCastPose(charClip) ? manActions.READY : undefined);
+      (planted ? manActions.READY : undefined);
     if (!next) return;
 
-    const plant = charClip === "AIM" || holdsCastPose(charClip);
+    const plant = planted;
     const prev = charRef.current;
+    const prevPlanted = prev === "AIM" || holdsCastPose(prev) || isWaitClip(prev) || prev === "READY";
     const sameReady =
       next === manActions.READY &&
-      (charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip)) &&
-      (prev === "READY" || prev === "AIM" || holdsCastPose(prev));
+      (charClip === "READY" || planted) &&
+      prevPlanted;
 
     if (sameReady) {
       next.enabled = true;
@@ -283,6 +294,18 @@ export function Rig3DScene({
         castT.current = 0;
         castFrom.current.armed = false;
         castDone.current = false;
+        landT.current = 0;
+        landDone.current = false;
+        waitU.current = 0;
+        waitClock.current = 0;
+      }
+      if (isFloatLanding(charClip) && !isFloatLanding(prev)) {
+        landT.current = 0;
+        landDone.current = false;
+      }
+      if (isWaitClip(charClip) && !isWaitClip(prev)) {
+        waitU.current = 0;
+        waitClock.current = 0;
       }
       return;
     }
@@ -311,6 +334,18 @@ export function Rig3DScene({
       castT.current = 0;
       castFrom.current.armed = false;
       castDone.current = false;
+      landT.current = 0;
+      landDone.current = false;
+      waitU.current = 0;
+      waitClock.current = 0;
+    }
+    if (isFloatLanding(charClip) && !isFloatLanding(prev)) {
+      landT.current = 0;
+      landDone.current = false;
+    }
+    if (isWaitClip(charClip) && !isWaitClip(prev)) {
+      waitU.current = 0;
+      waitClock.current = 0;
     }
   }, [charClip, manActions]);
 
@@ -340,6 +375,7 @@ export function Rig3DScene({
     const clip = charRef.current;
     const casting = isCastClip(clip);
     const landing = isFloatLanding(clip);
+    const waiting = isWaitClip(clip);
     if (casting) {
       const seek = (window as unknown as { __CAST_SEEK?: number }).__CAST_SEEK;
       if (typeof seek === "number") castT.current = Math.max(0, Math.min(CAST_DURATION, seek));
@@ -350,7 +386,14 @@ export function Rig3DScene({
         onCastCompleteRef.current?.();
       }
     }
-    const wantsRod = clip === "READY" || clip === "AIM" || casting || landing;
+    if (landing) {
+      landT.current += dt;
+      if (landT.current >= WAIT_AFTER_LANDING && !landDone.current) {
+        landDone.current = true;
+        onLandingCompleteRef.current?.();
+      }
+    }
+    const wantsRod = clip === "READY" || clip === "AIM" || casting || landing || waiting;
     if (wantsRod) {
       closeRightFist(man, rod);
       rollRightWristOut(man, rod);
@@ -374,6 +417,23 @@ export function Rig3DScene({
         }
         applyRodBend(rod, s.bend);
         attached.current = true;
+      } else if (waiting) {
+        const s = sampleWait(waitU.current, waitClock.current);
+        applyWaitPose(man, s);
+        if (!castFrom.current.armed) {
+          const now = measureRodPitchYaw(man, rod);
+          castFrom.current.pitch = now.pitch;
+          castFrom.current.yaw = now.yaw;
+          castFrom.current.armed = true;
+        }
+        const pitch = castFrom.current.pitch + (s.pitch - CAST_START_PITCH);
+        const yaw = castFrom.current.yaw + (s.yaw - CAST_START_YAW);
+        attached.current = seatRodInHand(man, rod, pitch, yaw);
+        gripKey.current = "hold";
+        applyRodBend(rod, s.bend);
+        attached.current = true;
+        waitU.current = Math.min(1, waitU.current + dt / WAIT_BLEND);
+        waitClock.current += dt;
       } else {
         castFrom.current.armed = false;
         const target = clip === "AIM" ? 1 : 0;
@@ -397,7 +457,7 @@ export function Rig3DScene({
       aimU.current = 0;
     }
 
-    if (attached.current && clip !== "READY" && clip !== "AIM" && !casting && !landing) aimRod(man, rod, clip);
+    if (attached.current && clip !== "READY" && clip !== "AIM" && !casting && !landing && !waiting) aimRod(man, rod, clip);
     if (!wantsRod) applyRodBend(rod, tensionFor(clip));
     spinReel(rod, dt, clip === "REEL");
 
@@ -444,15 +504,16 @@ export function Rig3DScene({
     <group>
       <group rotation={[0, yaw + extraYaw.current + Math.PI, 0]}>
         <primitive object={man} position={[0, 0, 0]} />
-        <WaterPlane active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip)} floatOn={floatOn} />
+        <WaterPlane active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip)} floatOn={floatOn} />
         <LakeFloat
           ref={floatRef}
           floatOn={floatOn}
           wave={wave}
-          active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip)}
+          active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip)}
           hanging={charClip === "AIM"}
           casting={charClip.startsWith("CAST")}
           landing={charClip === "FLOAT_LANDING"}
+          waiting={charClip === "WAIT"}
           castTimeRef={castT}
           simRef={landSim}
           rod={rod}
@@ -462,7 +523,7 @@ export function Rig3DScene({
       <group
         position={[0.55, 0.55, -1.65]}
         scale={fishScale}
-        visible={!(floatOn && (charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip)))}
+        visible={!(floatOn && (charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip)))}
       >
         <primitive object={pike} />
       </group>
@@ -473,12 +534,12 @@ export function Rig3DScene({
         floatRef={floatRef}
         lineOn={lineOn}
         floatOn={floatOn}
-        tension={charClip === "AIM" ? AIM_LINE_TENSION : lineTension}
+        tension={charClip === "AIM" ? AIM_LINE_TENSION : charClip === "WAIT" ? WAIT_LINE_TENSION : lineTension}
         castTimeRef={charClip.startsWith("CAST") ? castT : undefined}
-        landSimRef={charClip === "FLOAT_LANDING" ? landSim : undefined}
+        landSimRef={charClip === "FLOAT_LANDING" || charClip === "WAIT" ? landSim : undefined}
         wave={wave}
         debug={debug.line}
-        active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip)}
+        active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip)}
       />
       {debug.line && charClip !== "READY" && (
         <line>

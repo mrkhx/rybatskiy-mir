@@ -70,10 +70,11 @@ export const LakeFloat = forwardRef<
     rod?: THREE.Object3D;
     casting?: boolean;
     landing?: boolean;
+    waiting?: boolean;
     castTimeRef?: React.MutableRefObject<number>;
     simRef?: React.MutableRefObject<LandingSim>;
   }
->(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, castTimeRef, simRef }, ref) {
+>(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, castTimeRef, simRef }, ref) {
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
@@ -229,6 +230,23 @@ export const LakeFloat = forwardRef<
           contact: st.contact,
           settleT: st.settleT,
         };
+      } else if (waiting) {
+        const st = fly.current;
+        const bob = FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ);
+        if (st.primed && st.contact) {
+          st.pos.y = WATERLINE_Y + bob;
+          _hang.copy(st.pos);
+          if (gparent) gparent.worldToLocal(_hang);
+          g.position.copy(_hang);
+        } else {
+          g.position.set(FLOAT_X, WATER_Y + bob, 0);
+        }
+        g.rotation.set(
+          FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ),
+          0,
+          FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ),
+        );
+        if (simRef) simRef.current.tension = LANDING_REST_TENSION;
       } else {
         fly.current.primed = false;
         fly.current.on = false;
