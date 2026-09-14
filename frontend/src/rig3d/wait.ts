@@ -1,11 +1,15 @@
 /**
  * WAIT — calm bite-watch after approved FLOAT LANDING.
  * u=0 matches CAST follow-through / landing hold. Do not rewrite CAST.
+ *
+ * LOCKED: approvedWait.ts — WAIT at 2b3a5c3848f061caa9e8f7c2b72918f1ba1952e6
  */
 import * as THREE from "three";
 import { DEG } from "./approvedReady";
 import { CAST_DURATION, sampleCast } from "./cast";
 import { AIM_ARM, AXIS_X, applyArmSpins } from "./idleLive";
+
+export { APPROVED_WAIT_COMMIT, APPROVED_WAIT_CHAIN } from "./approvedWait";
 
 export const WAIT_BLEND = 0.32;
 export const WAIT_PITCH = 22 * DEG;
