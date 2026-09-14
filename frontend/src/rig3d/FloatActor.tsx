@@ -125,14 +125,15 @@ export const LakeFloat = forwardRef<
             _blank.subVectors(_tip, lastTip.current).multiplyScalar(1 / Math.max(dt, 1 / 60));
             fly.current.vel.copy(fly.current.hangVel).addScaledVector(_blank, 0.35);
             _blank.set(0, 1, 0).applyQuaternion(rod.getWorldQuaternion(_qRod));
-            fly.current.vel.addScaledVector(_blank, 5.4);
-            fly.current.vel.y += 1.15;
+            fly.current.vel.x += _blank.x * 5.8;
+            fly.current.vel.z += _blank.z * 5.8;
+            fly.current.vel.y += _blank.y * 1.15 + 0.22;
             fly.current.pos.copy(fly.current.hang);
           }
-          fly.current.vel.y -= 5.4 * dt;
+          fly.current.vel.y -= 11.2 * dt;
           fly.current.pos.addScaledVector(fly.current.vel, dt);
-          if (fly.current.pos.y < 0.55) {
-            fly.current.pos.y = 0.55;
+          if (fly.current.pos.y < 0.2) {
+            fly.current.pos.y = 0.2;
             fly.current.vel.y = Math.max(0, fly.current.vel.y);
             fly.current.vel.x *= 0.97;
             fly.current.vel.z *= 0.97;
