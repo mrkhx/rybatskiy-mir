@@ -1,21 +1,24 @@
 /**
  * Float-rod CAST timeline. Starts from approved PRE-CAST.
  * Local bone overlays only — no IK, no world-copy, no retarget.
+ *
+ * PRE-CAST visual rod is the Hand_R-glued READY blank (arms already raised).
+ * Do not start CAST at AIM_PITCH 42° / AIM_YAW 4° — that reseats the rod
+ * onto a different parent/pitch for one frame and snaps elbows/wrists.
  */
 import * as THREE from "three";
-import { DEG } from "./approvedReady";
-import {
-  AIM_PITCH,
-  AIM_YAW,
-  AIM_LINE_TENSION,
-  PRECAST_SPINE_X,
-  PRECAST_SPINE1_X,
-  PRECAST_NECK_X,
-  PRECAST_HEAD_X,
-} from "./approvedPrecast";
+import { DEG, READY_PITCH } from "./approvedReady";
+import { AIM_LINE_TENSION } from "./approvedPrecast";
+import { AIM_ARM, AXIS_X, applyArmSpins } from "./idleLive";
 
 export const CAST_DURATION = 1.4;
 export const CAST_RELEASE_AT = 0.88;
+
+/** Actual PRE-CAST blank pitch (arm-glued READY rod). Not AIM_PITCH. */
+export const CAST_START_PITCH = READY_PITCH;
+/** Short float-rod backswing: +16° from the PRE-CAST blank. */
+export const CAST_BACK_PITCH = READY_PITCH + 16 * DEG;
+export const CAST_START_YAW = 0;
 
 export type CastSample = {
   pitch: number;
@@ -55,16 +58,16 @@ function easeOut(u: number) {
 
 export function sampleCast(time: number): CastSample {
   const t = Math.max(0, Math.min(CAST_DURATION, time));
-  const yaw = AIM_YAW;
+  const yaw = CAST_START_YAW;
   if (t < 0.3) {
     const u = smooth(t / 0.3);
     return {
-      pitch: lerp(AIM_PITCH, 58 * DEG, u),
+      pitch: lerp(CAST_START_PITCH, CAST_BACK_PITCH, u),
       yaw,
-      spineX: lerp(PRECAST_SPINE_X, 2 * DEG, u),
-      spine1X: lerp(PRECAST_SPINE1_X, 1 * DEG, u),
-      neckX: lerp(PRECAST_NECK_X, 3 * DEG, u),
-      headX: lerp(PRECAST_HEAD_X, 2 * DEG, u),
+      spineX: lerp(0, 2 * DEG, u),
+      spine1X: lerp(0, 1 * DEG, u),
+      neckX: lerp(0, 3 * DEG, u),
+      headX: lerp(0, 2 * DEG, u),
       armRX: lerp(0, -14 * DEG, u),
       armRFore: lerp(0, 10 * DEG, u),
       armLX: lerp(0, -6 * DEG, u),
@@ -78,7 +81,7 @@ export function sampleCast(time: number): CastSample {
   if (t < 0.75) {
     const u = easeIn((t - 0.3) / 0.45);
     return {
-      pitch: lerp(58 * DEG, 22 * DEG, u),
+      pitch: lerp(CAST_BACK_PITCH, 22 * DEG, u),
       yaw,
       spineX: lerp(2 * DEG, 8 * DEG, u),
       spine1X: lerp(1 * DEG, 5 * DEG, u),
@@ -132,34 +135,24 @@ export function sampleCast(time: number): CastSample {
   };
 }
 
-const REST: Record<string, THREE.Quaternion> = {};
-const _q = new THREE.Quaternion();
-const AXIS_X = new THREE.Vector3(1, 0, 0);
-
-function getBone(man: THREE.Object3D, name: string): THREE.Bone | null {
-  let found: THREE.Bone | null = null;
-  man.traverse((o) => {
-    if (found) return;
-    if ((o as THREE.Bone).isBone && o.name === name) found = o as THREE.Bone;
-  });
-  return found;
-}
-
-function addLocalX(man: THREE.Object3D, name: string, angle: number) {
-  const b = getBone(man, name);
-  if (!b) return;
-  if (!REST[name]) REST[name] = b.quaternion.clone();
-  b.quaternion.copy(REST[name]);
-  _q.setFromAxisAngle(AXIS_X, angle);
-  b.quaternion.multiply(_q);
-}
-
-/** Arms follow the cast. No Spine/Neck — local X there is a side-lean. */
+/** Arms follow the cast from the PRE-CAST AIM overlay. One source of motion. */
 export function applyCastPose(man: THREE.Object3D, s: CastSample): void {
-  addLocalX(man, "UpperArm_R", s.armRX);
-  addLocalX(man, "LowerArm_R", s.armRFore);
-  addLocalX(man, "UpperArm_L", s.armLX);
-  addLocalX(man, "LowerArm_L", s.armLFore);
+  applyArmSpins(man, "UpperArm_R", [
+    { axis: AIM_ARM.UpperArm_R.axis, angle: AIM_ARM.UpperArm_R.angle },
+    { axis: AXIS_X, angle: s.armRX },
+  ]);
+  applyArmSpins(man, "LowerArm_R", [
+    { axis: AIM_ARM.LowerArm_R.axis, angle: AIM_ARM.LowerArm_R.angle },
+    { axis: AXIS_X, angle: s.armRFore },
+  ]);
+  applyArmSpins(man, "UpperArm_L", [
+    { axis: AIM_ARM.UpperArm_L.axis, angle: AIM_ARM.UpperArm_L.angle },
+    { axis: AXIS_X, angle: s.armLX },
+  ]);
+  applyArmSpins(man, "LowerArm_L", [
+    { axis: AIM_ARM.LowerArm_L.axis, angle: AIM_ARM.LowerArm_L.angle },
+    { axis: AXIS_X, angle: s.armLFore },
+  ]);
 }
 
 export function isCastClip(clip: string): boolean {

@@ -13,10 +13,10 @@ import type { AdapterReport } from "../scene3d/assets/contract";
 import { importHumanoid } from "../scene3d/assets/retarget";
 import { twoBoneIK } from "./ik";
 import { applyRodBend, aimRod, spinReel, worldOf } from "./rodBend";
-import { placeRodReady, seatRodInHand, closeRightFist, rollRightWristOut } from "./grip";
+import { seatRodInHand, closeRightFist, rollRightWristOut, measureRodPitchYaw } from "./grip";
 import { applyAimArms } from "./idleLive";
 import { applyAimPose, AIM_PITCH, AIM_YAW, AIM_LINE_TENSION } from "./aim";
-import { applyCastPose, CAST_DURATION, isCastClip, sampleCast } from "./cast";
+import { applyCastPose, CAST_DURATION, CAST_START_PITCH, CAST_START_YAW, isCastClip, sampleCast } from "./cast";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
 import { FishingLineView, LakeFloat, WaterPlane } from "./FloatActor";
 
@@ -171,6 +171,7 @@ export function Rig3DScene({
   const extraYaw = useRef(0);
   const floatRef = useRef<THREE.Group>(null);
   const castT = useRef(0);
+  const castFrom = useRef({ pitch: CAST_START_PITCH, yaw: CAST_START_YAW, armed: false });
   const helpers = useMemo(() => {
     const skel = new THREE.SkeletonHelper(man);
     skel.visible = false;
@@ -270,7 +271,10 @@ export function Rig3DScene({
       next.time = 0;
       if (!next.isRunning()) next.play();
       charRef.current = charClip;
-      if (charClip.startsWith("CAST")) castT.current = 0;
+      if (charClip.startsWith("CAST")) {
+        castT.current = 0;
+        castFrom.current.armed = false;
+      }
       return;
     }
 
@@ -294,7 +298,10 @@ export function Rig3DScene({
     next.fadeIn(charClip === "READY" || plant ? 0 : fade);
     next.play();
     charRef.current = charClip;
-    if (charClip.startsWith("CAST")) castT.current = 0;
+    if (charClip.startsWith("CAST")) {
+      castT.current = 0;
+      castFrom.current.armed = false;
+    }
   }, [charClip, manActions]);
 
   useEffect(() => {
@@ -335,10 +342,25 @@ export function Rig3DScene({
       if (casting) {
         const s = sampleCast(castT.current);
         applyCastPose(man, s);
-        attached.current = placeRodReady(man, rod, s.pitch, s.yaw);
+        if (!castFrom.current.armed) {
+          const now = measureRodPitchYaw(man, rod);
+          castFrom.current.pitch = now.pitch;
+          castFrom.current.yaw = now.yaw;
+          castFrom.current.armed = true;
+          if (gripKey.current !== "hold") {
+            attached.current = seatRodInHand(man, rod, now.pitch, now.yaw);
+            gripKey.current = "hold";
+          }
+        } else if (castT.current > 0) {
+          const pitch = castFrom.current.pitch + (s.pitch - CAST_START_PITCH);
+          const yaw = castFrom.current.yaw + (s.yaw - CAST_START_YAW);
+          attached.current = seatRodInHand(man, rod, pitch, yaw);
+          gripKey.current = "hold";
+        }
         applyRodBend(rod, s.bend);
-        gripKey.current = "cast";
+        attached.current = true;
       } else {
+        castFrom.current.armed = false;
         const target = clip === "AIM" ? 1 : 0;
         const step = dt / 0.4;
         if (aimU.current < target) aimU.current = Math.min(target, aimU.current + step);

@@ -112,6 +112,24 @@ export function placeRodReady(
   return true;
 }
 
+/** Man-local blank pitch/yaw, same convention as placeRodReady. */
+export function measureRodPitchYaw(
+  man: THREE.Object3D,
+  rod: THREE.Object3D,
+): { pitch: number; yaw: number } {
+  rod.updateWorldMatrix(true, false);
+  man.updateWorldMatrix(true, false);
+  _y.setFromMatrixColumn(rod.matrixWorld, 1);
+  _invMan.copy(man.matrixWorld).invert();
+  _y.transformDirection(_invMan);
+  if (_y.lengthSq() < 1e-8) return { pitch: READY_PITCH, yaw: 0 };
+  _y.normalize();
+  return {
+    pitch: Math.asin(Math.max(-1, Math.min(1, _y.y))),
+    yaw: Math.atan2(_y.z, -_y.x),
+  };
+}
+
 /** Parent rod to Hand_R, keep world pose. Call once per READY/AIM, not every frame. */
 export function seatRodInHand(
   man: THREE.Object3D,
