@@ -46,6 +46,7 @@ import { sampleFight } from "./fight";
 import { prepFloatWorld, prepLift } from "./landPrep";
 import { landFloatWorld } from "./land";
 import { holdFloatWorld } from "./landedHold";
+import { releaseFloatWorld } from "./release";
 
 useGLTF.preload(PRODUCTION.float);
 
@@ -86,6 +87,7 @@ export const LakeFloat = forwardRef<
     prepping?: boolean;
     outing?: boolean;
     holding?: boolean;
+    releasing?: boolean;
     castTimeRef?: React.MutableRefObject<number>;
     biteTimeRef?: React.MutableRefObject<number>;
     hookTimeRef?: React.MutableRefObject<number>;
@@ -93,11 +95,12 @@ export const LakeFloat = forwardRef<
     prepTimeRef?: React.MutableRefObject<number>;
     outTimeRef?: React.MutableRefObject<number>;
     holdTimeRef?: React.MutableRefObject<number>;
+    releaseTimeRef?: React.MutableRefObject<number>;
     approachRef?: React.MutableRefObject<number>;
     fishPointRef?: React.MutableRefObject<THREE.Vector3>;
     simRef?: React.MutableRefObject<LandingSim>;
   }
->(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, hooking = false, fighting = false, reeling = false, prepping = false, outing = false, holding = false, castTimeRef, biteTimeRef, hookTimeRef, fightTimeRef, prepTimeRef, outTimeRef, holdTimeRef, approachRef, fishPointRef, simRef }, ref) {
+>(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, hooking = false, fighting = false, reeling = false, prepping = false, outing = false, holding = false, releasing = false, castTimeRef, biteTimeRef, hookTimeRef, fightTimeRef, prepTimeRef, outTimeRef, holdTimeRef, releaseTimeRef, approachRef, fishPointRef, simRef }, ref) {
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
@@ -126,6 +129,7 @@ export const LakeFloat = forwardRef<
     const prepArmed = useRef(false);
     const outArmed = useRef(false);
     const holdArmed = useRef(false);
+    const relArmed = useRef(false);
 
     useFrame((_, rawDt) => {
       const dt = Math.min(rawDt, 0.05);
@@ -137,10 +141,11 @@ export const LakeFloat = forwardRef<
       if (!show) return;
       if (!biting) biteArmed.current = false;
       if (!hooking) hookArmed.current = false;
-      if (!fighting && !reeling && !prepping && !outing && !holding) fightArmed.current = false;
+      if (!fighting && !reeling && !prepping && !outing && !holding && !releasing) fightArmed.current = false;
       if (!prepping) prepArmed.current = false;
       if (!outing) outArmed.current = false;
       if (!holding) holdArmed.current = false;
+      if (!releasing) relArmed.current = false;
       const t = clock.current;
       const gparent = g.parent;
       if (casting && rod) {
@@ -452,6 +457,30 @@ export const LakeFloat = forwardRef<
           contact: false,
           settleT: holdTimeRef?.current ?? 0,
           phase: "hold",
+        };
+      } else if (releasing) {
+        const st = fly.current;
+        if (!relArmed.current) {
+          if (!st.primed) {
+            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            st.primed = true;
+            st.contact = false;
+          }
+          fightRest.current.copy(st.pos);
+          relArmed.current = true;
+        }
+        const fish = fishPointRef?.current;
+        if (fish) releaseFloatWorld(fightRest.current, fish, releaseTimeRef?.current ?? 0, st.pos);
+        _hang.copy(st.pos);
+        if (gparent) gparent.worldToLocal(_hang);
+        g.position.copy(_hang);
+        g.rotation.set(0.08 * (1 - Math.min(1, (releaseTimeRef?.current ?? 0) / 1.5)), 0, 0.04 * Math.sin(t * 2.6));
+        if (simRef) simRef.current.tension = 0.12;
+        (window as unknown as { __FLOAT?: { y: number; contact: boolean; settleT: number; phase?: string } }).__FLOAT = {
+          y: st.pos.y,
+          contact: st.pos.y < WATERLINE_Y + 0.04,
+          settleT: releaseTimeRef?.current ?? 0,
+          phase: "release",
         };
       } else {
         fly.current.primed = false;

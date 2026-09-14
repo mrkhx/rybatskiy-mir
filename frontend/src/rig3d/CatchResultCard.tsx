@@ -18,7 +18,11 @@ type Props = {
 export function CatchResultCard({ data, choice, onKeep, onRelease }: Props) {
   const locked = choice !== null;
   return (
-    <aside className="catch-result" aria-live="polite" aria-label="Результат улова">
+    <aside
+      className={`catch-result${choice === "RELEASE_SELECTED" ? " is-leaving" : ""}`}
+      aria-live="polite"
+      aria-label="Результат улова"
+    >
       <p className="catch-result-kicker">Улов</p>
       <h2 className="catch-result-name">{data.fishName}</h2>
       <p className="catch-result-weight">{formatCatchWeight(data.weightKg)}</p>

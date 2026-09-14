@@ -238,6 +238,21 @@
   cursor: not-allowed;
 }
 
+.catch-result.is-leaving {
+  animation: catch-result-out 360ms var(--ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+@keyframes catch-result-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
 @keyframes catch-result-in {
   from {
     opacity: 0;
@@ -250,7 +265,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .catch-result {
+  .catch-result,
+  .catch-result.is-leaving {
     animation: none;
   }
 }

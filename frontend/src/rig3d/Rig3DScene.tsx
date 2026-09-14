@@ -26,6 +26,7 @@ import { applyReelLeftArm, isReelClip, REEL_APPROACH, REEL_APPROACH_CAP, REEL_RE
 import { applyLandPrepPose, isPrepClip, PREP_DURATION, prepFishWorld, sampleLandPrep } from "./landPrep";
 import { applyLandPose, isLandClip, LAND_DURATION, LAND_FISH_SCALE, LAND_SURFACE_T, landFishWorld, sampleLand } from "./land";
 import { applyHoldPose, holdFishWorld, isHoldClip, sampleHold } from "./landedHold";
+import { applyReleasePose, isReleaseClip, RELEASE_DETACH, RELEASE_DURATION, RELEASE_ENTER, releaseFishWorld, releaseLeaderWorld, sampleRelease } from "./release";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
 import { FishingLineView, LakeFloat, WaterPlane } from "./FloatActor";
 import { WaterSplash } from "./waterSplash";
@@ -75,6 +76,8 @@ type Props = {
   prepKey?: number;
   landKey?: number;
   holdKey?: number;
+  releaseKey?: number;
+  onReleaseComplete?: () => void;
   onReports?: (reports: SceneReports) => void;
 };
 
@@ -160,6 +163,8 @@ export function Rig3DScene({
   prepKey = 0,
   landKey = 0,
   holdKey = 0,
+  releaseKey = 0,
+  onReleaseComplete,
   onReports,
 }: Props) {
   const manGltf = useGLTF(fishermanUrl);
@@ -219,6 +224,13 @@ export function Rig3DScene({
   const fishHoldStart = useRef(new THREE.Vector3());
   const landHoldT = useRef(LAND_DURATION);
   const holdT = useRef(0);
+  const relT = useRef(0);
+  const releaseHoldClock = useRef(0);
+  const fishReleaseStart = useRef(new THREE.Vector3());
+  const leaderEnd = useRef(new THREE.Vector3());
+  const detachAt = useRef(new THREE.Vector3());
+  const detached = useRef(false);
+  const releaseDone = useRef(false);
   const splashOnce = useRef(false);
   const fishHold = useRef<THREE.Group>(null);
   const fishPoint = useRef(new THREE.Vector3());
@@ -228,6 +240,8 @@ export function Rig3DScene({
   onCastCompleteRef.current = onCastComplete;
   const onLandingCompleteRef = useRef(onLandingComplete);
   onLandingCompleteRef.current = onLandingComplete;
+  const onReleaseCompleteRef = useRef(onReleaseComplete);
+  onReleaseCompleteRef.current = onReleaseComplete;
   const helpers = useMemo(() => {
     const skel = new THREE.SkeletonHelper(man);
     skel.visible = false;
@@ -307,7 +321,7 @@ export function Rig3DScene({
   }, [manMixer, onCharFinished]);
 
   useEffect(() => {
-    const planted = charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip) || isLandClip(charClip) || isHoldClip(charClip);
+    const planted = charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip) || isLandClip(charClip) || isHoldClip(charClip) || isReleaseClip(charClip);
     const next =
       manActions[charClip] ??
       (planted ? manActions.READY : undefined);
@@ -315,7 +329,7 @@ export function Rig3DScene({
 
     const plant = planted;
     const prev = charRef.current;
-    const prevPlanted = prev === "AIM" || holdsCastPose(prev) || isWaitClip(prev) || isBiteClip(prev) || isHookClip(prev) || isFightClip(prev) || isReelClip(prev) || isPrepClip(prev) || isLandClip(prev) || isHoldClip(prev) || prev === "READY";
+    const prevPlanted = prev === "AIM" || holdsCastPose(prev) || isWaitClip(prev) || isBiteClip(prev) || isHookClip(prev) || isFightClip(prev) || isReelClip(prev) || isPrepClip(prev) || isLandClip(prev) || isHoldClip(prev) || isReleaseClip(prev) || prev === "READY";
     const sameReady =
       next === manActions.READY &&
       (charClip === "READY" || planted) &&
@@ -368,6 +382,16 @@ export function Rig3DScene({
         holdT.current = 0;
         landHoldT.current = isLandClip(prev) && outT.current > 0.05 ? outT.current : LAND_DURATION;
         fishHoldStart.current.copy(fishPoint.current);
+      }
+      if (isReleaseClip(charClip) && !isReleaseClip(prev)) {
+        relT.current = 0;
+        splashOnce.current = false;
+        detached.current = false;
+        releaseDone.current = false;
+        releaseHoldClock.current = isHoldClip(prev) ? holdT.current : 0;
+        fishReleaseStart.current.copy(fishPoint.current);
+        leaderEnd.current.copy(fishPoint.current);
+        detachAt.current.copy(fishPoint.current);
       }
       return;
     }
@@ -432,6 +456,16 @@ export function Rig3DScene({
       landHoldT.current = isLandClip(prev) && outT.current > 0.05 ? outT.current : LAND_DURATION;
       fishHoldStart.current.copy(fishPoint.current);
     }
+    if (isReleaseClip(charClip) && !isReleaseClip(prev)) {
+      relT.current = 0;
+      splashOnce.current = false;
+      detached.current = false;
+      releaseDone.current = false;
+      releaseHoldClock.current = isHoldClip(prev) ? holdT.current : 0;
+      fishReleaseStart.current.copy(fishPoint.current);
+      leaderEnd.current.copy(fishPoint.current);
+      detachAt.current.copy(fishPoint.current);
+    }
   }, [charClip, manActions]);
 
   useEffect(() => {
@@ -472,9 +506,20 @@ export function Rig3DScene({
   }, [holdKey]);
 
   useEffect(() => {
+    relT.current = 0;
+    splashOnce.current = false;
+    detached.current = false;
+    releaseDone.current = false;
+    releaseHoldClock.current = holdT.current;
+    fishReleaseStart.current.copy(fishPoint.current);
+    leaderEnd.current.copy(fishPoint.current);
+    detachAt.current.copy(fishPoint.current);
+  }, [releaseKey]);
+
+  useEffect(() => {
     const next = fishActions[fishClip];
     if (!next) return;
-    if (isLandClip(charClip) || isHoldClip(charClip)) return;
+    if (isLandClip(charClip) || isHoldClip(charClip) || isReleaseClip(charClip)) return;
     for (const a of Object.values(fishActions)) {
       if (a !== next && a.isRunning()) a.fadeOut(0.25);
     }
@@ -482,7 +527,7 @@ export function Rig3DScene({
   }, [fishClip, fishActions, charClip]);
 
   useEffect(() => {
-    if (!isLandClip(charClip) && !isHoldClip(charClip)) return;
+    if (!isLandClip(charClip) && !isHoldClip(charClip) && !isReleaseClip(charClip)) return;
     const a = fishActions.SURFACE ?? fishActions.STRUGGLE_LIGHT ?? fishActions.SWIM_IDLE;
     if (!a) return;
     if (a.isRunning()) return;
@@ -517,6 +562,7 @@ export function Rig3DScene({
     const prepping = isPrepClip(clip);
     const outing = isLandClip(clip);
     const holding = isHoldClip(clip);
+    const releasing = isReleaseClip(clip);
     if (casting) {
       const seek = (window as unknown as { __CAST_SEEK?: number }).__CAST_SEEK;
       if (typeof seek === "number") castT.current = Math.max(0, Math.min(CAST_DURATION, seek));
@@ -534,7 +580,7 @@ export function Rig3DScene({
         onLandingCompleteRef.current?.();
       }
     }
-    const wantsRod = clip === "READY" || clip === "AIM" || casting || landing || waiting || biting || hooking || fighting || reeling || prepping || outing || holding;
+    const wantsRod = clip === "READY" || clip === "AIM" || casting || landing || waiting || biting || hooking || fighting || reeling || prepping || outing || holding || releasing;
     if (wantsRod) {
       closeRightFist(man, rod);
       rollRightWristOut(man, rod);
@@ -809,6 +855,83 @@ export function Rig3DScene({
           ten: s.tension,
           bend: s.bend,
         };
+      } else if (releasing) {
+        const s = sampleRelease(relT.current, fightT.current, prepHold.current, landHoldT.current, releaseHoldClock.current);
+        applyReleasePose(man, s);
+        if (!castFrom.current.armed) {
+          const now = measureRodPitchYaw(man, rod);
+          castFrom.current.pitch = now.pitch;
+          castFrom.current.yaw = now.yaw;
+          castFrom.current.armed = true;
+        }
+        const pitch = castFrom.current.pitch + (s.pitch - CAST_START_PITCH);
+        const yaw = castFrom.current.yaw + (s.yaw - CAST_START_YAW);
+        attached.current = seatRodInHand(man, rod, pitch, yaw);
+        gripKey.current = "hold";
+        applyRodBend(rod, s.bend);
+        attached.current = true;
+        if (landSim.current) landSim.current.tension = s.tension;
+        if (fishReleaseStart.current.lengthSq() < 0.05) {
+          fishReleaseStart.current.copy(fishPoint.current.lengthSq() > 0.05 ? fishPoint.current : fishHoldStart.current);
+        }
+        releaseFishWorld(fishReleaseStart.current, relT.current, fishPoint.current);
+        if (!splashOnce.current && relT.current >= RELEASE_ENTER) {
+          splashOnce.current = true;
+          if (landSim.current) {
+            landSim.current.splashStamp += 1;
+            landSim.current.splashX = fishPoint.current.x;
+            landSim.current.splashZ = fishPoint.current.z;
+          }
+        }
+        if (!detached.current && relT.current >= RELEASE_DETACH) {
+          detached.current = true;
+          detachAt.current.copy(fishPoint.current);
+        }
+        const floatG = floatRef.current;
+        if (floatG) {
+          floatG.updateWorldMatrix(true, false);
+          _mid.setFromMatrixPosition(floatG.matrixWorld);
+        } else {
+          _mid.copy(fishPoint.current);
+          _mid.y = 0;
+        }
+        releaseLeaderWorld(fishPoint.current, _mid, detachAt.current, relT.current, leaderEnd.current);
+        const hold = fishHold.current;
+        const hideFish = relT.current >= RELEASE_DURATION - 0.12;
+        pike.visible = !hideFish;
+        if (hold) {
+          hold.visible = !hideFish;
+          hold.scale.setScalar(Math.max(0.12, fishScale * LAND_FISH_SCALE));
+          _fishMouth.copy(fishPoint.current);
+          if (hold.parent) hold.parent.worldToLocal(_fishMouth);
+          hold.position.copy(_fishMouth);
+          const yawFish = Math.atan2(fishPoint.current.x, fishPoint.current.z);
+          hold.rotation.set(s.nose * 0.35 + s.twist * 0.25, yawFish, s.tail * 0.15);
+          hold.updateWorldMatrix(true, true);
+          const jaw = pike.getObjectByName("Jaw");
+          if (jaw) {
+            pike.position.set(0, 0, 0);
+            hold.updateWorldMatrix(true, true);
+            jaw.updateWorldMatrix(true, false);
+            _tip.setFromMatrixPosition(jaw.matrixWorld);
+            hold.worldToLocal(_tip);
+            pike.position.copy(_tip).multiplyScalar(-1);
+          }
+          const tail = pike.getObjectByName("Tail");
+          if (tail) tail.rotation.y = s.tail;
+        }
+        relT.current = Math.min(RELEASE_DURATION, relT.current + dt);
+        if (s.done && !releaseDone.current) {
+          releaseDone.current = true;
+          onReleaseCompleteRef.current?.();
+        }
+        (window as unknown as { __RELEASE?: { t: number; y: number; dist: number; detached: boolean; done: boolean } }).__RELEASE = {
+          t: relT.current,
+          y: fishPoint.current.y,
+          dist: Math.hypot(fishPoint.current.x, fishPoint.current.z),
+          detached: s.detached,
+          done: s.done,
+        };
       } else {
         castFrom.current.armed = false;
         const target = clip === "AIM" ? 1 : 0;
@@ -832,9 +955,10 @@ export function Rig3DScene({
       aimU.current = 0;
     }
 
-    if (attached.current && clip !== "READY" && clip !== "AIM" && !casting && !landing && !waiting && !biting && !hooking && !fighting && !reeling && !prepping && !outing && !holding) aimRod(man, rod, clip);
+    if (attached.current && clip !== "READY" && clip !== "AIM" && !casting && !landing && !waiting && !biting && !hooking && !fighting && !reeling && !prepping && !outing && !holding && !releasing) aimRod(man, rod, clip);
     if (!wantsRod) applyRodBend(rod, tensionFor(clip));
-    if (!outing && !holding && pike.position.lengthSq() > 1e-8) pike.position.set(0, 0, 0);
+    if (!outing && !holding && !releasing && pike.position.lengthSq() > 1e-8) pike.position.set(0, 0, 0);
+    if (!releasing) pike.visible = true;
 
     const ikMode = ikFor(clip);
     if (ikMode !== "none") {
@@ -844,7 +968,7 @@ export function Rig3DScene({
       }
     }
 
-    if (debug.line && clip !== "READY" && !fighting && !reeling && !prepping && !outing && !holding) {
+    if (debug.line && clip !== "READY" && !fighting && !reeling && !prepping && !outing && !holding && !releasing) {
       worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
       const jaw = pike.getObjectByName("Jaw") ?? pike.getObjectByName("PikeRoot");
       if (jaw) {
@@ -879,12 +1003,12 @@ export function Rig3DScene({
     <group>
       <group rotation={[0, yaw + extraYaw.current + Math.PI, 0]}>
         <primitive object={man} position={[0, 0, 0]} />
-        <WaterPlane active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip) || isLandClip(charClip) || isHoldClip(charClip)} floatOn={floatOn} />
+        <WaterPlane active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip) || isLandClip(charClip) || isHoldClip(charClip) || isReleaseClip(charClip)} floatOn={floatOn} />
         <LakeFloat
           ref={floatRef}
           floatOn={floatOn}
           wave={wave}
-          active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip) || isLandClip(charClip) || isHoldClip(charClip)}
+          active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip) || isLandClip(charClip) || isHoldClip(charClip) || isReleaseClip(charClip)}
           hanging={charClip === "AIM"}
           casting={charClip.startsWith("CAST")}
           landing={charClip === "FLOAT_LANDING"}
@@ -896,6 +1020,7 @@ export function Rig3DScene({
           prepping={charClip === "LAND_PREP"}
           outing={charClip === "LAND"}
           holding={charClip === "LANDED_HOLD"}
+          releasing={charClip === "RELEASE"}
           castTimeRef={castT}
           biteTimeRef={biteT}
           hookTimeRef={hookT}
@@ -903,6 +1028,7 @@ export function Rig3DScene({
           prepTimeRef={prepT}
           outTimeRef={outT}
           holdTimeRef={holdT}
+          releaseTimeRef={relT}
           approachRef={reelApproach}
           fishPointRef={fishPoint}
           simRef={landSim}
@@ -912,8 +1038,8 @@ export function Rig3DScene({
         <group
           ref={fishHold}
           position={[0.55, 0.55, -1.65]}
-          scale={fishScale}
-          visible={charClip === "LAND" || charClip === "LANDED_HOLD" || !(floatOn && (charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip)))}
+          scale={charClip === "LAND" || charClip === "LANDED_HOLD" || charClip === "RELEASE" ? Math.max(0.12, fishScale * LAND_FISH_SCALE) : fishScale}
+          visible={charClip === "LAND" || charClip === "LANDED_HOLD" || charClip === "RELEASE" || !(floatOn && (charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip)))}
         >
           <primitive object={pike} />
         </group>
@@ -927,13 +1053,13 @@ export function Rig3DScene({
         floatOn={floatOn}
         tension={charClip === "AIM" ? AIM_LINE_TENSION : charClip === "WAIT" ? WAIT_LINE_TENSION : lineTension}
         castTimeRef={charClip.startsWith("CAST") ? castT : undefined}
-        landSimRef={charClip === "FLOAT_LANDING" || charClip === "WAIT" || charClip === "BITE_REACTION" || charClip === "HOOKSET" || charClip === "FIGHT_LIGHT" || charClip === "REEL" || charClip === "LAND_PREP" || charClip === "LAND" || charClip === "LANDED_HOLD" ? landSim : undefined}
-        fishPointRef={charClip === "FIGHT_LIGHT" || charClip === "REEL" || charClip === "LAND_PREP" || charClip === "LAND" || charClip === "LANDED_HOLD" ? fishPoint : undefined}
+        landSimRef={charClip === "FLOAT_LANDING" || charClip === "WAIT" || charClip === "BITE_REACTION" || charClip === "HOOKSET" || charClip === "FIGHT_LIGHT" || charClip === "REEL" || charClip === "LAND_PREP" || charClip === "LAND" || charClip === "LANDED_HOLD" || charClip === "RELEASE" ? landSim : undefined}
+        fishPointRef={charClip === "FIGHT_LIGHT" || charClip === "REEL" || charClip === "LAND_PREP" || charClip === "LAND" || charClip === "LANDED_HOLD" || charClip === "RELEASE" ? (charClip === "RELEASE" ? leaderEnd : fishPoint) : undefined}
         wave={wave}
         debug={debug.line}
-        active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip) || isLandClip(charClip) || isHoldClip(charClip)}
+        active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip) || isLandClip(charClip) || isHoldClip(charClip) || isReleaseClip(charClip)}
       />
-      {debug.line && charClip !== "READY" && charClip !== "FIGHT_LIGHT" && charClip !== "REEL" && charClip !== "LAND_PREP" && charClip !== "LAND" && charClip !== "LANDED_HOLD" && (
+      {debug.line && charClip !== "READY" && charClip !== "FIGHT_LIGHT" && charClip !== "REEL" && charClip !== "LAND_PREP" && charClip !== "LAND" && charClip !== "LANDED_HOLD" && charClip !== "RELEASE" && (
         <line>
           <primitive object={lineGeo} attach="geometry" />
           <lineBasicMaterial color="#d8dde4" transparent opacity={0.75} />

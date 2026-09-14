@@ -31,6 +31,7 @@ const CHAR_PRIMARY: Array<{ id: CharClip | "CAST" | "CATCH_RESULT"; label: strin
   { id: "LAND", label: "Land" },
   { id: "LANDED_HOLD", label: "Hold" },
   { id: "CATCH_RESULT", label: "Result" },
+  { id: "RELEASE", label: "Release" },
   { id: "RETURN_IDLE", label: "Return idle" },
 ];
 
@@ -98,6 +99,8 @@ export function Rig3DLab() {
   const [resultOpen, setResultOpen] = useState(false);
   const [resultRecord, setResultRecord] = useState(false);
   const [catchChoice, setCatchChoice] = useState<CatchChoice | null>(null);
+  const [releaseKey, setReleaseKey] = useState(0);
+  const [releaseComplete, setReleaseComplete] = useState(false);
 
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -270,6 +273,19 @@ export function Rig3DLab() {
       setCharClip("CAST_BACKSWING");
       return;
     }
+    if (id === "RELEASE") {
+      if (charClip === "LANDED_HOLD" || charClip === "LAND" || charClip === "RELEASE") {
+        if (charClip === "LAND") setCharClip("LANDED_HOLD");
+        setCatchChoice("RELEASE_SELECTED");
+        setReleaseComplete(false);
+        setReleaseKey((n) => n + 1);
+        setCharClip("RELEASE");
+        setResultOpen(false);
+        return;
+      }
+      setCharClip("CAST_BACKSWING");
+      return;
+    }
     setCharClip(id);
   }, [charClip]);
 
@@ -279,6 +295,22 @@ export function Rig3DLab() {
 
   const onLandingComplete = useCallback(() => {
     setCharClip((c) => (c === "FLOAT_LANDING" ? "WAIT" : c));
+  }, []);
+
+  useEffect(() => {
+    if (catchChoice !== "RELEASE_SELECTED") return;
+    if (charClip === "RELEASE") return;
+    const id = window.setTimeout(() => {
+      setReleaseComplete(false);
+      setReleaseKey((n) => n + 1);
+      setCharClip("RELEASE");
+      setResultOpen(false);
+    }, 360);
+    return () => window.clearTimeout(id);
+  }, [catchChoice, charClip]);
+
+  const onReleaseComplete = useCallback(() => {
+    setReleaseComplete(true);
   }, []);
 
   const onCharFinished = useCallback((name: string) => {
@@ -305,17 +337,21 @@ export function Rig3DLab() {
         <div>
           <p className="rig-lab-kicker">Рыбацкий Мир · 3D contract</p>
           <h1>Production 360° lab</h1>
-          <p className="rig3d-kicker">RESULT → KEEP / RELEASE · только UI</p>
+          <p className="rig3d-kicker">RELEASE · рыба в воду</p>
         </div>
         <div className="rig-lab-meta">
           <span className="rig-lab-state">
-            {resultOpen
-              ? catchChoice === "KEEP_SELECTED"
-                ? "KEEP SELECTED"
-                : catchChoice === "RELEASE_SELECTED"
-                  ? "RELEASE SELECTED"
-                  : "CATCH RESULT"
-              : charClip.replaceAll("_", " ")}
+            {charClip === "RELEASE"
+              ? releaseComplete
+                ? "RELEASE COMPLETE"
+                : "RELEASE"
+              : resultOpen
+                ? catchChoice === "KEEP_SELECTED"
+                  ? "KEEP SELECTED"
+                  : catchChoice === "RELEASE_SELECTED"
+                    ? "RELEASE SELECTED"
+                    : "CATCH RESULT"
+                : charClip.replaceAll("_", " ")}
           </span>
           <span className="rig-lab-state">{autoYaw ? "auto" : `${azimuthDeg}°`}</span>
           {debug.fps && <span className="rig-lab-state">{fps || "—"} fps</span>}
@@ -409,6 +445,8 @@ export function Rig3DLab() {
               prepKey={prepKey}
               landKey={landKey}
               holdKey={holdKey}
+              releaseKey={releaseKey}
+              onReleaseComplete={onReleaseComplete}
               onReports={setReports}
             />
             <OrbitControls
@@ -523,7 +561,8 @@ export function Rig3DLab() {
                 a.id !== "LAND_PREP" &&
                 a.id !== "LAND" &&
                 a.id !== "LANDED_HOLD" &&
-                a.id !== "CATCH_RESULT",
+                a.id !== "CATCH_RESULT" &&
+                a.id !== "RELEASE",
             );
             const active =
               a.id === "CAST"
