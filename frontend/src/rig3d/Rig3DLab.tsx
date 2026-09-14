@@ -6,7 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Lights, Rig3DScene, type SceneReports } from "./Rig3DScene";
 import { CAST_SEQ, type CharClip, type DebugFlags, type FishClip } from "./types";
 import { CatchResultCard } from "./CatchResultCard";
-import { DEBUG_CATCH_RESULT, type CatchResultData } from "./catchResult";
+import { DEBUG_CATCH_RESULT, type CatchChoice, type CatchResultData } from "./catchResult";
 import { DEBUG_PROXY, PRODUCTION, resolveProductionAssets, type ResolvedAssets } from "../scene3d/assets/paths";
 import { summarize, type AdapterReport } from "../scene3d/assets/contract";
 import "../rig/rig.css";
@@ -97,6 +97,7 @@ export function Rig3DLab() {
   const [holdKey, setHoldKey] = useState(0);
   const [resultOpen, setResultOpen] = useState(false);
   const [resultRecord, setResultRecord] = useState(false);
+  const [catchChoice, setCatchChoice] = useState<CatchChoice | null>(null);
 
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -132,7 +133,10 @@ export function Rig3DLab() {
   }, []);
 
   const playChar = useCallback((id: CharClip | "CAST" | "CATCH_RESULT") => {
-    if (id !== "CATCH_RESULT") setResultOpen(false);
+    if (id !== "CATCH_RESULT") {
+      setResultOpen(false);
+      setCatchChoice(null);
+    }
     if (id === "CAST") {
       setCharClip("CAST_BACKSWING");
       return;
@@ -254,6 +258,7 @@ export function Rig3DLab() {
     if (id === "CATCH_RESULT") {
       if (charClip === "LANDED_HOLD" || charClip === "LAND") {
         if (charClip === "LAND") setCharClip("LANDED_HOLD");
+        setCatchChoice(null);
         setResultOpen(true);
         return;
       }
@@ -300,10 +305,18 @@ export function Rig3DLab() {
         <div>
           <p className="rig-lab-kicker">Рыбацкий Мир · 3D contract</p>
           <h1>Production 360° lab</h1>
-          <p className="rig3d-kicker">HOLD → RESULT · карточка улова</p>
+          <p className="rig3d-kicker">RESULT → KEEP / RELEASE · только UI</p>
         </div>
         <div className="rig-lab-meta">
-          <span className="rig-lab-state">{resultOpen ? "CATCH RESULT" : charClip.replaceAll("_", " ")}</span>
+          <span className="rig-lab-state">
+            {resultOpen
+              ? catchChoice === "KEEP_SELECTED"
+                ? "KEEP SELECTED"
+                : catchChoice === "RELEASE_SELECTED"
+                  ? "RELEASE SELECTED"
+                  : "CATCH RESULT"
+              : charClip.replaceAll("_", " ")}
+          </span>
           <span className="rig-lab-state">{autoYaw ? "auto" : `${azimuthDeg}°`}</span>
           {debug.fps && <span className="rig-lab-state">{fps || "—"} fps</span>}
           <a href="/dev/rod" className="rig-lab-back">
@@ -410,7 +423,14 @@ export function Rig3DLab() {
             />
           </Suspense>
         </Canvas>
-        {resultOpen && <CatchResultCard data={catchData} />}
+        {resultOpen && (
+          <CatchResultCard
+            data={catchData}
+            choice={catchChoice}
+            onKeep={() => setCatchChoice("KEEP_SELECTED")}
+            onRelease={() => setCatchChoice("RELEASE_SELECTED")}
+          />
+        )}
       </section>
 
       <nav className="rig-dock" aria-label="Позы 3D рига">
@@ -533,6 +553,14 @@ export function Rig3DLab() {
             title="Показать статус нового рекорда"
           >
             Рекорд
+          </button>
+          <button
+            type="button"
+            disabled={!resultOpen}
+            onClick={() => setCatchChoice(null)}
+            title="Вернуть CATCH RESULT без выбора"
+          >
+            Сброс
           </button>
         </div>
         <div className="rig-actions rig-actions-more">

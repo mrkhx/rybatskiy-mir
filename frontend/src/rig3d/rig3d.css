@@ -144,9 +144,9 @@
   z-index: 6;
   right: 16px;
   bottom: 18px;
-  width: min(240px, calc(100% - 32px));
+  width: min(248px, calc(100% - 32px));
   padding: 16px 18px 14px;
-  pointer-events: none;
+  pointer-events: auto;
   border-radius: 12px;
   border: 1px solid var(--rig-line);
   background: color-mix(in oklab, #121612 82%, transparent);
@@ -195,6 +195,47 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--rig-accent);
+}
+
+.catch-result-confirm {
+  margin: 10px 0 0;
+  min-height: 1.2em;
+  font-size: 0.88rem;
+  color: var(--rig-accent);
+}
+
+.catch-result-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.catch-result-actions button {
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--rig-line);
+  background: color-mix(in oklab, var(--rig-ink) 8%, transparent);
+  color: var(--rig-ink);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 560;
+  cursor: pointer;
+}
+
+.catch-result-actions button:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--rig-ink) 14%, transparent);
+}
+
+.catch-result-actions button.is-picked {
+  border-color: color-mix(in oklab, var(--rig-accent) 55%, transparent);
+  color: var(--rig-accent);
+}
+
+.catch-result-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 @keyframes catch-result-in {

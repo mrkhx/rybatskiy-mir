@@ -1,12 +1,22 @@
 "use client";
 
-import { formatCatchWeight, type CatchResultData } from "./catchResult";
+import {
+  formatCatchWeight,
+  KEEP_CONFIRM,
+  RELEASE_CONFIRM,
+  type CatchChoice,
+  type CatchResultData,
+} from "./catchResult";
 
 type Props = {
   data: CatchResultData;
+  choice: CatchChoice | null;
+  onKeep: () => void;
+  onRelease: () => void;
 };
 
-export function CatchResultCard({ data }: Props) {
+export function CatchResultCard({ data, choice, onKeep, onRelease }: Props) {
+  const locked = choice !== null;
   return (
     <aside className="catch-result" aria-live="polite" aria-label="Результат улова">
       <p className="catch-result-kicker">Улов</p>
@@ -14,6 +24,27 @@ export function CatchResultCard({ data }: Props) {
       <p className="catch-result-weight">{formatCatchWeight(data.weightKg)}</p>
       <p className="catch-result-rarity">{data.rarity}</p>
       {data.isRecord && <p className="catch-result-record">Новый рекорд!</p>}
+      <p className="catch-result-confirm" data-choice={choice ?? ""}>
+        {choice === "KEEP_SELECTED" ? KEEP_CONFIRM : choice === "RELEASE_SELECTED" ? RELEASE_CONFIRM : "\u00a0"}
+      </p>
+      <div className="catch-result-actions">
+        <button
+          type="button"
+          className={choice === "KEEP_SELECTED" ? "is-picked" : ""}
+          disabled={locked}
+          onClick={onKeep}
+        >
+          Оставить
+        </button>
+        <button
+          type="button"
+          className={choice === "RELEASE_SELECTED" ? "is-picked" : ""}
+          disabled={locked}
+          onClick={onRelease}
+        >
+          Отпустить
+        </button>
+      </div>
     </aside>
   );
 }

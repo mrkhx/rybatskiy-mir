@@ -1,4 +1,4 @@
-/** Catch result payload. UI-only — not a 3D clip. No KEEP / RELEASE / backend. */
+/** Catch result payload. UI-only — KEEP/RELEASE are local choice, no backend. */
 
 export type CatchRarity = "Обычная" | "Крупная" | "Трофейная" | "Легендарная";
 
@@ -9,12 +9,17 @@ export type CatchResultData = {
   isRecord: boolean;
 };
 
+export type CatchChoice = "KEEP_SELECTED" | "RELEASE_SELECTED";
+
 export const DEBUG_CATCH_RESULT: CatchResultData = {
   fishName: "Щука",
   weightKg: 2.84,
   rarity: "Крупная",
   isRecord: false,
 };
+
+export const KEEP_CONFIRM = "Улов оставлен";
+export const RELEASE_CONFIRM = "Рыба отпущена";
 
 export function formatCatchWeight(kg: number): string {
   return `${kg.toFixed(2)} кг`;
