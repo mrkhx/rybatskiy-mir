@@ -254,11 +254,11 @@ export function Rig3DLab() {
           className="rig3d-canvas"
           gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
           dpr={dpr}
-          camera={{ position: [0, 1.48, -3.55], fov: 32, near: 0.08, far: 40 }}
+          camera={{ position: [0, 1.85, -6.2], fov: 36, near: 0.08, far: 60 }}
           frameloop={hidden ? "never" : "always"}
           onCreated={({ gl, camera }) => {
             gl.setClearColor(0x000000, 0);
-            camera.lookAt(0, 1.05, 0);
+            camera.lookAt(0, 1.15, 0);
           }}
         >
           <Suspense fallback={null}>
@@ -291,9 +291,11 @@ export function Rig3DLab() {
             <OrbitControls
               enablePan={debug.orbit}
               enableRotate={debug.orbit}
-              enableZoom={debug.orbit}
+              enableZoom
               makeDefault
-              target={[0, 1.05, 0]}
+              target={[0, 1.15, 0]}
+              minDistance={2.4}
+              maxDistance={14}
               maxPolarAngle={Math.PI * 0.49}
             />
           </Suspense>
