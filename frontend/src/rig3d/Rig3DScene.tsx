@@ -23,6 +23,7 @@ import { applyBitePose, BITE_DURATION, isBiteClip, sampleBitePose } from "./bite
 import { applyHookPose, HOOK_DURATION, isHookClip, sampleHookPose } from "./hookset";
 import { applyFightPose, FIGHT_LOOP, fightFishWorld, isFightClip, sampleFight } from "./fight";
 import { applyReelLeftArm, isReelClip, REEL_APPROACH, REEL_APPROACH_CAP, REEL_REACH, reelSpeedFor } from "./reel";
+import { applyLandPrepPose, isPrepClip, PREP_DURATION, prepFishWorld, sampleLandPrep } from "./landPrep";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
 import { FishingLineView, LakeFloat, WaterPlane } from "./FloatActor";
 import { WaterSplash } from "./waterSplash";
@@ -69,6 +70,7 @@ type Props = {
   hookKey?: number;
   fightKey?: number;
   reelKey?: number;
+  prepKey?: number;
   onReports?: (reports: SceneReports) => void;
 };
 
@@ -151,6 +153,7 @@ export function Rig3DScene({
   hookKey = 0,
   fightKey = 0,
   reelKey = 0,
+  prepKey = 0,
   onReports,
 }: Props) {
   const manGltf = useGLTF(fishermanUrl);
@@ -202,6 +205,8 @@ export function Rig3DScene({
   const fightT = useRef(0);
   const reelReach = useRef(0);
   const reelApproach = useRef(0);
+  const prepT = useRef(0);
+  const fishPrepStart = useRef(new THREE.Vector3());
   const fishPoint = useRef(new THREE.Vector3());
   const fishRest = useRef(new THREE.Vector3());
   const fishArmed = useRef(false);
@@ -288,7 +293,7 @@ export function Rig3DScene({
   }, [manMixer, onCharFinished]);
 
   useEffect(() => {
-    const planted = charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip);
+    const planted = charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip);
     const next =
       manActions[charClip] ??
       (planted ? manActions.READY : undefined);
@@ -296,7 +301,7 @@ export function Rig3DScene({
 
     const plant = planted;
     const prev = charRef.current;
-    const prevPlanted = prev === "AIM" || holdsCastPose(prev) || isWaitClip(prev) || isBiteClip(prev) || isHookClip(prev) || isFightClip(prev) || isReelClip(prev) || prev === "READY";
+    const prevPlanted = prev === "AIM" || holdsCastPose(prev) || isWaitClip(prev) || isBiteClip(prev) || isHookClip(prev) || isFightClip(prev) || isReelClip(prev) || isPrepClip(prev) || prev === "READY";
     const sameReady =
       next === manActions.READY &&
       (charClip === "READY" || planted) &&
@@ -329,11 +334,15 @@ export function Rig3DScene({
       }
       if (isBiteClip(charClip)) biteT.current = 0;
       if (isHookClip(charClip)) hookT.current = 0;
-      if (isFightClip(charClip) && !isFightClip(prev) && !isReelClip(prev)) {
+      if (isFightClip(charClip) && !isFightClip(prev) && !isReelClip(prev) && !isPrepClip(prev)) {
         fightT.current = 0;
         fishArmed.current = false;
         reelApproach.current = 0;
         reelReach.current = 0;
+      }
+      if (isPrepClip(charClip) && !isPrepClip(prev)) {
+        prepT.current = 0;
+        fishPrepStart.current.copy(fishPoint.current);
       }
       return;
     }
@@ -377,11 +386,15 @@ export function Rig3DScene({
     }
     if (isBiteClip(charClip)) biteT.current = 0;
     if (isHookClip(charClip)) hookT.current = 0;
-    if (isFightClip(charClip) && !isFightClip(prev) && !isReelClip(prev)) {
+    if (isFightClip(charClip) && !isFightClip(prev) && !isReelClip(prev) && !isPrepClip(prev)) {
       fightT.current = 0;
       fishArmed.current = false;
       reelApproach.current = 0;
       reelReach.current = 0;
+    }
+    if (isPrepClip(charClip) && !isPrepClip(prev)) {
+      prepT.current = 0;
+      fishPrepStart.current.copy(fishPoint.current);
     }
   }, [charClip, manActions]);
 
@@ -403,6 +416,11 @@ export function Rig3DScene({
   useEffect(() => {
     reelReach.current = 0;
   }, [reelKey]);
+
+  useEffect(() => {
+    prepT.current = 0;
+    fishPrepStart.current.copy(fishPoint.current);
+  }, [prepKey]);
 
   useEffect(() => {
     const next = fishActions[fishClip];
@@ -435,6 +453,7 @@ export function Rig3DScene({
     const hooking = isHookClip(clip);
     const fighting = isFightClip(clip);
     const reeling = isReelClip(clip);
+    const prepping = isPrepClip(clip);
     if (casting) {
       const seek = (window as unknown as { __CAST_SEEK?: number }).__CAST_SEEK;
       if (typeof seek === "number") castT.current = Math.max(0, Math.min(CAST_DURATION, seek));
@@ -452,7 +471,7 @@ export function Rig3DScene({
         onLandingCompleteRef.current?.();
       }
     }
-    const wantsRod = clip === "READY" || clip === "AIM" || casting || landing || waiting || biting || hooking || fighting || reeling;
+    const wantsRod = clip === "READY" || clip === "AIM" || casting || landing || waiting || biting || hooking || fighting || reeling || prepping;
     if (wantsRod) {
       closeRightFist(man, rod);
       rollRightWristOut(man, rod);
@@ -583,6 +602,41 @@ export function Rig3DScene({
           bend: s.bend,
           ten: s.tension,
         };
+      } else if (prepping) {
+        const s = sampleLandPrep(prepT.current, fightT.current);
+        applyLandPrepPose(man, s);
+        if (!castFrom.current.armed) {
+          const now = measureRodPitchYaw(man, rod);
+          castFrom.current.pitch = now.pitch;
+          castFrom.current.yaw = now.yaw;
+          castFrom.current.armed = true;
+        }
+        const pitch = castFrom.current.pitch + (s.pitch - CAST_START_PITCH);
+        const yaw = castFrom.current.yaw + (s.yaw - CAST_START_YAW);
+        attached.current = seatRodInHand(man, rod, pitch, yaw);
+        gripKey.current = "hold";
+        applyRodBend(rod, s.bend);
+        attached.current = true;
+        if (landSim.current) landSim.current.tension = s.tension;
+        const reachStep = dt / REEL_REACH;
+        if (reelReach.current > 0) reelReach.current = Math.max(0, reelReach.current - reachStep);
+        const speed = reelSpeedFor(s.pull, Math.max(reelReach.current, s.spin * 0.4)) * s.spin;
+        spinReel(rod, dt, speed);
+        if (reelReach.current > 1e-4) {
+          const handle = rod.getObjectByName("ReelHandle");
+          applyReelLeftArm(man, s, reelReach.current, handle?.rotation.z ?? 0);
+        }
+        if (fishPrepStart.current.lengthSq() < 0.05) fishPrepStart.current.copy(fishPoint.current.lengthSq() > 0.05 ? fishPoint.current : fishRest.current);
+        prepFishWorld(fishPrepStart.current, prepT.current, fishPoint.current);
+        prepT.current = Math.min(PREP_DURATION, prepT.current + dt);
+        const dist = Math.hypot(fishPoint.current.x, fishPoint.current.z);
+        (window as unknown as { __PREP?: { t: number; dist: number; progress: number; ten: number; reach: number } }).__PREP = {
+          t: prepT.current,
+          dist,
+          progress: s.progress,
+          ten: s.tension,
+          reach: reelReach.current,
+        };
       } else {
         castFrom.current.armed = false;
         const target = clip === "AIM" ? 1 : 0;
@@ -606,7 +660,7 @@ export function Rig3DScene({
       aimU.current = 0;
     }
 
-    if (attached.current && clip !== "READY" && clip !== "AIM" && !casting && !landing && !waiting && !biting && !hooking && !fighting && !reeling) aimRod(man, rod, clip);
+    if (attached.current && clip !== "READY" && clip !== "AIM" && !casting && !landing && !waiting && !biting && !hooking && !fighting && !reeling && !prepping) aimRod(man, rod, clip);
     if (!wantsRod) applyRodBend(rod, tensionFor(clip));
 
     const ikMode = ikFor(clip);
@@ -617,7 +671,7 @@ export function Rig3DScene({
       }
     }
 
-    if (debug.line && clip !== "READY" && !fighting && !reeling) {
+    if (debug.line && clip !== "READY" && !fighting && !reeling && !prepping) {
       worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
       const jaw = pike.getObjectByName("Jaw") ?? pike.getObjectByName("PikeRoot");
       if (jaw) {
@@ -652,12 +706,12 @@ export function Rig3DScene({
     <group>
       <group rotation={[0, yaw + extraYaw.current + Math.PI, 0]}>
         <primitive object={man} position={[0, 0, 0]} />
-        <WaterPlane active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip)} floatOn={floatOn} />
+        <WaterPlane active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip)} floatOn={floatOn} />
         <LakeFloat
           ref={floatRef}
           floatOn={floatOn}
           wave={wave}
-          active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip)}
+          active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip)}
           hanging={charClip === "AIM"}
           casting={charClip.startsWith("CAST")}
           landing={charClip === "FLOAT_LANDING"}
@@ -666,11 +720,14 @@ export function Rig3DScene({
           hooking={charClip === "HOOKSET"}
           fighting={charClip === "FIGHT_LIGHT"}
           reeling={charClip === "REEL"}
+          prepping={charClip === "LAND_PREP"}
           castTimeRef={castT}
           biteTimeRef={biteT}
           hookTimeRef={hookT}
           fightTimeRef={fightT}
+          prepTimeRef={prepT}
           approachRef={reelApproach}
+          fishPointRef={fishPoint}
           simRef={landSim}
           rod={rod}
         />
@@ -679,7 +736,7 @@ export function Rig3DScene({
       <group
         position={[0.55, 0.55, -1.65]}
         scale={fishScale}
-        visible={!(floatOn && (charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip)))}
+        visible={!(floatOn && (charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip)))}
       >
         <primitive object={pike} />
       </group>
@@ -692,13 +749,13 @@ export function Rig3DScene({
         floatOn={floatOn}
         tension={charClip === "AIM" ? AIM_LINE_TENSION : charClip === "WAIT" ? WAIT_LINE_TENSION : lineTension}
         castTimeRef={charClip.startsWith("CAST") ? castT : undefined}
-        landSimRef={charClip === "FLOAT_LANDING" || charClip === "WAIT" || charClip === "BITE_REACTION" || charClip === "HOOKSET" || charClip === "FIGHT_LIGHT" || charClip === "REEL" ? landSim : undefined}
-        fishPointRef={charClip === "FIGHT_LIGHT" || charClip === "REEL" ? fishPoint : undefined}
+        landSimRef={charClip === "FLOAT_LANDING" || charClip === "WAIT" || charClip === "BITE_REACTION" || charClip === "HOOKSET" || charClip === "FIGHT_LIGHT" || charClip === "REEL" || charClip === "LAND_PREP" ? landSim : undefined}
+        fishPointRef={charClip === "FIGHT_LIGHT" || charClip === "REEL" || charClip === "LAND_PREP" ? fishPoint : undefined}
         wave={wave}
         debug={debug.line}
-        active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip)}
+        active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip)}
       />
-      {debug.line && charClip !== "READY" && charClip !== "FIGHT_LIGHT" && charClip !== "REEL" && (
+      {debug.line && charClip !== "READY" && charClip !== "FIGHT_LIGHT" && charClip !== "REEL" && charClip !== "LAND_PREP" && (
         <line>
           <primitive object={lineGeo} attach="geometry" />
           <lineBasicMaterial color="#d8dde4" transparent opacity={0.75} />

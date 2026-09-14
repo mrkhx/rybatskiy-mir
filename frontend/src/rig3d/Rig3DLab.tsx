@@ -25,7 +25,7 @@ const CHAR_PRIMARY: Array<{ id: CharClip | "CAST"; label: string }> = [
   { id: "REEL", label: "Reel" },
   { id: "FIGHT_LIGHT", label: "Fight" },
   { id: "FIGHT_HEAVY", label: "Fight heavy" },
-  { id: "LAND", label: "Land" },
+  { id: "LAND_PREP", label: "Approach" },
   { id: "RETURN_IDLE", label: "Return idle" },
 ];
 
@@ -87,6 +87,7 @@ export function Rig3DLab() {
   const [hookKey, setHookKey] = useState(0);
   const [fightKey, setFightKey] = useState(0);
   const [reelKey, setReelKey] = useState(0);
+  const [prepKey, setPrepKey] = useState(0);
 
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -198,6 +199,20 @@ export function Rig3DLab() {
       setCharClip("CAST_BACKSWING");
       return;
     }
+    if (id === "LAND_PREP") {
+      if (charClip === "REEL" || charClip === "FIGHT_LIGHT" || charClip === "LAND_PREP") {
+        setPrepKey((n) => n + 1);
+        setCharClip("LAND_PREP");
+        return;
+      }
+      if (charClip === "HOOKSET") {
+        setFightKey((n) => n + 1);
+        setCharClip("FIGHT_LIGHT");
+        return;
+      }
+      setCharClip("CAST_BACKSWING");
+      return;
+    }
     setCharClip(id);
   }, [charClip]);
 
@@ -229,7 +244,7 @@ export function Rig3DLab() {
         <div>
           <p className="rig-lab-kicker">Рыбацкий Мир · 3D contract</p>
           <h1>Production 360° lab</h1>
-          <p className="rig3d-kicker">FIGHT → REEL · спокойная подмотка</p>
+          <p className="rig3d-kicker">REEL → LAND PREP · подход рыбы</p>
         </div>
         <div className="rig-lab-meta">
           <span className="rig-lab-state">{charClip.replaceAll("_", " ")}</span>
@@ -322,6 +337,7 @@ export function Rig3DLab() {
               hookKey={hookKey}
               fightKey={fightKey}
               reelKey={reelKey}
+              prepKey={prepKey}
               onReports={setReports}
             />
             <OrbitControls
@@ -424,7 +440,8 @@ export function Rig3DLab() {
                 a.id !== "BITE_REACTION" &&
                 a.id !== "HOOKSET" &&
                 a.id !== "FIGHT_LIGHT" &&
-                a.id !== "REEL",
+                a.id !== "REEL" &&
+                a.id !== "LAND_PREP",
             );
             const active =
               a.id === "CAST"
@@ -437,7 +454,7 @@ export function Rig3DLab() {
                 key={a.id}
                 type="button"
                 className={active ? "is-on" : ""}
-                disabled={missing}
+                disabled={missing || a.id === "FIGHT_HEAVY"}
                 onClick={() => playChar(a.id)}
                 title={missing ? "clip отсутствует в GLB" : undefined}
               >

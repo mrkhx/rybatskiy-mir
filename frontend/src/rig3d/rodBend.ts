@@ -77,6 +77,7 @@ const FISHING_AIM: Set<CharClip> = new Set([
   "REEL",
   "FIGHT_LIGHT",
   "FIGHT_HEAVY",
+  "LAND_PREP",
   "LAND",
 ]);
 

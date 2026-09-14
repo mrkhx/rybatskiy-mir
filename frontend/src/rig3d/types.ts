@@ -13,6 +13,7 @@ export type CharClip =
   | "REEL"
   | "FIGHT_LIGHT"
   | "FIGHT_HEAVY"
+  | "LAND_PREP"
   | "LAND"
   | "RETURN_IDLE"
   | "TURN_LEFT"
@@ -92,6 +93,8 @@ export function tensionFor(clip: CharClip): number {
       return 0.1;
     case "FLOAT_LANDING":
       return 0.08;
+    case "LAND_PREP":
+      return 0.7;
     case "LAND":
       return 0.12;
     default:
@@ -111,6 +114,7 @@ export function ikFor(clip: CharClip): IkMode {
     clip === "HOOKSET" ||
     clip === "FIGHT_LIGHT" ||
     clip === "REEL" ||
+    clip === "LAND_PREP" ||
     clip === "RETURN_IDLE" ||
     clip.startsWith("CAST") ||
     clip.startsWith("TURN") ||
