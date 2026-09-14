@@ -261,8 +261,7 @@ export function Rig3DScene({
       next.enabled = true;
       next.weight = 1;
       next.paused = false;
-      next.timeScale = plant ? 0 : 1;
-      if (plant) next.time = 0;
+      next.timeScale = 1;
       next.setLoop(THREE.LoopRepeat, Infinity);
       if (!next.isRunning()) next.play();
       charRef.current = charClip;
@@ -276,20 +275,18 @@ export function Rig3DScene({
     }
     next.enabled = true;
     next.reset();
-    next.timeScale = plant
-      ? 0
-      : charClip === "HOOKSET"
-        ? 1.4
-        : charClip === "BITE_REACTION"
-          ? 1.15
-          : charClip === "REEL"
-            ? 1.1
-            : 1;
+    next.timeScale = charClip === "HOOKSET"
+      ? 1.4
+      : charClip === "BITE_REACTION"
+        ? 1.15
+        : charClip === "REEL"
+          ? 1.1
+          : 1;
     next.time = 0;
-    next.setLoop(plant || LOOPING_CHAR.has(charClip) ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
-    next.clampWhenFinished = !LOOPING_CHAR.has(charClip) && !plant;
+    next.setLoop(LOOPING_CHAR.has(charClip) || plant || charClip === "READY" ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+    next.clampWhenFinished = !LOOPING_CHAR.has(charClip) && !plant && charClip !== "READY";
     next.weight = 1;
-    next.fadeIn(plant || charClip === "READY" ? 0 : fade);
+    next.fadeIn(charClip === "READY" || plant ? 0 : fade);
     next.play();
     charRef.current = charClip;
     if (charClip.startsWith("CAST")) castT.current = 0;

@@ -24,6 +24,10 @@ export type CastSample = {
   spine1X: number;
   neckX: number;
   headX: number;
+  armRX: number;
+  armRFore: number;
+  armLX: number;
+  armLFore: number;
   bend: number;
   tension: number;
   released: boolean;
@@ -61,6 +65,10 @@ export function sampleCast(time: number): CastSample {
       spine1X: lerp(PRECAST_SPINE1_X, 1 * DEG, u),
       neckX: lerp(PRECAST_NECK_X, 3 * DEG, u),
       headX: lerp(PRECAST_HEAD_X, 2 * DEG, u),
+      armRX: lerp(0, -14 * DEG, u),
+      armRFore: lerp(0, 10 * DEG, u),
+      armLX: lerp(0, -6 * DEG, u),
+      armLFore: lerp(0, 6 * DEG, u),
       bend: 0.03 * u,
       tension: lerp(AIM_LINE_TENSION, 0.12, u),
       released: false,
@@ -76,6 +84,10 @@ export function sampleCast(time: number): CastSample {
       spine1X: lerp(1 * DEG, 5 * DEG, u),
       neckX: lerp(3 * DEG, 6 * DEG, u),
       headX: lerp(2 * DEG, 5 * DEG, u),
+      armRX: lerp(-14 * DEG, 16 * DEG, u),
+      armRFore: lerp(10 * DEG, -2 * DEG, u),
+      armLX: lerp(-6 * DEG, 8 * DEG, u),
+      armLFore: lerp(6 * DEG, 2 * DEG, u),
       bend: lerp(0.03, 0.1, u),
       tension: lerp(0.12, 0.28, u),
       released: false,
@@ -91,6 +103,10 @@ export function sampleCast(time: number): CastSample {
       spine1X: lerp(5 * DEG, 4 * DEG, u),
       neckX: lerp(6 * DEG, 5 * DEG, u),
       headX: lerp(5 * DEG, 4 * DEG, u),
+      armRX: lerp(16 * DEG, 10 * DEG, u),
+      armRFore: lerp(-2 * DEG, 2 * DEG, u),
+      armLX: lerp(8 * DEG, 4 * DEG, u),
+      armLFore: lerp(2 * DEG, 2 * DEG, u),
       bend: lerp(0.1, 0.04, u),
       tension: lerp(0.28, 0.15, u),
       released: t >= CAST_RELEASE_AT,
@@ -105,6 +121,10 @@ export function sampleCast(time: number): CastSample {
     spine1X: lerp(4 * DEG, 3 * DEG, u),
     neckX: lerp(5 * DEG, 4 * DEG, u),
     headX: lerp(4 * DEG, 3 * DEG, u),
+    armRX: lerp(10 * DEG, 6 * DEG, u),
+    armRFore: lerp(2 * DEG, 4 * DEG, u),
+    armLX: lerp(4 * DEG, 2 * DEG, u),
+    armLFore: lerp(2 * DEG, 3 * DEG, u),
     bend: lerp(0.04, 0.02, u),
     tension: lerp(0.15, 0.55, u),
     released: true,
@@ -112,8 +132,34 @@ export function sampleCast(time: number): CastSample {
   };
 }
 
-export function applyCastPose(_man: THREE.Object3D, _s: CastSample): void {
-  /* feet planted — no Spine/Neck local-X (it leans him onto the right side) */
+const REST: Record<string, THREE.Quaternion> = {};
+const _q = new THREE.Quaternion();
+const AXIS_X = new THREE.Vector3(1, 0, 0);
+
+function getBone(man: THREE.Object3D, name: string): THREE.Bone | null {
+  let found: THREE.Bone | null = null;
+  man.traverse((o) => {
+    if (found) return;
+    if ((o as THREE.Bone).isBone && o.name === name) found = o as THREE.Bone;
+  });
+  return found;
+}
+
+function addLocalX(man: THREE.Object3D, name: string, angle: number) {
+  const b = getBone(man, name);
+  if (!b) return;
+  if (!REST[name]) REST[name] = b.quaternion.clone();
+  b.quaternion.copy(REST[name]);
+  _q.setFromAxisAngle(AXIS_X, angle);
+  b.quaternion.multiply(_q);
+}
+
+/** Arms follow the cast. No Spine/Neck — local X there is a side-lean. */
+export function applyCastPose(man: THREE.Object3D, s: CastSample): void {
+  addLocalX(man, "UpperArm_R", s.armRX);
+  addLocalX(man, "LowerArm_R", s.armRFore);
+  addLocalX(man, "UpperArm_L", s.armLX);
+  addLocalX(man, "LowerArm_L", s.armLFore);
 }
 
 export function isCastClip(clip: string): boolean {
