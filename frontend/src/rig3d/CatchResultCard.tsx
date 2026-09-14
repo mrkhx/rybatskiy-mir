@@ -19,7 +19,7 @@ export function CatchResultCard({ data, choice, onKeep, onRelease }: Props) {
   const locked = choice !== null;
   return (
     <aside
-      className={`catch-result${choice === "RELEASE_SELECTED" ? " is-leaving" : ""}`}
+      className={`catch-result${choice === "RELEASE_SELECTED" || choice === "KEEP_SELECTED" ? " is-leaving" : ""}`}
       aria-live="polite"
       aria-label="Результат улова"
     >

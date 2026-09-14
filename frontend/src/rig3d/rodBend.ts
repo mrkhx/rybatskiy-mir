@@ -81,6 +81,7 @@ const FISHING_AIM: Set<CharClip> = new Set([
   "LAND",
   "LANDED_HOLD",
   "RELEASE",
+  "KEEP",
 ]);
 
 /**
