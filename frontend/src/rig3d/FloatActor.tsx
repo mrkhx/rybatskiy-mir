@@ -79,13 +79,15 @@ export const LakeFloat = forwardRef<
     biting?: boolean;
     hooking?: boolean;
     fighting?: boolean;
+    reeling?: boolean;
     castTimeRef?: React.MutableRefObject<number>;
     biteTimeRef?: React.MutableRefObject<number>;
     hookTimeRef?: React.MutableRefObject<number>;
     fightTimeRef?: React.MutableRefObject<number>;
+    approachRef?: React.MutableRefObject<number>;
     simRef?: React.MutableRefObject<LandingSim>;
   }
->(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, hooking = false, fighting = false, castTimeRef, biteTimeRef, hookTimeRef, fightTimeRef, simRef }, ref) {
+>(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, hooking = false, fighting = false, reeling = false, castTimeRef, biteTimeRef, hookTimeRef, fightTimeRef, approachRef, simRef }, ref) {
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
@@ -122,7 +124,7 @@ export const LakeFloat = forwardRef<
       if (!show) return;
       if (!biting) biteArmed.current = false;
       if (!hooking) hookArmed.current = false;
-      if (!fighting) fightArmed.current = false;
+      if (!fighting && !reeling) fightArmed.current = false;
       const t = clock.current;
       const gparent = g.parent;
       if (casting && rod) {
@@ -325,7 +327,7 @@ export const LakeFloat = forwardRef<
           settleT: hookTimeRef?.current ?? 0,
           phase: h.phase,
         };
-      } else if (fighting) {
+      } else if (fighting || reeling) {
         const st = fly.current;
         if (!fightArmed.current) {
           if (!st.primed) {
@@ -337,8 +339,9 @@ export const LakeFloat = forwardRef<
           fightArmed.current = true;
         }
         const f = sampleFight(fightTimeRef?.current ?? 0);
+        const approach = approachRef?.current ?? 0;
         st.pos.set(
-          fightRest.current.x + f.fishX * f.floatFollow,
+          fightRest.current.x + f.fishX * f.floatFollow - approach * 0.45,
           WATERLINE_Y + f.floatDip,
           fightRest.current.z + f.fishZ * f.floatFollow,
         );

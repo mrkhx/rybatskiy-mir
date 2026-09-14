@@ -86,6 +86,7 @@ export function Rig3DLab() {
   const [biteKey, setBiteKey] = useState(0);
   const [hookKey, setHookKey] = useState(0);
   const [fightKey, setFightKey] = useState(0);
+  const [reelKey, setReelKey] = useState(0);
 
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -166,6 +167,10 @@ export function Rig3DLab() {
       return;
     }
     if (id === "FIGHT_LIGHT") {
+      if (charClip === "REEL") {
+        setCharClip("FIGHT_LIGHT");
+        return;
+      }
       if (charClip === "HOOKSET" || charClip === "FIGHT_LIGHT") {
         setFightKey((n) => n + 1);
         setCharClip("FIGHT_LIGHT");
@@ -174,6 +179,20 @@ export function Rig3DLab() {
       if (charClip === "BITE_REACTION") {
         setHookKey((n) => n + 1);
         setCharClip("HOOKSET");
+        return;
+      }
+      setCharClip("CAST_BACKSWING");
+      return;
+    }
+    if (id === "REEL") {
+      if (charClip === "FIGHT_LIGHT" || charClip === "REEL") {
+        setReelKey((n) => n + 1);
+        setCharClip("REEL");
+        return;
+      }
+      if (charClip === "HOOKSET") {
+        setFightKey((n) => n + 1);
+        setCharClip("FIGHT_LIGHT");
         return;
       }
       setCharClip("CAST_BACKSWING");
@@ -210,7 +229,7 @@ export function Rig3DLab() {
         <div>
           <p className="rig-lab-kicker">Рыбацкий Мир · 3D contract</p>
           <h1>Production 360° lab</h1>
-          <p className="rig3d-kicker">HOOKSET → FIGHT · вываживание</p>
+          <p className="rig3d-kicker">FIGHT → REEL · спокойная подмотка</p>
         </div>
         <div className="rig-lab-meta">
           <span className="rig-lab-state">{charClip.replaceAll("_", " ")}</span>
@@ -302,6 +321,7 @@ export function Rig3DLab() {
               biteKey={biteKey}
               hookKey={hookKey}
               fightKey={fightKey}
+              reelKey={reelKey}
               onReports={setReports}
             />
             <OrbitControls
@@ -403,7 +423,8 @@ export function Rig3DLab() {
                 a.id !== "WAIT" &&
                 a.id !== "BITE_REACTION" &&
                 a.id !== "HOOKSET" &&
-                a.id !== "FIGHT_LIGHT",
+                a.id !== "FIGHT_LIGHT" &&
+                a.id !== "REEL",
             );
             const active =
               a.id === "CAST"

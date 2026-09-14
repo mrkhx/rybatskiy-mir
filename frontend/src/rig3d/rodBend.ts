@@ -15,12 +15,27 @@ export function applyRodBend(rod: THREE.Object3D, tension: number) {
   }
 }
 
-export function spinReel(rod: THREE.Object3D, dt: number, active: boolean) {
+export function seatReelHandle(rod: THREE.Object3D) {
+  if (rod.userData.reelSeated) return;
+  const handle = rod.getObjectByName("ReelHandle");
+  const mesh = rod.getObjectByName("ReelHandleMesh");
+  const target = rod.getObjectByName("ReelHandleTarget");
+  if (!handle) return;
+  if (mesh && mesh.parent !== handle) handle.attach(mesh);
+  if (target) {
+    if (target.parent !== handle) handle.attach(target);
+    if (mesh) target.position.copy(mesh.position);
+  }
+  rod.userData.reelSeated = true;
+}
+
+export function spinReel(rod: THREE.Object3D, dt: number, active: boolean | number) {
+  seatReelHandle(rod);
+  const speed = typeof active === "number" ? active : active ? 8.4 : 0;
   const handle = rod.getObjectByName("ReelHandle");
   const rotor = rod.getObjectByName("ReelRotor");
-  const speed = active ? 9.5 : 0;
   if (handle) handle.rotation.z -= speed * dt;
-  if (rotor) rotor.rotation.z += speed * 0.85 * dt;
+  if (rotor && Math.abs(speed) > 1e-4) rotor.rotation.z += speed * 0.85 * dt;
 }
 
 export const _tip = new THREE.Vector3();
