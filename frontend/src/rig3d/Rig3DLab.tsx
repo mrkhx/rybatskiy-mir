@@ -83,6 +83,7 @@ export function Rig3DLab() {
   const [floatOn, setFloatOn] = useState(true);
   const [lineTension, setLineTension] = useState(0);
   const [wave, setWave] = useState(0.4);
+  const [biteKey, setBiteKey] = useState(0);
 
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -131,11 +132,20 @@ export function Rig3DLab() {
       return;
     }
     if (id === "WAIT") {
-      if (charClip === "FLOAT_LANDING" || charClip.startsWith("CAST")) {
+      if (charClip === "FLOAT_LANDING" || charClip.startsWith("CAST") || charClip === "BITE_REACTION") {
         setCharClip("WAIT");
         return;
       }
       if (charClip === "WAIT") return;
+      setCharClip("CAST_BACKSWING");
+      return;
+    }
+    if (id === "BITE_REACTION") {
+      if (charClip === "WAIT" || charClip === "BITE_REACTION" || charClip === "FLOAT_LANDING" || charClip.startsWith("CAST")) {
+        setBiteKey((n) => n + 1);
+        setCharClip("BITE_REACTION");
+        return;
+      }
       setCharClip("CAST_BACKSWING");
       return;
     }
@@ -170,7 +180,7 @@ export function Rig3DLab() {
         <div>
           <p className="rig-lab-kicker">Рыбацкий Мир · 3D contract</p>
           <h1>Production 360° lab</h1>
-          <p className="rig3d-kicker">CAST → LANDING → WAIT · ожидание поклёвки</p>
+          <p className="rig3d-kicker">WAIT → BITE · поклёвка на поплавок</p>
         </div>
         <div className="rig-lab-meta">
           <span className="rig-lab-state">{charClip.replaceAll("_", " ")}</span>
@@ -259,6 +269,7 @@ export function Rig3DLab() {
               onCharFinished={onCharFinished}
               onCastComplete={onCastComplete}
               onLandingComplete={onLandingComplete}
+              biteKey={biteKey}
               onReports={setReports}
             />
             <OrbitControls
@@ -355,7 +366,8 @@ export function Rig3DLab() {
                 a.id !== "READY" &&
                 a.id !== "CAST" &&
                 a.id !== "FLOAT_LANDING" &&
-                a.id !== "WAIT",
+                a.id !== "WAIT" &&
+                a.id !== "BITE_REACTION",
             );
             const active =
               a.id === "CAST"

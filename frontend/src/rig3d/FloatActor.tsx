@@ -40,6 +40,7 @@ import {
   WATERLINE_Y,
   type LandingSim,
 } from "./floatLanding";
+import { BITE_SINK_DIP, sampleBiteFloat } from "./bite";
 
 useGLTF.preload(PRODUCTION.float);
 
@@ -71,10 +72,12 @@ export const LakeFloat = forwardRef<
     casting?: boolean;
     landing?: boolean;
     waiting?: boolean;
+    biting?: boolean;
     castTimeRef?: React.MutableRefObject<number>;
+    biteTimeRef?: React.MutableRefObject<number>;
     simRef?: React.MutableRefObject<LandingSim>;
   }
->(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, castTimeRef, simRef }, ref) {
+>(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, castTimeRef, biteTimeRef, simRef }, ref) {
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
@@ -94,6 +97,8 @@ export const LakeFloat = forwardRef<
       settleT: 0,
     });
     const lastTip = useRef(new THREE.Vector3());
+    const biteRest = useRef(new THREE.Vector3());
+    const biteArmed = useRef(false);
 
     useFrame((_, rawDt) => {
       const dt = Math.min(rawDt, 0.05);
@@ -103,6 +108,7 @@ export const LakeFloat = forwardRef<
       const show = active && floatOn;
       g.visible = show;
       if (!show) return;
+      if (!biting) biteArmed.current = false;
       const t = clock.current;
       const gparent = g.parent;
       if (casting && rod) {
@@ -247,7 +253,40 @@ export const LakeFloat = forwardRef<
           FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ),
         );
         if (simRef) simRef.current.tension = LANDING_REST_TENSION;
+      } else if (biting) {
+        const st = fly.current;
+        if (!biteArmed.current) {
+          if (!st.primed) {
+            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            st.primed = true;
+            st.contact = true;
+          }
+          biteRest.current.copy(st.pos);
+          biteArmed.current = true;
+        }
+        const b = sampleBiteFloat(biteTimeRef?.current ?? 0);
+        const sink = Math.min(1, Math.abs(b.dip) / BITE_SINK_DIP);
+        const bob = FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ) * (1 - sink);
+        st.pos.set(biteRest.current.x, WATERLINE_Y + b.dip + bob, biteRest.current.z + b.side);
+        _hang.copy(st.pos);
+        if (gparent) gparent.worldToLocal(_hang);
+        g.position.copy(_hang);
+        g.rotation.set(
+          FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ) + b.tilt * 0.35,
+          0,
+          FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ) + b.tilt,
+        );
+        if (simRef) simRef.current.tension = b.tension;
+        (window as unknown as { __FLOAT?: { y: number; contact: boolean; settleT: number; phase?: string } }).__FLOAT = {
+          y: st.pos.y,
+          contact: true,
+          settleT: biteTimeRef?.current ?? 0,
+          phase: b.phase,
+        };
       } else {
+        fly.current.primed = false;
+        fly.current.on = false;
+        fly.current.contact = false;
         fly.current.primed = false;
         fly.current.on = false;
         fly.current.contact = false;
