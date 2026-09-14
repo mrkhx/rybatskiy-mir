@@ -1,7 +1,7 @@
 /**
  * LAND PREP / APPROACH — tired-fish close after approved REEL.
  * t=0 pose matches current REEL/FIGHT. Does not spawn fish or start LAND.
- * Late phase lifts float + FishPullPoint out of the water together.
+ * Late phase lifts the float out of the water; FishPullPoint stays at the surface.
  * Tackle stays RodTip → FloatAttach → float → FloatBottom → leader → FishPullPoint.
  */
 import * as THREE from "three";
@@ -14,8 +14,10 @@ export const PREP_DURATION = 3.4;
 export const PREP_END_DIST = 1.55;
 export const PREP_LIFT_DIST = 1.08;
 export const PREP_LIFT_START = 0.58;
-export const PREP_FISH_AIR_Y = 0.42;
-export const PREP_FLOAT_ABOVE = 0.3;
+/** Fish stays at/under the waterline — LAND will lift it later. */
+export const PREP_FISH_WET_Y = WATERLINE_Y - 0.12;
+/** Same air height as the previous lift; not tied to FishPullPoint Y. */
+export const PREP_FLOAT_AIR_Y = 0.72;
 export const PREP_PITCH = 9 * DEG;
 export const PREP_LIFT_PITCH = 8 * DEG;
 export const PREP_HEAD = 7 * DEG;
@@ -90,7 +92,7 @@ export function prepFishWorld(start: THREE.Vector3, t: number, out: THREE.Vector
   const endDist = lerp(PREP_END_DIST, PREP_LIFT_DIST, lift);
   const dist = lerp(len, endDist, along);
   const wetY = lerp(start.y, -0.16, k);
-  out.set(nx * dist - nz * side, lerp(wetY, PREP_FISH_AIR_Y, lift), nz * dist + nx * side);
+  out.set(nx * dist - nz * side, lerp(wetY, PREP_FISH_WET_Y, lift), nz * dist + nx * side);
   return out;
 }
 
@@ -104,7 +106,7 @@ export function prepFloatWorld(
   const lift = prepLift(t);
   out.set(
     lerp(start.x, fish.x, k),
-    lerp(WATERLINE_Y, fish.y + PREP_FLOAT_ABOVE, lift),
+    lerp(WATERLINE_Y, PREP_FLOAT_AIR_Y, lift),
     lerp(start.z, fish.z, k),
   );
   return out;
