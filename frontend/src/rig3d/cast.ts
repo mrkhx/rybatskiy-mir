@@ -112,33 +112,8 @@ export function sampleCast(time: number): CastSample {
   };
 }
 
-const REST: Record<string, THREE.Quaternion> = {};
-const _qx = new THREE.Quaternion();
-const _axisX = new THREE.Vector3(1, 0, 0);
-
-function getBone(man: THREE.Object3D, name: string): THREE.Bone | null {
-  let found: THREE.Bone | null = null;
-  man.traverse((o) => {
-    if (found) return;
-    if ((o as THREE.Bone).isBone && o.name === name) found = o as THREE.Bone;
-  });
-  return found;
-}
-
-function setLocalX(man: THREE.Object3D, name: string, angle: number) {
-  const b = getBone(man, name);
-  if (!b) return;
-  if (!REST[name]) REST[name] = b.quaternion.clone();
-  b.quaternion.copy(REST[name]);
-  _qx.setFromAxisAngle(_axisX, angle);
-  b.quaternion.multiply(_qx);
-}
-
-export function applyCastPose(man: THREE.Object3D, s: CastSample): void {
-  setLocalX(man, "Spine", s.spineX);
-  setLocalX(man, "Spine1", s.spine1X);
-  setLocalX(man, "Neck", s.neckX);
-  setLocalX(man, "Head", s.headX);
+export function applyCastPose(_man: THREE.Object3D, _s: CastSample): void {
+  /* feet planted — no Spine/Neck local-X (it leans him onto the right side) */
 }
 
 export function isCastClip(clip: string): boolean {

@@ -257,9 +257,19 @@ export function Rig3DScene({
     }
     next.enabled = true;
     next.reset();
-    next.timeScale = charClip === "HOOKSET" ? 1.4 : charClip === "BITE_REACTION" ? 1.15 : charClip === "REEL" ? 1.1 : 1;
-    next.setLoop(LOOPING_CHAR.has(charClip) ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
-    next.clampWhenFinished = !LOOPING_CHAR.has(charClip);
+    const plant = charClip === "AIM" || charClip.startsWith("CAST");
+    next.timeScale = plant
+      ? 0
+      : charClip === "HOOKSET"
+        ? 1.4
+        : charClip === "BITE_REACTION"
+          ? 1.15
+          : charClip === "REEL"
+            ? 1.1
+            : 1;
+    next.time = 0;
+    next.setLoop(plant || LOOPING_CHAR.has(charClip) ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+    next.clampWhenFinished = !LOOPING_CHAR.has(charClip) && !plant;
     next.fadeIn(fade);
     next.play();
     charRef.current = charClip;
