@@ -5,6 +5,8 @@ import { OrbitControls } from "@react-three/drei";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Lights, Rig3DScene, type SceneReports } from "./Rig3DScene";
 import { CAST_SEQ, type CharClip, type DebugFlags, type FishClip } from "./types";
+import { CatchResultCard } from "./CatchResultCard";
+import { DEBUG_CATCH_RESULT, type CatchResultData } from "./catchResult";
 import { DEBUG_PROXY, PRODUCTION, resolveProductionAssets, type ResolvedAssets } from "../scene3d/assets/paths";
 import { summarize, type AdapterReport } from "../scene3d/assets/contract";
 import "../rig/rig.css";
@@ -12,7 +14,7 @@ import "./rig3d.css";
 
 const AZIMUTHS = [0, 45, 90, 135, 180, 225, 270, 315] as const;
 
-const CHAR_PRIMARY: Array<{ id: CharClip | "CAST"; label: string }> = [
+const CHAR_PRIMARY: Array<{ id: CharClip | "CAST" | "CATCH_RESULT"; label: string }> = [
   { id: "IDLE", label: "Idle" },
   { id: "WALK", label: "Walk" },
   { id: "READY", label: "Ready" },
@@ -28,6 +30,7 @@ const CHAR_PRIMARY: Array<{ id: CharClip | "CAST"; label: string }> = [
   { id: "LAND_PREP", label: "Approach" },
   { id: "LAND", label: "Land" },
   { id: "LANDED_HOLD", label: "Hold" },
+  { id: "CATCH_RESULT", label: "Result" },
   { id: "RETURN_IDLE", label: "Return idle" },
 ];
 
@@ -92,6 +95,8 @@ export function Rig3DLab() {
   const [prepKey, setPrepKey] = useState(0);
   const [landKey, setLandKey] = useState(0);
   const [holdKey, setHoldKey] = useState(0);
+  const [resultOpen, setResultOpen] = useState(false);
+  const [resultRecord, setResultRecord] = useState(false);
 
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -126,7 +131,8 @@ export function Rig3DLab() {
     };
   }, []);
 
-  const playChar = useCallback((id: CharClip | "CAST") => {
+  const playChar = useCallback((id: CharClip | "CAST" | "CATCH_RESULT") => {
+    if (id !== "CATCH_RESULT") setResultOpen(false);
     if (id === "CAST") {
       setCharClip("CAST_BACKSWING");
       return;
@@ -245,6 +251,20 @@ export function Rig3DLab() {
       setCharClip("CAST_BACKSWING");
       return;
     }
+    if (id === "CATCH_RESULT") {
+      if (charClip === "LANDED_HOLD" || charClip === "LAND") {
+        if (charClip === "LAND") setCharClip("LANDED_HOLD");
+        setResultOpen(true);
+        return;
+      }
+      if (charClip === "LAND_PREP") {
+        setLandKey((n) => n + 1);
+        setCharClip("LAND");
+        return;
+      }
+      setCharClip("CAST_BACKSWING");
+      return;
+    }
     setCharClip(id);
   }, [charClip]);
 
@@ -268,6 +288,10 @@ export function Rig3DLab() {
   const available = useMemo(() => new Set(reports?.fisherman.clips ?? []), [reports]);
   const fishermanPass = Boolean(reports?.fisherman.pass);
   const productionReady = Boolean(fishermanPass && reports?.rod.pass && reports?.pike.pass);
+  const catchData = useMemo<CatchResultData>(
+    () => ({ ...DEBUG_CATCH_RESULT, isRecord: resultRecord }),
+    [resultRecord],
+  );
   const azimuthDeg = Math.round(((yaw * 180) / Math.PI + 360) % 360);
 
   return (
@@ -276,10 +300,10 @@ export function Rig3DLab() {
         <div>
           <p className="rig-lab-kicker">Рыбацкий Мир · 3D contract</p>
           <h1>Production 360° lab</h1>
-          <p className="rig3d-kicker">LAND → HOLD · debug pike proxy</p>
+          <p className="rig3d-kicker">HOLD → RESULT · карточка улова</p>
         </div>
         <div className="rig-lab-meta">
-          <span className="rig-lab-state">{charClip.replaceAll("_", " ")}</span>
+          <span className="rig-lab-state">{resultOpen ? "CATCH RESULT" : charClip.replaceAll("_", " ")}</span>
           <span className="rig-lab-state">{autoYaw ? "auto" : `${azimuthDeg}°`}</span>
           {debug.fps && <span className="rig-lab-state">{fps || "—"} fps</span>}
           <a href="/dev/rod" className="rig-lab-back">
@@ -386,6 +410,7 @@ export function Rig3DLab() {
             />
           </Suspense>
         </Canvas>
+        {resultOpen && <CatchResultCard data={catchData} />}
       </section>
 
       <nav className="rig-dock" aria-label="Позы 3D рига">
@@ -477,14 +502,17 @@ export function Rig3DLab() {
                 a.id !== "REEL" &&
                 a.id !== "LAND_PREP" &&
                 a.id !== "LAND" &&
-                a.id !== "LANDED_HOLD",
+                a.id !== "LANDED_HOLD" &&
+                a.id !== "CATCH_RESULT",
             );
             const active =
               a.id === "CAST"
                 ? charClip.startsWith("CAST")
-                : a.id === "FLOAT_LANDING"
-                  ? charClip === "FLOAT_LANDING"
-                  : charClip === a.id;
+                : a.id === "CATCH_RESULT"
+                  ? resultOpen
+                  : a.id === "FLOAT_LANDING"
+                    ? charClip === "FLOAT_LANDING"
+                    : charClip === a.id;
             return (
               <button
                 key={a.id}
@@ -498,6 +526,14 @@ export function Rig3DLab() {
               </button>
             );
           })}
+          <button
+            type="button"
+            className={resultRecord ? "is-on" : ""}
+            onClick={() => setResultRecord((v) => !v)}
+            title="Показать статус нового рекорда"
+          >
+            Рекорд
+          </button>
         </div>
         <div className="rig-actions rig-actions-more">
           {FISH_BTNS.map((a) => (
