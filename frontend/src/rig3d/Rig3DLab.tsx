@@ -23,7 +23,7 @@ const CHAR_PRIMARY: Array<{ id: CharClip | "CAST"; label: string }> = [
   { id: "BITE_REACTION", label: "Bite" },
   { id: "HOOKSET", label: "Hookset" },
   { id: "REEL", label: "Reel" },
-  { id: "FIGHT_LIGHT", label: "Fight light" },
+  { id: "FIGHT_LIGHT", label: "Fight" },
   { id: "FIGHT_HEAVY", label: "Fight heavy" },
   { id: "LAND", label: "Land" },
   { id: "RETURN_IDLE", label: "Return idle" },
@@ -85,6 +85,7 @@ export function Rig3DLab() {
   const [wave, setWave] = useState(0.4);
   const [biteKey, setBiteKey] = useState(0);
   const [hookKey, setHookKey] = useState(0);
+  const [fightKey, setFightKey] = useState(0);
 
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -156,9 +157,23 @@ export function Rig3DLab() {
         setCharClip("HOOKSET");
         return;
       }
-      if (charClip === "WAIT" || charClip === "FLOAT_LANDING" || charClip.startsWith("CAST")) {
+      if (charClip === "WAIT" || charClip === "FLOAT_LANDING" || charClip.startsWith("CAST") || charClip === "FIGHT_LIGHT") {
         setBiteKey((n) => n + 1);
         setCharClip("BITE_REACTION");
+        return;
+      }
+      setCharClip("CAST_BACKSWING");
+      return;
+    }
+    if (id === "FIGHT_LIGHT") {
+      if (charClip === "HOOKSET" || charClip === "FIGHT_LIGHT") {
+        setFightKey((n) => n + 1);
+        setCharClip("FIGHT_LIGHT");
+        return;
+      }
+      if (charClip === "BITE_REACTION") {
+        setHookKey((n) => n + 1);
+        setCharClip("HOOKSET");
         return;
       }
       setCharClip("CAST_BACKSWING");
@@ -195,7 +210,7 @@ export function Rig3DLab() {
         <div>
           <p className="rig-lab-kicker">Рыбацкий Мир · 3D contract</p>
           <h1>Production 360° lab</h1>
-          <p className="rig3d-kicker">BITE → HOOKSET · короткая подсечка</p>
+          <p className="rig3d-kicker">HOOKSET → FIGHT · вываживание</p>
         </div>
         <div className="rig-lab-meta">
           <span className="rig-lab-state">{charClip.replaceAll("_", " ")}</span>
@@ -286,6 +301,7 @@ export function Rig3DLab() {
               onLandingComplete={onLandingComplete}
               biteKey={biteKey}
               hookKey={hookKey}
+              fightKey={fightKey}
               onReports={setReports}
             />
             <OrbitControls
@@ -386,7 +402,8 @@ export function Rig3DLab() {
                 a.id !== "FLOAT_LANDING" &&
                 a.id !== "WAIT" &&
                 a.id !== "BITE_REACTION" &&
-                a.id !== "HOOKSET",
+                a.id !== "HOOKSET" &&
+                a.id !== "FIGHT_LIGHT",
             );
             const active =
               a.id === "CAST"

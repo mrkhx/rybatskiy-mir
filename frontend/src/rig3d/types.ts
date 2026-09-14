@@ -81,7 +81,7 @@ export function tensionFor(clip: CharClip): number {
     case "REEL":
       return 0.22;
     case "FIGHT_LIGHT":
-      return 0.48;
+      return 0.86;
     case "FIGHT_HEAVY":
       return 0.82;
     case "CAST_BACKSWING":
@@ -109,6 +109,7 @@ export function ikFor(clip: CharClip): IkMode {
     clip === "WAIT" ||
     clip === "BITE_REACTION" ||
     clip === "HOOKSET" ||
+    clip === "FIGHT_LIGHT" ||
     clip === "RETURN_IDLE" ||
     clip.startsWith("CAST") ||
     clip.startsWith("TURN") ||

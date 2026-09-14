@@ -42,6 +42,7 @@ import {
 } from "./floatLanding";
 import { BITE_SINK_DIP, sampleBiteFloat } from "./bite";
 import { sampleHookFloat } from "./hookset";
+import { sampleFight } from "./fight";
 
 useGLTF.preload(PRODUCTION.float);
 
@@ -63,6 +64,7 @@ export type TackleProps = {
   active: boolean;
   castTimeRef?: React.MutableRefObject<number>;
   landSimRef?: React.MutableRefObject<LandingSim>;
+  fishPointRef?: React.MutableRefObject<THREE.Vector3>;
 };
 
 export const LakeFloat = forwardRef<
@@ -75,12 +77,14 @@ export const LakeFloat = forwardRef<
     waiting?: boolean;
     biting?: boolean;
     hooking?: boolean;
+    fighting?: boolean;
     castTimeRef?: React.MutableRefObject<number>;
     biteTimeRef?: React.MutableRefObject<number>;
     hookTimeRef?: React.MutableRefObject<number>;
+    fightTimeRef?: React.MutableRefObject<number>;
     simRef?: React.MutableRefObject<LandingSim>;
   }
->(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, hooking = false, castTimeRef, biteTimeRef, hookTimeRef, simRef }, ref) {
+>(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, hooking = false, fighting = false, castTimeRef, biteTimeRef, hookTimeRef, fightTimeRef, simRef }, ref) {
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
@@ -104,6 +108,8 @@ export const LakeFloat = forwardRef<
     const biteArmed = useRef(false);
     const hookRest = useRef(new THREE.Vector3());
     const hookArmed = useRef(false);
+    const fightRest = useRef(new THREE.Vector3());
+    const fightArmed = useRef(false);
 
     useFrame((_, rawDt) => {
       const dt = Math.min(rawDt, 0.05);
@@ -115,6 +121,7 @@ export const LakeFloat = forwardRef<
       if (!show) return;
       if (!biting) biteArmed.current = false;
       if (!hooking) hookArmed.current = false;
+      if (!fighting) fightArmed.current = false;
       const t = clock.current;
       const gparent = g.parent;
       if (casting && rod) {
@@ -317,6 +324,38 @@ export const LakeFloat = forwardRef<
           settleT: hookTimeRef?.current ?? 0,
           phase: h.phase,
         };
+      } else if (fighting) {
+        const st = fly.current;
+        if (!fightArmed.current) {
+          if (!st.primed) {
+            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            st.primed = true;
+            st.contact = true;
+          }
+          fightRest.current.copy(st.pos);
+          fightArmed.current = true;
+        }
+        const f = sampleFight(fightTimeRef?.current ?? 0);
+        st.pos.set(
+          fightRest.current.x + f.fishX * f.floatFollow,
+          WATERLINE_Y + f.floatDip,
+          fightRest.current.z + f.fishZ * f.floatFollow,
+        );
+        _hang.copy(st.pos);
+        if (gparent) gparent.worldToLocal(_hang);
+        g.position.copy(_hang);
+        g.rotation.set(
+          FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ) + 0.12 * f.pull,
+          0,
+          FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ) + 0.16 * f.side,
+        );
+        if (simRef) simRef.current.tension = f.tension;
+        (window as unknown as { __FLOAT?: { y: number; contact: boolean; settleT: number; phase?: string } }).__FLOAT = {
+          y: st.pos.y,
+          contact: true,
+          settleT: fightTimeRef?.current ?? 0,
+          phase: f.phase,
+        };
       } else {
         fly.current.primed = false;
         fly.current.on = false;
@@ -396,6 +435,7 @@ export function FishingLineView({
   active,
   castTimeRef,
   landSimRef,
+  fishPointRef,
 }: TackleProps) {
   const size = useThree((s) => s.size);
   const positions = useMemo(() => new Float32Array(LINE_FLOATS), []);
@@ -455,14 +495,18 @@ export function FishingLineView({
     if (!show) return;
 
     worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
-    const floatG = floatRef.current;
-    const attachNode = floatG?.getObjectByName("FloatAttach");
-    if (attachNode) {
-      attachNode.updateWorldMatrix(true, false);
-      _attach.setFromMatrixPosition(attachNode.matrixWorld);
-    } else if (floatG) {
-      _attach.copy(FLOAT_ATTACH_LOCAL);
-      floatG.localToWorld(_attach);
+    if (fishPointRef) {
+      _attach.copy(fishPointRef.current);
+    } else {
+      const floatG = floatRef.current;
+      const attachNode = floatG?.getObjectByName("FloatAttach");
+      if (attachNode) {
+        attachNode.updateWorldMatrix(true, false);
+        _attach.setFromMatrixPosition(attachNode.matrixWorld);
+      } else if (floatG) {
+        _attach.copy(FLOAT_ATTACH_LOCAL);
+        floatG.localToWorld(_attach);
+      }
     }
     sampleLine(_tip, _attach, ten, positions);
     (line.geometry as LineGeometry).setPositions(positions);
@@ -471,6 +515,7 @@ export function FishingLineView({
     thin.geometry.computeBoundingSphere();
 
     if (debug) {
+      const floatG = floatRef.current;
       const wl = floatG?.getObjectByName("FloatWaterline");
       const bot = floatG?.getObjectByName("FloatBottom");
       if (markers.tip.current) markers.tip.current.position.copy(_tip);
