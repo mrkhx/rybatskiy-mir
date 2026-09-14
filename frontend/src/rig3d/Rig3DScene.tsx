@@ -200,7 +200,6 @@ export function Rig3DScene({
   const fishPoint = useRef(new THREE.Vector3());
   const fishRest = useRef(new THREE.Vector3());
   const fishArmed = useRef(false);
-  const fishMarker = useRef<THREE.Mesh>(null);
   const onCastCompleteRef = useRef(onCastComplete);
   onCastCompleteRef.current = onCastComplete;
   const onLandingCompleteRef = useRef(onLandingComplete);
@@ -539,7 +538,6 @@ export function Rig3DScene({
           fishArmed.current = true;
         }
         fightFishWorld(fishRest.current, s, fishPoint.current);
-        if (fishMarker.current) fishMarker.current.position.copy(fishPoint.current);
         fightT.current += dt;
         if (fightT.current >= FIGHT_LOOP) fightT.current = 0.4;
         (window as unknown as { __FIGHT_T?: number; __FIGHT?: { phase: string; pull: number; bend: number; ten: number } }).__FIGHT_T = fightT.current;
@@ -584,7 +582,7 @@ export function Rig3DScene({
       }
     }
 
-    if (debug.line && clip !== "READY") {
+    if (debug.line && clip !== "READY" && !fighting) {
       worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
       const jaw = pike.getObjectByName("Jaw") ?? pike.getObjectByName("PikeRoot");
       if (jaw) {
@@ -663,13 +661,7 @@ export function Rig3DScene({
         debug={debug.line}
         active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip)}
       />
-      {debug.line && charClip === "FIGHT_LIGHT" && (
-        <mesh ref={fishMarker}>
-          <sphereGeometry args={[0.045, 10, 10]} />
-          <meshBasicMaterial color="#7ad0a0" transparent opacity={0.7} />
-        </mesh>
-      )}
-      {debug.line && charClip !== "READY" && (
+      {debug.line && charClip !== "READY" && charClip !== "FIGHT_LIGHT" && (
         <line>
           <primitive object={lineGeo} attach="geometry" />
           <lineBasicMaterial color="#d8dde4" transparent opacity={0.75} />

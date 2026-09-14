@@ -48,6 +48,7 @@ useGLTF.preload(PRODUCTION.float);
 
 const _tip = new THREE.Vector3();
 const _attach = new THREE.Vector3();
+const _keel = new THREE.Vector3();
 const _hang = new THREE.Vector3();
 const _in = new THREE.Vector3();
 const _blank = new THREE.Vector3();
@@ -472,11 +473,46 @@ export function FishingLineView({
     return l;
   }, [positions]);
 
+  const leaderPos = useMemo(() => new Float32Array(LINE_FLOATS), []);
+  const leader = useMemo(() => {
+    const geo = new LineGeometry();
+    geo.setPositions(leaderPos);
+    const mat = new LineMaterial({
+      color: 0x8a7a55,
+      linewidth: Math.max(1, LINE_WIDTH_PX * 0.78),
+      transparent: true,
+      opacity: 0.55,
+      dashed: false,
+      depthTest: true,
+      worldUnits: false,
+      toneMapped: false,
+    });
+    const obj = new Line2(geo, mat);
+    obj.frustumCulled = false;
+    obj.visible = false;
+    return obj;
+  }, [leaderPos]);
+  const leaderThin = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(leaderPos, 3));
+    const m = new THREE.LineBasicMaterial({
+      color: 0x8a7a55,
+      transparent: true,
+      opacity: 0.58,
+      depthWrite: false,
+    });
+    const l = new THREE.Line(g, m);
+    l.frustumCulled = false;
+    l.visible = false;
+    return l;
+  }, [leaderPos]);
+
   const markers = {
     tip: useRef<THREE.Mesh>(null),
     attach: useRef<THREE.Mesh>(null),
     water: useRef<THREE.Mesh>(null),
     bottom: useRef<THREE.Mesh>(null),
+    fish: useRef<THREE.Mesh>(null),
   };
 
   useFrame(() => {
@@ -492,21 +528,21 @@ export function FishingLineView({
         : tension;
     mat.opacity = lineOpacity(ten);
     (thin.material as THREE.LineBasicMaterial).opacity = lineOpacity(ten);
-    if (!show) return;
+    if (!show) {
+      leader.visible = false;
+      leaderThin.visible = false;
+      return;
+    }
 
     worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
-    if (fishPointRef) {
-      _attach.copy(fishPointRef.current);
-    } else {
-      const floatG = floatRef.current;
-      const attachNode = floatG?.getObjectByName("FloatAttach");
-      if (attachNode) {
-        attachNode.updateWorldMatrix(true, false);
-        _attach.setFromMatrixPosition(attachNode.matrixWorld);
-      } else if (floatG) {
-        _attach.copy(FLOAT_ATTACH_LOCAL);
-        floatG.localToWorld(_attach);
-      }
+    const floatG = floatRef.current;
+    const attachNode = floatG?.getObjectByName("FloatAttach");
+    if (attachNode) {
+      attachNode.updateWorldMatrix(true, false);
+      _attach.setFromMatrixPosition(attachNode.matrixWorld);
+    } else if (floatG) {
+      _attach.copy(FLOAT_ATTACH_LOCAL);
+      floatG.localToWorld(_attach);
     }
     sampleLine(_tip, _attach, ten, positions);
     (line.geometry as LineGeometry).setPositions(positions);
@@ -514,8 +550,31 @@ export function FishingLineView({
     attr.needsUpdate = true;
     thin.geometry.computeBoundingSphere();
 
-    if (debug) {
-      const floatG = floatRef.current;
+    const hasLeader = Boolean(fishPointRef);
+    leader.visible = hasLeader;
+    leaderThin.visible = hasLeader;
+    if (hasLeader) {
+      const bot = floatG?.getObjectByName("FloatBottom");
+      if (bot) {
+        bot.updateWorldMatrix(true, false);
+        _keel.setFromMatrixPosition(bot.matrixWorld);
+      } else if (floatG) {
+        floatG.updateWorldMatrix(true, false);
+        _keel.setFromMatrixPosition(floatG.matrixWorld);
+        _keel.y -= 0.075;
+      }
+      sampleLine(_keel, fishPointRef.current, ten, leaderPos);
+      (leader.geometry as LineGeometry).setPositions(leaderPos);
+      const lattr = leaderThin.geometry.getAttribute("position") as THREE.BufferAttribute;
+      lattr.needsUpdate = true;
+      leaderThin.geometry.computeBoundingSphere();
+      (leader.material as LineMaterial).resolution.set(size.width, size.height);
+      (leader.material as LineMaterial).opacity = lineOpacity(ten) + 0.08;
+      (leaderThin.material as THREE.LineBasicMaterial).opacity = lineOpacity(ten) + 0.1;
+    }
+
+    const showMarks = debug || hasLeader;
+    if (showMarks) {
       const wl = floatG?.getObjectByName("FloatWaterline");
       const bot = floatG?.getObjectByName("FloatBottom");
       if (markers.tip.current) markers.tip.current.position.copy(_tip);
@@ -528,6 +587,7 @@ export function FishingLineView({
         bot.updateWorldMatrix(true, false);
         markers.bottom.current.position.setFromMatrixPosition(bot.matrixWorld);
       }
+      if (markers.fish.current && fishPointRef) markers.fish.current.position.copy(fishPointRef.current);
     }
   });
 
@@ -535,24 +595,32 @@ export function FishingLineView({
     <>
       <primitive object={line} />
       <primitive object={thin} />
-      {debug && active && (
+      <primitive object={leader} />
+      <primitive object={leaderThin} />
+      {(debug || fishPointRef) && active && (
         <group>
           <mesh ref={markers.tip}>
-            <sphereGeometry args={[0.012, 8, 8]} />
-            <meshBasicMaterial color="#7ec8ff" />
+            <sphereGeometry args={[0.014, 8, 8]} />
+            <meshBasicMaterial color="#7ec8ff" depthTest={false} />
           </mesh>
           <mesh ref={markers.attach}>
-            <sphereGeometry args={[0.01, 8, 8]} />
-            <meshBasicMaterial color="#e38b6a" />
+            <sphereGeometry args={[0.012, 8, 8]} />
+            <meshBasicMaterial color="#e38b6a" depthTest={false} />
           </mesh>
           <mesh ref={markers.water}>
             <sphereGeometry args={[0.01, 8, 8]} />
-            <meshBasicMaterial color="#8dcc9a" />
+            <meshBasicMaterial color="#8dcc9a" depthTest={false} />
           </mesh>
           <mesh ref={markers.bottom}>
-            <sphereGeometry args={[0.01, 8, 8]} />
-            <meshBasicMaterial color="#c9b896" />
+            <sphereGeometry args={[0.012, 8, 8]} />
+            <meshBasicMaterial color="#c9b896" depthTest={false} />
           </mesh>
+          {fishPointRef && (
+            <mesh ref={markers.fish}>
+              <sphereGeometry args={[0.028, 10, 10]} />
+              <meshBasicMaterial color="#7ad0a0" transparent opacity={0.85} depthTest={false} />
+            </mesh>
+          )}
         </group>
       )}
     </>
