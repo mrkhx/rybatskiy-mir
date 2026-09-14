@@ -125,6 +125,7 @@ export function Rig3DLab() {
   }, []);
 
   const onCharFinished = useCallback((name: string) => {
+    if (name.startsWith("CAST")) return;
     const i = CAST_SEQ.indexOf(name as CharClip);
     const next = i >= 0 ? CAST_SEQ[i + 1] : undefined;
     if (next) setCharClip(next);
@@ -143,7 +144,7 @@ export function Rig3DLab() {
         <div>
           <p className="rig-lab-kicker">Рыбацкий Мир · 3D contract</p>
           <h1>Production 360° lab</h1>
-          <p className="rig3d-kicker">PRE-CAST · поплавок на леске, не на воде</p>
+          <p className="rig3d-kicker">CAST · поплавочный заброс из PRE-CAST</p>
         </div>
         <div className="rig-lab-meta">
           <span className="rig-lab-state">{charClip.replaceAll("_", " ")}</span>
@@ -318,7 +319,9 @@ export function Rig3DLab() {
         <div className="rig-actions">
           {CHAR_PRIMARY.map((a) => {
             const need = a.id === "CAST" ? "CAST_BACKSWING" : a.id;
-            const missing = Boolean(reports && !available.has(need) && a.id !== "IDLE" && a.id !== "AIM" && a.id !== "READY");
+            const missing = Boolean(
+              reports && !available.has(need) && a.id !== "IDLE" && a.id !== "AIM" && a.id !== "READY" && a.id !== "CAST",
+            );
             const active = a.id === "CAST" ? charClip.startsWith("CAST") : charClip === a.id;
             return (
               <button

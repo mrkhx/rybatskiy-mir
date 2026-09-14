@@ -29,6 +29,7 @@ import {
   WATER_Y,
 } from "./approvedTackle";
 import { PRECAST_HANG_DROP, PRECAST_HANG_IN } from "./aim";
+import { sampleCast } from "./cast";
 
 useGLTF.preload(PRODUCTION.float);
 
@@ -36,6 +37,8 @@ const _tip = new THREE.Vector3();
 const _attach = new THREE.Vector3();
 const _hang = new THREE.Vector3();
 const _in = new THREE.Vector3();
+const _blank = new THREE.Vector3();
+const _qRod = new THREE.Quaternion();
 
 export type TackleProps = {
   rod: THREE.Object3D;
@@ -46,12 +49,18 @@ export type TackleProps = {
   wave: number;
   debug: boolean;
   active: boolean;
+  castTimeRef?: React.MutableRefObject<number>;
 };
 
 export const LakeFloat = forwardRef<
   THREE.Group,
-  Pick<TackleProps, "floatOn" | "wave" | "active"> & { hanging?: boolean; rod?: THREE.Object3D }
->(function LakeFloat({ floatOn, wave, active, hanging = false, rod }, ref) {
+  Pick<TackleProps, "floatOn" | "wave" | "active"> & {
+    hanging?: boolean;
+    rod?: THREE.Object3D;
+    casting?: boolean;
+    castTimeRef?: React.MutableRefObject<number>;
+  }
+>(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, castTimeRef }, ref) {
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
@@ -60,6 +69,15 @@ export const LakeFloat = forwardRef<
     }, [gltf.scene]);
     const inner = useRef<THREE.Group>(null);
     const clock = useRef(0);
+    const fly = useRef({
+      on: false,
+      pos: new THREE.Vector3(),
+      vel: new THREE.Vector3(),
+      hang: new THREE.Vector3(),
+      hangVel: new THREE.Vector3(),
+      primed: false,
+    });
+    const lastTip = useRef(new THREE.Vector3());
 
     useFrame((_, rawDt) => {
       const dt = Math.min(rawDt, 0.05);
@@ -70,28 +88,86 @@ export const LakeFloat = forwardRef<
       g.visible = show;
       if (!show) return;
       const t = clock.current;
-      if (hanging && rod) {
+      const gparent = g.parent;
+      if (casting && rod) {
         worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
-        _hang.copy(_tip);
-        _hang.y -= PRECAST_HANG_DROP;
-        _in.set(_tip.x, 0, _tip.z);
-        if (_in.lengthSq() > 1e-4) {
-          _in.normalize().multiplyScalar(-PRECAST_HANG_IN);
-          _hang.x += _in.x;
-          _hang.z += _in.z;
+        const ph = sampleCast(castTimeRef?.current ?? 0);
+        if (!fly.current.primed) {
+          _hang.copy(_tip);
+          _hang.y -= PRECAST_HANG_DROP;
+          fly.current.hang.copy(_hang);
+          fly.current.pos.copy(_hang);
+          fly.current.hangVel.set(0, 0, 0);
+          fly.current.vel.set(0, 0, 0);
+          fly.current.on = false;
+          fly.current.primed = true;
+          lastTip.current.copy(_tip);
         }
-        _hang.x += 0.03 * Math.sin(t * 1.35);
-        _hang.z += 0.022 * Math.sin(t * 0.95);
-        if (g.parent) g.parent.worldToLocal(_hang);
+        if (!ph.released) {
+          fly.current.on = false;
+          _hang.copy(_tip);
+          _hang.y -= PRECAST_HANG_DROP;
+          _in.set(_tip.x, 0, _tip.z);
+          if (_in.lengthSq() > 1e-4) {
+            _in.normalize().multiplyScalar(-PRECAST_HANG_IN);
+            _hang.add(_in);
+          }
+          const k = ph.phase === "forward" ? 18 : 10;
+          _in.copy(_hang).sub(fly.current.hang);
+          fly.current.hangVel.addScaledVector(_in, k * dt);
+          fly.current.hangVel.multiplyScalar(Math.exp(-5.5 * dt));
+          fly.current.hang.addScaledVector(fly.current.hangVel, dt);
+          fly.current.pos.copy(fly.current.hang);
+          lastTip.current.copy(_tip);
+        } else {
+          if (!fly.current.on) {
+            fly.current.on = true;
+            _blank.subVectors(_tip, lastTip.current).multiplyScalar(1 / Math.max(dt, 1 / 60));
+            fly.current.vel.copy(fly.current.hangVel).addScaledVector(_blank, 0.35);
+            _blank.set(0, 1, 0).applyQuaternion(rod.getWorldQuaternion(_qRod));
+            fly.current.vel.addScaledVector(_blank, 5.4);
+            fly.current.vel.y += 1.15;
+            fly.current.pos.copy(fly.current.hang);
+          }
+          fly.current.vel.y -= 5.4 * dt;
+          fly.current.pos.addScaledVector(fly.current.vel, dt);
+          if (fly.current.pos.y < 0.55) {
+            fly.current.pos.y = 0.55;
+            fly.current.vel.y = Math.max(0, fly.current.vel.y);
+            fly.current.vel.x *= 0.97;
+            fly.current.vel.z *= 0.97;
+          }
+        }
+        _hang.copy(fly.current.pos);
+        if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
-        g.rotation.set(0.06 * Math.sin(t * 0.95), 0, 0.08 * Math.sin(t * 1.35));
+        g.rotation.set(0.05 * Math.sin(t * 2.2), 0, 0.08 * Math.sin(t * 1.8));
       } else {
-        g.position.set(FLOAT_X, WATER_Y + FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ), 0);
-        g.rotation.set(
-          FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ),
-          0,
-          FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ),
-        );
+        fly.current.primed = false;
+        fly.current.on = false;
+        if (hanging && rod) {
+          worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
+          _hang.copy(_tip);
+          _hang.y -= PRECAST_HANG_DROP;
+          _in.set(_tip.x, 0, _tip.z);
+          if (_in.lengthSq() > 1e-4) {
+            _in.normalize().multiplyScalar(-PRECAST_HANG_IN);
+            _hang.x += _in.x;
+            _hang.z += _in.z;
+          }
+          _hang.x += 0.03 * Math.sin(t * 1.35);
+          _hang.z += 0.022 * Math.sin(t * 0.95);
+          if (gparent) gparent.worldToLocal(_hang);
+          g.position.copy(_hang);
+          g.rotation.set(0.06 * Math.sin(t * 0.95), 0, 0.08 * Math.sin(t * 1.35));
+        } else {
+          g.position.set(FLOAT_X, WATER_Y + FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ), 0);
+          g.rotation.set(
+            FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ),
+            0,
+            FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ),
+          );
+        }
       }
     });
 
@@ -139,6 +215,7 @@ export function FishingLineView({
   tension,
   debug,
   active,
+  castTimeRef,
 }: TackleProps) {
   const size = useThree((s) => s.size);
   const positions = useMemo(() => new Float32Array(LINE_FLOATS), []);
@@ -188,8 +265,9 @@ export function FishingLineView({
     thin.visible = show;
     const mat = line.material as LineMaterial;
     mat.resolution.set(size.width, size.height);
-    mat.opacity = lineOpacity(tension);
-    (thin.material as THREE.LineBasicMaterial).opacity = lineOpacity(tension);
+    const ten = castTimeRef ? sampleCast(castTimeRef.current).tension : tension;
+    mat.opacity = lineOpacity(ten);
+    (thin.material as THREE.LineBasicMaterial).opacity = lineOpacity(ten);
     if (!show) return;
 
     worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
@@ -202,7 +280,7 @@ export function FishingLineView({
       _attach.copy(FLOAT_ATTACH_LOCAL);
       floatG.localToWorld(_attach);
     }
-    sampleLine(_tip, _attach, tension, positions);
+    sampleLine(_tip, _attach, ten, positions);
     (line.geometry as LineGeometry).setPositions(positions);
     const attr = thin.geometry.getAttribute("position") as THREE.BufferAttribute;
     attr.needsUpdate = true;
