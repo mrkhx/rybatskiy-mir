@@ -3,12 +3,21 @@
  * t=0 pose matches current REEL/FIGHT. Does not spawn fish or start LAND.
  * Late phase lifts the float out of the water; FishPullPoint stays at the surface.
  * Tackle stays RodTip → FloatAttach → float → FloatBottom → leader → FishPullPoint.
+ *
+ * LOCKED: approvedLandPrep.ts — LAND PREP at abf5d891dc2ed70c9c237d27203b0a4fc97654eb
  */
 import * as THREE from "three";
 import { DEG } from "./approvedReady";
 import { WATERLINE_Y } from "./floatLanding";
 import { sampleFight, type FightSample } from "./fight";
 import { applyWaitPose } from "./wait";
+
+export {
+  APPROVED_LAND_PREP_COMMIT,
+  APPROVED_LAND_PREP_CHAIN,
+  APPROVED_LAND_PREP_TOPOLOGY,
+  APPROVED_LAND_PREP_FINALS,
+} from "./approvedLandPrep";
 
 export const PREP_DURATION = 3.4;
 export const PREP_END_DIST = 1.55;
