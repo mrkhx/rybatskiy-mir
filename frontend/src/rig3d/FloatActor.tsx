@@ -48,6 +48,7 @@ import { landFloatWorld } from "./land";
 import { keepFloatWorld } from "./keep";
 import { holdFloatWorld } from "./landedHold";
 import { releaseFloatWorld } from "./release";
+import { RETURN_DURATION, returnFloatWorld } from "./returnReady";
 
 useGLTF.preload(PRODUCTION.float);
 
@@ -90,6 +91,7 @@ export const LakeFloat = forwardRef<
     holding?: boolean;
     releasing?: boolean;
     keeping?: boolean;
+    returning?: boolean;
     castTimeRef?: React.MutableRefObject<number>;
     biteTimeRef?: React.MutableRefObject<number>;
     hookTimeRef?: React.MutableRefObject<number>;
@@ -99,11 +101,12 @@ export const LakeFloat = forwardRef<
     holdTimeRef?: React.MutableRefObject<number>;
     releaseTimeRef?: React.MutableRefObject<number>;
     keepTimeRef?: React.MutableRefObject<number>;
+    returnTimeRef?: React.MutableRefObject<number>;
     approachRef?: React.MutableRefObject<number>;
     fishPointRef?: React.MutableRefObject<THREE.Vector3>;
     simRef?: React.MutableRefObject<LandingSim>;
   }
->(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, hooking = false, fighting = false, reeling = false, prepping = false, outing = false, holding = false, releasing = false, keeping = false, castTimeRef, biteTimeRef, hookTimeRef, fightTimeRef, prepTimeRef, outTimeRef, holdTimeRef, releaseTimeRef, keepTimeRef, approachRef, fishPointRef, simRef }, ref) {
+>(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, hooking = false, fighting = false, reeling = false, prepping = false, outing = false, holding = false, releasing = false, keeping = false, returning = false, castTimeRef, biteTimeRef, hookTimeRef, fightTimeRef, prepTimeRef, outTimeRef, holdTimeRef, releaseTimeRef, keepTimeRef, returnTimeRef, approachRef, fishPointRef, simRef }, ref) {
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
@@ -134,6 +137,7 @@ export const LakeFloat = forwardRef<
     const holdArmed = useRef(false);
     const relArmed = useRef(false);
     const keepArmed = useRef(false);
+    const retArmed = useRef(false);
 
     useFrame((_, rawDt) => {
       const dt = Math.min(rawDt, 0.05);
@@ -145,12 +149,13 @@ export const LakeFloat = forwardRef<
       if (!show) return;
       if (!biting) biteArmed.current = false;
       if (!hooking) hookArmed.current = false;
-      if (!fighting && !reeling && !prepping && !outing && !holding && !releasing && !keeping) fightArmed.current = false;
+      if (!fighting && !reeling && !prepping && !outing && !holding && !releasing && !keeping && !returning) fightArmed.current = false;
       if (!prepping) prepArmed.current = false;
       if (!outing) outArmed.current = false;
       if (!holding) holdArmed.current = false;
       if (!releasing) relArmed.current = false;
       if (!keeping) keepArmed.current = false;
+      if (!returning) retArmed.current = false;
       const t = clock.current;
       const gparent = g.parent;
       if (casting && rod) {
@@ -510,6 +515,30 @@ export const LakeFloat = forwardRef<
           contact: false,
           settleT: keepTimeRef?.current ?? 0,
           phase: "keep",
+        };
+      } else if (returning) {
+        const st = fly.current;
+        if (!retArmed.current) {
+          if (!st.primed) {
+            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            st.primed = true;
+            st.contact = false;
+          }
+          fightRest.current.copy(st.pos);
+          retArmed.current = true;
+        }
+        returnFloatWorld(fightRest.current, returnTimeRef?.current ?? 0, st.pos);
+        _hang.copy(st.pos);
+        if (gparent) gparent.worldToLocal(_hang);
+        g.position.copy(_hang);
+        const u = Math.min(1, (returnTimeRef?.current ?? 0) / RETURN_DURATION);
+        g.rotation.set(0.06 * (1 - u), 0, 0.03 * (1 - u) * Math.sin(t * 2.2));
+        if (simRef) simRef.current.tension = 0.05;
+        (window as unknown as { __FLOAT?: { y: number; contact: boolean; settleT: number; phase?: string } }).__FLOAT = {
+          y: st.pos.y,
+          contact: st.pos.y < WATERLINE_Y + 0.05,
+          settleT: returnTimeRef?.current ?? 0,
+          phase: "return",
         };
       } else {
         fly.current.primed = false;

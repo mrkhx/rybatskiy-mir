@@ -18,6 +18,7 @@ export type CharClip =
   | "LANDED_HOLD"
   | "RELEASE"
   | "KEEP"
+  | "RETURN_TO_READY"
   | "RETURN_IDLE"
   | "TURN_LEFT"
   | "TURN_RIGHT"
@@ -107,6 +108,8 @@ export function tensionFor(clip: CharClip): number {
       return 0.12;
     case "KEEP":
       return 0.12;
+    case "RETURN_TO_READY":
+      return 0.05;
     default:
       return 0.05;
   }
@@ -129,6 +132,7 @@ export function ikFor(clip: CharClip): IkMode {
     clip === "LANDED_HOLD" ||
     clip === "RELEASE" ||
     clip === "KEEP" ||
+    clip === "RETURN_TO_READY" ||
     clip === "RETURN_IDLE" ||
     clip.startsWith("CAST") ||
     clip.startsWith("TURN") ||
