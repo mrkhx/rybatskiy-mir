@@ -248,16 +248,31 @@ export function Rig3DScene({
 
   useEffect(() => {
     const next =
-      manActions[charClip] ??
-      (charClip === "AIM" || charClip.startsWith("CAST") ? manActions.READY : undefined);
+      charClip === "READY" || charClip === "AIM"
+        ? (manActions.IDLE ?? manActions.READY)
+        : (manActions[charClip] ??
+          (charClip.startsWith("CAST") ? manActions.READY ?? manActions.IDLE : undefined));
     if (!next) return;
 
     const plant = charClip === "AIM" || charClip.startsWith("CAST");
-    const tackle = charClip === "READY" || plant;
+    const liveIdle = charClip === "IDLE" || charClip === "READY" || charClip === "AIM";
     const prev = charRef.current;
+    const prevLiveIdle = prev === "IDLE" || prev === "READY" || prev === "AIM";
+    const tackle = charClip === "READY" || plant;
     const prevTackle = prev === "READY" || prev === "AIM" || prev.startsWith("CAST");
 
-    if (tackle && prevTackle && next === manActions.READY) {
+    if (liveIdle && prevLiveIdle && next === manActions.IDLE) {
+      next.enabled = true;
+      next.weight = 1;
+      next.paused = false;
+      next.timeScale = 1;
+      next.setLoop(THREE.LoopRepeat, Infinity);
+      if (!next.isRunning()) next.play();
+      charRef.current = charClip;
+      return;
+    }
+
+    if (tackle && prevTackle && next === manActions.READY && !liveIdle) {
       next.enabled = true;
       next.weight = 1;
       next.paused = false;
