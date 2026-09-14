@@ -127,13 +127,13 @@ export const LakeFloat = forwardRef<
             _blank.set(0, 1, 0).applyQuaternion(rod.getWorldQuaternion(_qRod));
             fly.current.vel.x += _blank.x * 5.8;
             fly.current.vel.z += _blank.z * 5.8;
-            fly.current.vel.y += _blank.y * 1.15 + 0.22;
+            fly.current.vel.y += _blank.y * 0.55 + 0.08;
             fly.current.pos.copy(fly.current.hang);
           }
-          fly.current.vel.y -= 11.2 * dt;
+          fly.current.vel.y -= 13.5 * dt;
           fly.current.pos.addScaledVector(fly.current.vel, dt);
-          if (fly.current.pos.y < 0.2) {
-            fly.current.pos.y = 0.2;
+          if (fly.current.pos.y < 0.08) {
+            fly.current.pos.y = 0.08;
             fly.current.vel.y = Math.max(0, fly.current.vel.y);
             fly.current.vel.x *= 0.97;
             fly.current.vel.z *= 0.97;
