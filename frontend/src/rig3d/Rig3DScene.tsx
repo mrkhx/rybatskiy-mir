@@ -251,13 +251,31 @@ export function Rig3DScene({
       manActions[charClip] ??
       (charClip === "AIM" || charClip.startsWith("CAST") ? manActions.READY : undefined);
     if (!next) return;
-    const fade = charClip.startsWith("CAST") || charClip === "HOOKSET" || charClip === "BITE_REACTION" ? 0.12 : 0.22;
+
+    const plant = charClip === "AIM" || charClip.startsWith("CAST");
+    const tackle = charClip === "READY" || plant;
+    const prev = charRef.current;
+    const prevTackle = prev === "READY" || prev === "AIM" || prev.startsWith("CAST");
+
+    if (tackle && prevTackle && next === manActions.READY) {
+      next.enabled = true;
+      next.weight = 1;
+      next.paused = false;
+      next.timeScale = plant ? 0 : 1;
+      if (plant) next.time = 0;
+      next.setLoop(THREE.LoopRepeat, Infinity);
+      if (!next.isRunning()) next.play();
+      charRef.current = charClip;
+      if (charClip.startsWith("CAST")) castT.current = 0;
+      return;
+    }
+
+    const fade = charClip === "HOOKSET" || charClip === "BITE_REACTION" ? 0.12 : 0.18;
     for (const a of Object.values(manActions)) {
       if (a !== next && a.isRunning()) a.fadeOut(fade);
     }
     next.enabled = true;
     next.reset();
-    const plant = charClip === "AIM" || charClip.startsWith("CAST");
     next.timeScale = plant
       ? 0
       : charClip === "HOOKSET"
@@ -270,7 +288,8 @@ export function Rig3DScene({
     next.time = 0;
     next.setLoop(plant || LOOPING_CHAR.has(charClip) ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
     next.clampWhenFinished = !LOOPING_CHAR.has(charClip) && !plant;
-    next.fadeIn(fade);
+    next.weight = 1;
+    next.fadeIn(plant || charClip === "READY" ? 0 : fade);
     next.play();
     charRef.current = charClip;
     if (charClip.startsWith("CAST")) castT.current = 0;
