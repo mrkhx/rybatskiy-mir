@@ -15,6 +15,7 @@ export type CharClip =
   | "FIGHT_HEAVY"
   | "LAND_PREP"
   | "LAND"
+  | "LANDED_HOLD"
   | "RETURN_IDLE"
   | "TURN_LEFT"
   | "TURN_RIGHT"
@@ -54,6 +55,7 @@ export const LOOPING_CHAR = new Set<CharClip>([
   "REEL",
   "FIGHT_LIGHT",
   "FIGHT_HEAVY",
+  "LANDED_HOLD",
   "TURN_LEFT",
   "TURN_RIGHT",
 ]);
@@ -97,6 +99,8 @@ export function tensionFor(clip: CharClip): number {
       return 0.7;
     case "LAND":
       return 0.55;
+    case "LANDED_HOLD":
+      return 0.36;
     default:
       return 0.05;
   }
@@ -116,6 +120,7 @@ export function ikFor(clip: CharClip): IkMode {
     clip === "REEL" ||
     clip === "LAND_PREP" ||
     clip === "LAND" ||
+    clip === "LANDED_HOLD" ||
     clip === "RETURN_IDLE" ||
     clip.startsWith("CAST") ||
     clip.startsWith("TURN") ||

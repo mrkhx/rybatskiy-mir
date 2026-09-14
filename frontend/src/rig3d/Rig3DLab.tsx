@@ -27,6 +27,7 @@ const CHAR_PRIMARY: Array<{ id: CharClip | "CAST"; label: string }> = [
   { id: "FIGHT_HEAVY", label: "Fight heavy" },
   { id: "LAND_PREP", label: "Approach" },
   { id: "LAND", label: "Land" },
+  { id: "LANDED_HOLD", label: "Hold" },
   { id: "RETURN_IDLE", label: "Return idle" },
 ];
 
@@ -90,6 +91,7 @@ export function Rig3DLab() {
   const [reelKey, setReelKey] = useState(0);
   const [prepKey, setPrepKey] = useState(0);
   const [landKey, setLandKey] = useState(0);
+  const [holdKey, setHoldKey] = useState(0);
 
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -229,6 +231,20 @@ export function Rig3DLab() {
       setCharClip("CAST_BACKSWING");
       return;
     }
+    if (id === "LANDED_HOLD") {
+      if (charClip === "LAND" || charClip === "LANDED_HOLD") {
+        setHoldKey((n) => n + 1);
+        setCharClip("LANDED_HOLD");
+        return;
+      }
+      if (charClip === "LAND_PREP") {
+        setLandKey((n) => n + 1);
+        setCharClip("LAND");
+        return;
+      }
+      setCharClip("CAST_BACKSWING");
+      return;
+    }
     setCharClip(id);
   }, [charClip]);
 
@@ -260,7 +276,7 @@ export function Rig3DLab() {
         <div>
           <p className="rig-lab-kicker">Рыбацкий Мир · 3D contract</p>
           <h1>Production 360° lab</h1>
-          <p className="rig3d-kicker">LAND PREP → LAND · debug pike proxy</p>
+          <p className="rig3d-kicker">LAND → HOLD · debug pike proxy</p>
         </div>
         <div className="rig-lab-meta">
           <span className="rig-lab-state">{charClip.replaceAll("_", " ")}</span>
@@ -355,6 +371,7 @@ export function Rig3DLab() {
               reelKey={reelKey}
               prepKey={prepKey}
               landKey={landKey}
+              holdKey={holdKey}
               onReports={setReports}
             />
             <OrbitControls
@@ -459,7 +476,8 @@ export function Rig3DLab() {
                 a.id !== "FIGHT_LIGHT" &&
                 a.id !== "REEL" &&
                 a.id !== "LAND_PREP" &&
-                a.id !== "LAND",
+                a.id !== "LAND" &&
+                a.id !== "LANDED_HOLD",
             );
             const active =
               a.id === "CAST"
