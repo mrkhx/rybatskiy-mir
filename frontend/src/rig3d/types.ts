@@ -96,7 +96,7 @@ export function tensionFor(clip: CharClip): number {
     case "LAND_PREP":
       return 0.7;
     case "LAND":
-      return 0.12;
+      return 0.55;
     default:
       return 0.05;
   }
@@ -115,6 +115,7 @@ export function ikFor(clip: CharClip): IkMode {
     clip === "FIGHT_LIGHT" ||
     clip === "REEL" ||
     clip === "LAND_PREP" ||
+    clip === "LAND" ||
     clip === "RETURN_IDLE" ||
     clip.startsWith("CAST") ||
     clip.startsWith("TURN") ||

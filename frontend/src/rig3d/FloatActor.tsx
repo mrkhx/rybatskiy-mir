@@ -44,6 +44,7 @@ import { BITE_SINK_DIP, sampleBiteFloat } from "./bite";
 import { sampleHookFloat } from "./hookset";
 import { sampleFight } from "./fight";
 import { prepFloatWorld, prepLift } from "./landPrep";
+import { landFloatWorld } from "./land";
 
 useGLTF.preload(PRODUCTION.float);
 
@@ -82,16 +83,18 @@ export const LakeFloat = forwardRef<
     fighting?: boolean;
     reeling?: boolean;
     prepping?: boolean;
+    outing?: boolean;
     castTimeRef?: React.MutableRefObject<number>;
     biteTimeRef?: React.MutableRefObject<number>;
     hookTimeRef?: React.MutableRefObject<number>;
     fightTimeRef?: React.MutableRefObject<number>;
     prepTimeRef?: React.MutableRefObject<number>;
+    outTimeRef?: React.MutableRefObject<number>;
     approachRef?: React.MutableRefObject<number>;
     fishPointRef?: React.MutableRefObject<THREE.Vector3>;
     simRef?: React.MutableRefObject<LandingSim>;
   }
->(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, hooking = false, fighting = false, reeling = false, prepping = false, castTimeRef, biteTimeRef, hookTimeRef, fightTimeRef, prepTimeRef, approachRef, fishPointRef, simRef }, ref) {
+>(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, hooking = false, fighting = false, reeling = false, prepping = false, outing = false, castTimeRef, biteTimeRef, hookTimeRef, fightTimeRef, prepTimeRef, outTimeRef, approachRef, fishPointRef, simRef }, ref) {
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
@@ -118,6 +121,7 @@ export const LakeFloat = forwardRef<
     const fightRest = useRef(new THREE.Vector3());
     const fightArmed = useRef(false);
     const prepArmed = useRef(false);
+    const outArmed = useRef(false);
 
     useFrame((_, rawDt) => {
       const dt = Math.min(rawDt, 0.05);
@@ -129,8 +133,9 @@ export const LakeFloat = forwardRef<
       if (!show) return;
       if (!biting) biteArmed.current = false;
       if (!hooking) hookArmed.current = false;
-      if (!fighting && !reeling && !prepping) fightArmed.current = false;
+      if (!fighting && !reeling && !prepping && !outing) fightArmed.current = false;
       if (!prepping) prepArmed.current = false;
+      if (!outing) outArmed.current = false;
       const t = clock.current;
       const gparent = g.parent;
       if (casting && rod) {
@@ -394,6 +399,30 @@ export const LakeFloat = forwardRef<
           contact: st.pos.y < WATERLINE_Y + 0.04,
           settleT: prepTimeRef?.current ?? 0,
           phase: lift > 0.02 ? "lift" : "prep",
+        };
+      } else if (outing) {
+        const st = fly.current;
+        if (!outArmed.current) {
+          if (!st.primed) {
+            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            st.primed = true;
+            st.contact = true;
+          }
+          fightRest.current.copy(st.pos);
+          outArmed.current = true;
+        }
+        const fish = fishPointRef?.current;
+        if (fish) landFloatWorld(fightRest.current, fish, outTimeRef?.current ?? 0, st.pos);
+        _hang.copy(st.pos);
+        if (gparent) gparent.worldToLocal(_hang);
+        g.position.copy(_hang);
+        g.rotation.set(0.22, 0, 0.04 * Math.sin(t * 3.2));
+        if (simRef) simRef.current.tension = 0.55;
+        (window as unknown as { __FLOAT?: { y: number; contact: boolean; settleT: number; phase?: string } }).__FLOAT = {
+          y: st.pos.y,
+          contact: false,
+          settleT: outTimeRef?.current ?? 0,
+          phase: "land",
         };
       } else {
         fly.current.primed = false;
