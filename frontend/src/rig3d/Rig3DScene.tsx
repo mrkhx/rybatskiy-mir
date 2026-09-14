@@ -13,7 +13,8 @@ import type { AdapterReport } from "../scene3d/assets/contract";
 import { importHumanoid } from "../scene3d/assets/retarget";
 import { twoBoneIK } from "./ik";
 import { applyRodBend, aimRod, spinReel, worldOf } from "./rodBend";
-import { placeRodReady, closeRightFist, rollRightWristOut } from "./grip";
+import { placeRodReady, seatRodInHand, closeRightFist, rollRightWristOut } from "./grip";
+import { liveArms } from "./idleLive";
 import { applyAimPose, AIM_PITCH, AIM_YAW, AIM_LINE_TENSION } from "./aim";
 import { applyCastPose, CAST_DURATION, isCastClip, sampleCast } from "./cast";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
@@ -165,6 +166,7 @@ export function Rig3DScene({
   const linePts = useMemo(() => new Float32Array(9), []);
   const fpsAcc = useRef({ t: 0, frames: 0 });
   const attached = useRef(false);
+  const gripKey = useRef("");
   const extraYaw = useRef(0);
   const floatRef = useRef<THREE.Group>(null);
   const castT = useRef(0);
@@ -248,36 +250,23 @@ export function Rig3DScene({
 
   useEffect(() => {
     const next =
-      charClip === "READY" || charClip === "AIM"
-        ? (manActions.IDLE ?? manActions.READY)
-        : (manActions[charClip] ??
-          (charClip.startsWith("CAST") ? manActions.READY ?? manActions.IDLE : undefined));
+      manActions[charClip] ??
+      (charClip === "AIM" || charClip.startsWith("CAST") ? manActions.READY : undefined);
     if (!next) return;
 
     const plant = charClip === "AIM" || charClip.startsWith("CAST");
-    const liveIdle = charClip === "IDLE" || charClip === "READY" || charClip === "AIM";
     const prev = charRef.current;
-    const prevLiveIdle = prev === "IDLE" || prev === "READY" || prev === "AIM";
-    const tackle = charClip === "READY" || plant;
-    const prevTackle = prev === "READY" || prev === "AIM" || prev.startsWith("CAST");
+    const sameReady =
+      next === manActions.READY &&
+      (charClip === "READY" || charClip === "AIM" || charClip.startsWith("CAST")) &&
+      (prev === "READY" || prev === "AIM" || prev.startsWith("CAST"));
 
-    if (liveIdle && prevLiveIdle && next === manActions.IDLE) {
+    if (sameReady) {
       next.enabled = true;
       next.weight = 1;
       next.paused = false;
-      next.timeScale = 1;
-      next.setLoop(THREE.LoopRepeat, Infinity);
-      if (!next.isRunning()) next.play();
-      charRef.current = charClip;
-      return;
-    }
-
-    if (tackle && prevTackle && next === manActions.READY && !liveIdle) {
-      next.enabled = true;
-      next.weight = 1;
-      next.paused = false;
-      next.timeScale = 1;
-      next.setLoop(THREE.LoopRepeat, Infinity);
+      next.timeScale = 0;
+      next.time = 0;
       if (!next.isRunning()) next.play();
       charRef.current = charClip;
       if (charClip.startsWith("CAST")) castT.current = 0;
@@ -331,6 +320,7 @@ export function Rig3DScene({
     fishMixer.update(dt);
 
     const clip = charRef.current;
+    if (clip === "READY" || clip === "AIM") liveArms(man, dt);
     const casting = isCastClip(clip);
     if (casting) {
       const seek = (window as unknown as { __CAST_SEEK?: number }).__CAST_SEEK;
@@ -347,16 +337,25 @@ export function Rig3DScene({
         applyCastPose(man, s);
         attached.current = placeRodReady(man, rod, s.pitch, s.yaw);
         applyRodBend(rod, s.bend);
+        gripKey.current = "cast";
       } else {
         if (clip === "AIM") applyAimPose(man);
-        attached.current = placeRodReady(man, rod, clip === "AIM" ? AIM_PITCH : undefined, clip === "AIM" ? AIM_YAW : undefined);
-        applyRodBend(rod, 0);
+        const key = clip === "AIM" ? "aim" : "ready";
+        if (gripKey.current !== key) {
+          const pitch = clip === "AIM" ? AIM_PITCH : undefined;
+          const yaw = clip === "AIM" ? AIM_YAW : undefined;
+          attached.current = seatRodInHand(man, rod, pitch, yaw);
+          applyRodBend(rod, 0);
+          gripKey.current = key;
+        }
+        rod.visible = true;
       }
       rod.visible = true;
     } else if (attached.current) {
       rod.removeFromParent();
       rod.visible = false;
       attached.current = false;
+      gripKey.current = "";
     }
 
     if (attached.current && clip !== "READY" && clip !== "AIM" && !casting) aimRod(man, rod, clip);

@@ -74,7 +74,7 @@ export function placeRodReady(
 ): boolean {
   const handR = getBone(man, "Hand_R") ?? man.getObjectByName("Hand_R");
   if (!handR) return false;
-  if (rod.parent !== man) man.add(rod);
+  if (rod.parent !== man) man.attach(rod);
   rod.visible = true;
   rod.scale.setScalar(1);
 
@@ -109,6 +109,22 @@ export function placeRodReady(
 
   _gripOff.set(0, READY_REEL_SEAT_ALONG, 0).applyQuaternion(rod.quaternion);
   rod.position.copy(_anchor).sub(_gripOff).add(READY_NUDGE_IN);
+  return true;
+}
+
+/** Parent rod to Hand_R, keep world pose. Call once per READY/AIM, not every frame. */
+export function seatRodInHand(
+  man: THREE.Object3D,
+  rod: THREE.Object3D,
+  pitch: number = READY_PITCH,
+  yaw: number = 0,
+): boolean {
+  const handR = getBone(man, "Hand_R") ?? man.getObjectByName("Hand_R");
+  if (!handR) return false;
+  if (!placeRodReady(man, rod, pitch, yaw)) return false;
+  handR.updateWorldMatrix(true, true);
+  rod.updateWorldMatrix(true, false);
+  handR.attach(rod);
   return true;
 }
 
