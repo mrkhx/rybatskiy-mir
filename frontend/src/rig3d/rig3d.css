@@ -271,3 +271,66 @@
   }
 }
 
+.rig3d-mode {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--rig-line);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--rig-stage) 80%, transparent);
+}
+
+.rig3d-mode button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--rig-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.rig3d-mode button.is-on {
+  background: color-mix(in oklab, var(--rig-accent) 22%, transparent);
+  color: var(--rig-ink);
+}
+
+.rig3d-server-panel {
+  position: absolute;
+  z-index: 5;
+  top: 64px;
+  left: 12px;
+  min-width: 220px;
+  padding: 10px 12px;
+  pointer-events: none;
+  border-radius: 10px;
+  border: 1px solid var(--rig-line);
+  background: color-mix(in oklab, #101412 78%, transparent);
+  color: var(--rig-ink);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  line-height: 1.45;
+}
+
+.rig3d-server-panel p {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 8px;
+}
+
+.rig3d-server-panel span {
+  color: var(--rig-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.64rem;
+}
+
+.rig3d-server-panel .is-err {
+  color: #f0d4ce;
+}
+
+

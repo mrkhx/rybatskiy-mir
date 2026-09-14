@@ -13,10 +13,11 @@ type Props = {
   choice: CatchChoice | null;
   onKeep: () => void;
   onRelease: () => void;
+  busy?: boolean;
 };
 
-export function CatchResultCard({ data, choice, onKeep, onRelease }: Props) {
-  const locked = choice !== null;
+export function CatchResultCard({ data, choice, onKeep, onRelease, busy = false }: Props) {
+  const locked = choice !== null || busy;
   return (
     <aside
       className={`catch-result${choice === "RELEASE_SELECTED" || choice === "KEEP_SELECTED" ? " is-leaving" : ""}`}

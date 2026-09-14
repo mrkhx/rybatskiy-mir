@@ -1,4 +1,4 @@
-/** Catch result payload. UI-only — KEEP/RELEASE are local choice, no backend. */
+/** Catch result payload. DEBUG uses DEBUG_CATCH_RESULT; SERVER maps from the fishing session. */
 
 export type CatchRarity = "Обычная" | "Крупная" | "Трофейная" | "Легендарная";
 
