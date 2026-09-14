@@ -6,6 +6,7 @@ export type CharClip =
   | "CAST_BACKSWING"
   | "CAST_FORWARD"
   | "CAST_FOLLOW"
+  | "FLOAT_LANDING"
   | "WAIT"
   | "BITE_REACTION"
   | "HOOKSET"
@@ -89,6 +90,8 @@ export function tensionFor(clip: CharClip): number {
       return 0.28;
     case "CAST_FOLLOW":
       return 0.1;
+    case "FLOAT_LANDING":
+      return 0.08;
     case "LAND":
       return 0.12;
     default:
@@ -102,6 +105,7 @@ export function ikFor(clip: CharClip): IkMode {
     clip === "WALK" ||
     clip === "READY" ||
     clip === "AIM" ||
+    clip === "FLOAT_LANDING" ||
     clip === "RETURN_IDLE" ||
     clip.startsWith("CAST") ||
     clip.startsWith("TURN") ||

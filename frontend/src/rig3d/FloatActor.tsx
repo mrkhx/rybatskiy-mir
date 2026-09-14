@@ -29,7 +29,17 @@ import {
   WATER_Y,
 } from "./approvedTackle";
 import { PRECAST_HANG_DROP, PRECAST_HANG_IN } from "./aim";
-import { sampleCast } from "./cast";
+import { CAST_DURATION, sampleCast } from "./cast";
+import {
+  KEEL_BELOW,
+  LANDING_DIP,
+  LANDING_FLY_TENSION,
+  LANDING_GRAVITY,
+  LANDING_REST_TENSION,
+  LANDING_SETTLE,
+  WATERLINE_Y,
+  type LandingSim,
+} from "./floatLanding";
 
 useGLTF.preload(PRODUCTION.float);
 
@@ -50,6 +60,7 @@ export type TackleProps = {
   debug: boolean;
   active: boolean;
   castTimeRef?: React.MutableRefObject<number>;
+  landSimRef?: React.MutableRefObject<LandingSim>;
 };
 
 export const LakeFloat = forwardRef<
@@ -58,9 +69,11 @@ export const LakeFloat = forwardRef<
     hanging?: boolean;
     rod?: THREE.Object3D;
     casting?: boolean;
+    landing?: boolean;
     castTimeRef?: React.MutableRefObject<number>;
+    simRef?: React.MutableRefObject<LandingSim>;
   }
->(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, castTimeRef }, ref) {
+>(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, castTimeRef, simRef }, ref) {
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
@@ -76,6 +89,8 @@ export const LakeFloat = forwardRef<
       hang: new THREE.Vector3(),
       hangVel: new THREE.Vector3(),
       primed: false,
+      contact: false,
+      settleT: 0,
     });
     const lastTip = useRef(new THREE.Vector3());
 
@@ -101,6 +116,8 @@ export const LakeFloat = forwardRef<
           fly.current.vel.set(0, 0, 0);
           fly.current.on = false;
           fly.current.primed = true;
+          fly.current.contact = false;
+          fly.current.settleT = 0;
           lastTip.current.copy(_tip);
         }
         if (!ph.released) {
@@ -130,22 +147,92 @@ export const LakeFloat = forwardRef<
             fly.current.vel.y += _blank.y * 0.55 + 0.08;
             fly.current.pos.copy(fly.current.hang);
           }
-          fly.current.vel.y -= 13.5 * dt;
-          fly.current.pos.addScaledVector(fly.current.vel, dt);
-          if (fly.current.pos.y < 0.08) {
-            fly.current.pos.y = 0.08;
-            fly.current.vel.y = Math.max(0, fly.current.vel.y);
-            fly.current.vel.x *= 0.97;
-            fly.current.vel.z *= 0.97;
+          if ((castTimeRef?.current ?? 0) < CAST_DURATION) {
+            fly.current.vel.y -= 13.5 * dt;
+            fly.current.pos.addScaledVector(fly.current.vel, dt);
+            if (fly.current.pos.y < 0.08) {
+              fly.current.pos.y = 0.08;
+              fly.current.vel.y = Math.max(0, fly.current.vel.y);
+              fly.current.vel.x *= 0.97;
+              fly.current.vel.z *= 0.97;
+            }
           }
         }
         _hang.copy(fly.current.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
         g.rotation.set(0.05 * Math.sin(t * 2.2), 0, 0.08 * Math.sin(t * 1.8));
+      } else if (landing && rod) {
+        const st = fly.current;
+        if (!st.primed) {
+          worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
+          st.pos.copy(_tip);
+          st.pos.y -= PRECAST_HANG_DROP;
+          st.vel.set(0, -0.4, 0);
+          st.primed = true;
+          st.on = true;
+          st.contact = false;
+          st.settleT = 0;
+        }
+        if (!st.contact) {
+          st.vel.y -= LANDING_GRAVITY * dt;
+          st.pos.addScaledVector(st.vel, dt);
+          if (st.pos.y - KEEL_BELOW <= WATERLINE_Y) {
+            st.contact = true;
+            st.settleT = 0;
+            st.vel.y = Math.min(st.vel.y, 0) * 0.14 - 0.28;
+            st.vel.x *= 0.42;
+            st.vel.z *= 0.42;
+            if (simRef) {
+              _hang.copy(st.pos);
+              if (gparent) gparent.worldToLocal(_hang);
+              simRef.current.splashStamp += 1;
+              simRef.current.splashX = _hang.x;
+              simRef.current.splashZ = _hang.z;
+            }
+          }
+          if (simRef) simRef.current.tension = LANDING_FLY_TENSION;
+          g.rotation.set(0.05 * Math.sin(t * 2.2), 0, 0.08 * Math.sin(t * 1.8));
+        } else {
+          st.settleT += dt;
+          const u = Math.max(0, Math.min(1, st.settleT / LANDING_SETTLE));
+          const dipU = Math.max(0, Math.min(1, st.settleT / 0.3));
+          const dip = -LANDING_DIP * Math.sin(dipU * Math.PI) * (1 - 0.45 * u);
+          const bob = FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ) * u;
+          const targetY = WATERLINE_Y + dip + bob;
+          st.vel.y += (targetY - st.pos.y) * 24 * dt;
+          st.vel.y *= Math.exp(-7.2 * dt);
+          st.vel.x *= Math.exp(-6.5 * dt);
+          st.vel.z *= Math.exp(-6.5 * dt);
+          st.pos.addScaledVector(st.vel, dt);
+          if (st.pos.y > WATERLINE_Y + 0.035) {
+            st.pos.y = WATERLINE_Y + 0.035;
+            if (st.vel.y > 0) st.vel.y *= 0.15;
+          }
+          const tiltX = FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ);
+          const tiltZ = FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ);
+          g.rotation.set(
+            0.05 * Math.sin(t * 2.2) * (1 - u) + tiltX * u,
+            0,
+            0.08 * Math.sin(t * 1.8) * (1 - u) + tiltZ * u,
+          );
+          if (simRef) {
+            const s = u * u * (3 - 2 * u);
+            simRef.current.tension = LANDING_FLY_TENSION + (LANDING_REST_TENSION - LANDING_FLY_TENSION) * s;
+          }
+        }
+        _hang.copy(st.pos);
+        if (gparent) gparent.worldToLocal(_hang);
+        g.position.copy(_hang);
+        (window as unknown as { __FLOAT?: { y: number; contact: boolean; settleT: number } }).__FLOAT = {
+          y: st.pos.y,
+          contact: st.contact,
+          settleT: st.settleT,
+        };
       } else {
         fly.current.primed = false;
         fly.current.on = false;
+        fly.current.contact = false;
         if (hanging && rod) {
           worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
           _hang.copy(_tip);
@@ -217,6 +304,7 @@ export function FishingLineView({
   debug,
   active,
   castTimeRef,
+  landSimRef,
 }: TackleProps) {
   const size = useThree((s) => s.size);
   const positions = useMemo(() => new Float32Array(LINE_FLOATS), []);
@@ -266,7 +354,11 @@ export function FishingLineView({
     thin.visible = show;
     const mat = line.material as LineMaterial;
     mat.resolution.set(size.width, size.height);
-    const ten = castTimeRef ? sampleCast(castTimeRef.current).tension : tension;
+    const ten = landSimRef
+      ? landSimRef.current.tension
+      : castTimeRef
+        ? sampleCast(castTimeRef.current).tension
+        : tension;
     mat.opacity = lineOpacity(ten);
     (thin.material as THREE.LineBasicMaterial).opacity = lineOpacity(ten);
     if (!show) return;

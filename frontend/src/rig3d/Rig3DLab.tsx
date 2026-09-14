@@ -18,6 +18,7 @@ const CHAR_PRIMARY: Array<{ id: CharClip | "CAST"; label: string }> = [
   { id: "READY", label: "Ready" },
   { id: "AIM", label: "Aim" },
   { id: "CAST", label: "Cast" },
+  { id: "FLOAT_LANDING", label: "Landing" },
   { id: "WAIT", label: "Wait" },
   { id: "BITE_REACTION", label: "Bite" },
   { id: "HOOKSET", label: "Hookset" },
@@ -121,7 +122,19 @@ export function Rig3DLab() {
       setCharClip("CAST_BACKSWING");
       return;
     }
+    if (id === "FLOAT_LANDING") {
+      if (charClip.startsWith("CAST")) {
+        setCharClip("FLOAT_LANDING");
+        return;
+      }
+      setCharClip("CAST_BACKSWING");
+      return;
+    }
     setCharClip(id);
+  }, [charClip]);
+
+  const onCastComplete = useCallback(() => {
+    setCharClip((c) => (c.startsWith("CAST") ? "FLOAT_LANDING" : c));
   }, []);
 
   const onCharFinished = useCallback((name: string) => {
@@ -144,7 +157,7 @@ export function Rig3DLab() {
         <div>
           <p className="rig-lab-kicker">Рыбацкий Мир · 3D contract</p>
           <h1>Production 360° lab</h1>
-          <p className="rig3d-kicker">CAST · поплавочный заброс из PRE-CAST</p>
+          <p className="rig3d-kicker">CAST → FLOAT LANDING · поплавок на воду</p>
         </div>
         <div className="rig-lab-meta">
           <span className="rig-lab-state">{charClip.replaceAll("_", " ")}</span>
@@ -231,6 +244,7 @@ export function Rig3DLab() {
               wave={wave}
               onFps={setFps}
               onCharFinished={onCharFinished}
+              onCastComplete={onCastComplete}
               onReports={setReports}
             />
             <OrbitControls
@@ -320,9 +334,20 @@ export function Rig3DLab() {
           {CHAR_PRIMARY.map((a) => {
             const need = a.id === "CAST" ? "CAST_BACKSWING" : a.id;
             const missing = Boolean(
-              reports && !available.has(need) && a.id !== "IDLE" && a.id !== "AIM" && a.id !== "READY" && a.id !== "CAST",
+              reports &&
+                !available.has(need) &&
+                a.id !== "IDLE" &&
+                a.id !== "AIM" &&
+                a.id !== "READY" &&
+                a.id !== "CAST" &&
+                a.id !== "FLOAT_LANDING",
             );
-            const active = a.id === "CAST" ? charClip.startsWith("CAST") : charClip === a.id;
+            const active =
+              a.id === "CAST"
+                ? charClip.startsWith("CAST")
+                : a.id === "FLOAT_LANDING"
+                  ? charClip === "FLOAT_LANDING"
+                  : charClip === a.id;
             return (
               <button
                 key={a.id}
