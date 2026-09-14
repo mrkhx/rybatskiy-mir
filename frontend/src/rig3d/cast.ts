@@ -5,11 +5,15 @@
  * PRE-CAST visual rod is the Hand_R-glued READY blank (arms already raised).
  * Do not start CAST at AIM_PITCH 42° / AIM_YAW 4° — that reseats the rod
  * onto a different parent/pitch for one frame and snaps elbows/wrists.
+ *
+ * LOCKED: approvedCast.ts — PRE-CAST → CAST at 22e0f82748bb12597228c56c8af53a13359ea969
  */
 import * as THREE from "three";
 import { DEG, READY_PITCH } from "./approvedReady";
 import { AIM_LINE_TENSION } from "./approvedPrecast";
 import { AIM_ARM, AXIS_X, applyArmSpins } from "./idleLive";
+
+export { APPROVED_CAST_COMMIT, APPROVED_CAST_TRANSITION } from "./approvedCast";
 
 export const CAST_DURATION = 1.4;
 export const CAST_RELEASE_AT = 0.88;
