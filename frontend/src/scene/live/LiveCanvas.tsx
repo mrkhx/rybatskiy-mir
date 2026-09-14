@@ -6,7 +6,7 @@ type Ripple = { x: number; y: number; r: number; a: number; max: number };
 type Drop = { x: number; y: number; len: number; spd: number };
 export type LiveHandle = { draw: (pose: Pose, t: number, dt: number, wx: string) => void };
 
-export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
+export const LiveCanvas = forwardRef<LiveHandle, { drawGear?: boolean }>(function LiveCanvas({ drawGear = true }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ripples = useRef<Ripple[]>([]);
   const drops = useRef<Drop[]>([]);
@@ -14,6 +14,8 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
   const floatImg = useRef<HTMLImageElement | null>(null);
   const quality = useRef<Quality>("HIGH");
   const flash = useRef(0);
+  const drawGearRef = useRef(drawGear);
+  drawGearRef.current = drawGear;
 
   useEffect(() => {
     quality.current = sceneQuality();
@@ -61,6 +63,7 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
       const rain = wx === "RAIN" || wx === "DOWNPOUR" || wx === "STORM";
       const q = quality.current;
       const storm = wx === "STORM";
+      const gear = drawGearRef.current;
 
       const spawn = (x: number, y: number, max: number, a = 0.45) => {
         const cap = q === "LOW" ? 8 : q === "MEDIUM" ? 14 : 22;
@@ -94,8 +97,8 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
         const chance = storm ? 0.32 : wx === "DOWNPOUR" ? 0.22 : 0.12;
         if (Math.random() < chance) spawn(8 + Math.random() * 84, 52 + Math.random() * 28, 16 + Math.random() * 14, 0.26);
       }
-      if (p.rings > 0.2 && Math.random() < 0.08) spawn(p.floatX, p.floatY + 0.4, 22, 0.42);
-      if (p.splash > lastSplash.current && p.splash > 0.3) {
+      if (gear && p.rings > 0.2 && Math.random() < 0.08) spawn(p.floatX, p.floatY + 0.4, 22, 0.42);
+      if (gear && p.splash > lastSplash.current && p.splash > 0.3) {
         spawn(p.floatVisible ? p.floatX : p.lureX, p.floatVisible ? p.floatY : p.lureY, 36, 0.72);
       }
       lastSplash.current = p.splash;
@@ -116,7 +119,7 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
         ctx.stroke();
       }
 
-      if (p.fishVis > 0.05) {
+      if (gear && p.fishVis > 0.05) {
         ctx.globalAlpha = p.fishVis * 0.58;
         ctx.fillStyle = "rgba(6, 24, 28, 0.9)";
         ctx.beginPath();
@@ -125,7 +128,7 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
         ctx.globalAlpha = 1;
       }
 
-      if (p.splash > 0.05) {
+      if (gear && p.splash > 0.05) {
         ctx.globalAlpha = p.splash;
         ctx.fillStyle = "rgba(255,255,255,0.72)";
         const sx = X(p.floatVisible ? p.floatX : p.lureX);
@@ -179,7 +182,7 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
         }
       }
 
-      const showLine = p.lureFlying || p.floatVisible || p.fishVis > 0.2;
+      const showLine = gear && (p.lureFlying || p.floatVisible || p.fishVis > 0.2);
       if (showLine) {
         const endX = p.lureFlying ? p.lureX : p.floatVisible ? p.floatX : p.fishVis > 0.2 ? p.fishX : p.tipX + 4;
         const endY = p.lureFlying ? p.lureY : p.floatVisible ? p.floatY : p.fishVis > 0.2 ? p.fishY : p.tipY + 8;
@@ -193,6 +196,7 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
         ctx.stroke();
       }
 
+      if (gear) {
       const mx = (p.gripX + p.tipX) / 2;
       const my = (p.gripY + p.tipY) / 2 + p.rodBend * 2.6;
       ctx.beginPath();
@@ -247,6 +251,7 @@ export const LiveCanvas = forwardRef<LiveHandle>(function LiveCanvas(_, ref) {
           ctx.fillRect(-1.1, -13 + dip, 2.2, 4);
         }
         ctx.restore();
+      }
       }
     },
   }));

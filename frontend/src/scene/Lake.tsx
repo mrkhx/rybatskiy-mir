@@ -3,9 +3,12 @@ import type { Session } from "../api/client";
 import { useAnimDirector, stateAge } from "./anim/director";
 import { idlePose, solvePose, windAmount } from "./anim/pose";
 import type { Pose, SceneSnap } from "./anim/types";
+import { ForestLakeFishing3D } from "./ForestLakeFishing3D";
 import { AnglerRig, type AnglerHandle } from "./live/AnglerRig";
 import { LiveCanvas, type LiveHandle } from "./live/LiveCanvas";
 import { sceneQuality } from "./quality";
+import type { CatchDecision } from "./useFishingVisualsFromSession";
+import { shouldShow3DFisherman } from "./use3DFisherman";
 
 type LakeProps = {
   tod: string;
@@ -15,17 +18,34 @@ type LakeProps = {
   feeding?: boolean;
   castNonce?: number;
   hookNonce?: number;
+  spotId?: string;
+  lastDecision?: CatchDecision;
+  decisionGen?: number;
+  reelNonce?: number;
 };
 
 const A = "/scene/forest-lake";
 const V = "v=12";
 
-export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, hookNonce = 0 }: LakeProps) {
+export function Lake({
+  tod,
+  wx,
+  session,
+  force = 0.55,
+  feeding,
+  castNonce = 0,
+  hookNonce = 0,
+  spotId = "old-bridge",
+  lastDecision = null,
+  decisionGen = 0,
+  reelNonce = 0,
+}: LakeProps) {
   const root = useRef<HTMLDivElement>(null);
   const angler = useRef<AnglerHandle>(null);
   const live = useRef<LiveHandle>(null);
   const poseRef = useRef<Pose>(idlePose());
   const quality = sceneQuality();
+  const show3D = shouldShow3DFisherman(session?.spotId ?? spotId);
   const snap: SceneSnap = {
     sessionState: session?.state ?? null,
     tension: session?.tension ?? 0,
@@ -108,7 +128,7 @@ export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, h
   return (
     <div
       ref={root}
-      className="lake"
+      className={`lake${show3D ? " is-3d-fisherman" : ""}`}
       data-tod={tod}
       data-wx={wx}
       data-anim="IDLE"
@@ -136,7 +156,15 @@ export function Lake({ tod, wx, session, force = 0.55, feeding, castNonce = 0, h
           </div>
         </div>
 
-        <LiveCanvas ref={live} />
+        <LiveCanvas ref={live} drawGear={!show3D} />
+        {show3D && (
+          <ForestLakeFishing3D
+            session={session ?? null}
+            lastDecision={lastDecision}
+            decisionGen={decisionGen}
+            reelNonce={reelNonce}
+          />
+        )}
 
         <img className="lyr reeds-l par-fg reed-wind-a" src={`${A}/reeds.webp?${V}`} alt="" />
         <img className="lyr reeds-r par-fg reed-wind-b" src={`${A}/reeds.webp?${V}`} alt="" />

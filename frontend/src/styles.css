@@ -61,6 +61,7 @@ body {
 .lake {
   position: absolute;
   inset: 0;
+  z-index: 0;
   overflow: hidden;
   background: #6a8480;
   perspective: 1600px;
@@ -316,6 +317,47 @@ body {
   height: 100%;
   pointer-events: none;
   z-index: 5;
+}
+
+.lake-3d-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none !important;
+}
+.lake-3d-layer *,
+.lake-3d-canvas {
+  pointer-events: none !important;
+}
+.lake-3d-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+.lake.is-3d-fisherman .angler {
+  visibility: hidden;
+}
+.lake.is-3d-fisherman .angler::after {
+  display: none;
+}
+/* Flatten CSS 3D so the R3F canvas is not parented under preserve-3d / will-change
+   (that combination loses the WebGL context in Chromium). */
+.lake.is-3d-fisherman .cam {
+  animation: none;
+  transform: none;
+  transform-style: flat;
+  will-change: auto;
+  inset: 0;
+}
+.lake.is-3d-fisherman .par-sky,
+.lake.is-3d-fisherman .par-far,
+.lake.is-3d-fisherman .par-stage {
+  transform: none;
+}
+.lake.is-3d-fisherman .par-fg {
+  transform: translate3d(0, 0, 0);
 }
 
 .reeds-l {

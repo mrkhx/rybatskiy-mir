@@ -86,6 +86,8 @@ type Props = {
   onKeepComplete?: () => void;
   onReturnComplete?: () => void;
   onReports?: (reports: SceneReports) => void;
+  /** Forest Lake overlay: no debug grid / lab water plate. */
+  embed?: boolean;
 };
 
 function hardenMaterials(root: THREE.Object3D) {
@@ -178,6 +180,7 @@ export function Rig3DScene({
   onKeepComplete,
   onReturnComplete,
   onReports,
+  embed = false,
 }: Props) {
   const manGltf = useGLTF(fishermanUrl);
   const rodGltf = useGLTF(rodUrl);
@@ -1258,7 +1261,9 @@ export function Rig3DScene({
     <group>
       <group rotation={[0, yaw + extraYaw.current + Math.PI, 0]}>
         <primitive object={man} position={[0, 0, 0]} />
-        <WaterPlane active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip) || isLandClip(charClip) || isHoldClip(charClip) || isReleaseClip(charClip) || isKeepClip(charClip) || isReturnClip(charClip)} floatOn={floatOn} />
+        {embed ? null : (
+          <WaterPlane active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip) || isLandClip(charClip) || isHoldClip(charClip) || isReleaseClip(charClip) || isKeepClip(charClip) || isReturnClip(charClip)} floatOn={floatOn} />
+        )}
         <LakeFloat
           ref={floatRef}
           floatOn={floatOn}
@@ -1332,8 +1337,8 @@ export function Rig3DScene({
       )}
       {debug.ik && <IkDots rod={rod} />}
       {debug.rodAnchors && <AnchorDots rod={rod} man={man} />}
-      <gridHelper args={[6, 12, "#7a8a94", "#3d4a52"]} />
-      <ContactShadows position={[0, 0.001, 0]} opacity={0.42} scale={4.5} blur={2.4} far={3.5} color="#1a1c18" />
+      {!embed && <gridHelper args={[6, 12, "#7a8a94", "#3d4a52"]} />}
+      {!embed && <ContactShadows position={[0, 0.001, 0]} opacity={0.42} scale={4.5} blur={2.4} far={3.5} color="#1a1c18" />}
     </group>
   );
 }

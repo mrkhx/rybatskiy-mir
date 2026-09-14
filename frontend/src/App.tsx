@@ -309,6 +309,9 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   const [harvestNote, setHarvestNote] = useState("");
   const [castNonce, setCastNonce] = useState(0);
   const [hookNonce, setHookNonce] = useState(0);
+  const [reelNonce, setReelNonce] = useState(0);
+  const [lastDecision, setLastDecision] = useState<"keep" | "release" | null>(null);
+  const [decisionGen, setDecisionGen] = useState(0);
   const canSpin = hasSpinningRod(bag);
 
   const applySession = useCallback((s: Session, extra?: string) => {
@@ -483,6 +486,8 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   async function decide(keep: boolean) {
     try {
       const s = await api<Session>("/fishing/decide", { method: "POST", body: JSON.stringify({ keep }) });
+      setLastDecision(keep ? "keep" : "release");
+      setDecisionGen((n) => n + 1);
       applySession(s, keep ? "В садке." : "Отпустили. Есть XP.");
       onPlayer(await api<Player>("/players/me"));
     } catch (e) {
@@ -539,7 +544,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
     if (fighting || hooked) {
       return (
         <div className="fight">
-          <button className="btn" type="button" onClick={() => void tick({ reel: 0.85 })}>Подмотка</button>
+          <button className="btn" type="button" onClick={() => { setReelNonce((n) => n + 1); void tick({ reel: 0.85 }); }}>Подмотка</button>
           <button className="btn" type="button" onClick={() => void tick({ drag: 0.8, reel: 0.3 })}>Фрикцион</button>
           <button className="btn" type="button" onClick={() => void tick({ rodPressure: 0.9 })}>Поднять удилище</button>
           <button className="btn" type="button" onClick={() => void tick({ rodDir: -0.6, reel: 0.4 })}>В сторону</button>
@@ -620,6 +625,10 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
         feeding={Boolean(world?.feeding?.some((f) => f.spotId === shownSpotId))}
         castNonce={castNonce}
         hookNonce={hookNonce}
+        spotId={shownSpotId}
+        lastDecision={lastDecision}
+        decisionGen={decisionGen}
+        reelNonce={reelNonce}
       />
       <div className="ui">
         <header className="topbar">
