@@ -1,6 +1,8 @@
 /**
  * HOOKSET — short float-rod strike after approved BITE hold.
  * t=0 matches sampleBitePose(BITE_DURATION). Does not start FIGHT.
+ *
+ * LOCKED: approvedHookset.ts — HOOKSET at f9b312ee8dc0bfa5fd1bc779bb94f05119621903
  */
 import * as THREE from "three";
 import { DEG } from "./approvedReady";
@@ -11,6 +13,8 @@ import {
   sampleBitePose,
 } from "./bite";
 import { applyWaitPose, type WaitSample } from "./wait";
+
+export { APPROVED_HOOKSET_COMMIT, APPROVED_HOOKSET_CHAIN } from "./approvedHookset";
 
 export const HOOK_DURATION = 0.72;
 export const HOOK_WIND = 0.1;
