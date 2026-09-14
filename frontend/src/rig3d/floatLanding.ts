@@ -3,8 +3,12 @@
  * Does not rewrite CAST. Continues the live float pos/vel from the last CAST frame.
  *
  * Fisherman stays in CAST follow-through. WAIT is not this clip.
+ *
+ * LOCKED: approvedFloatLanding.ts — FLOAT LANDING at e3d39e9d2c59a55dd7249a1225a353ebbe48e2d7
  */
 import { WATER_Y } from "./approvedTackle";
+
+export { APPROVED_FLOAT_LANDING_COMMIT, APPROVED_FLOAT_LANDING_CHAIN } from "./approvedFloatLanding";
 
 export const FLOAT_LANDING_CLIP = "FLOAT_LANDING" as const;
 
