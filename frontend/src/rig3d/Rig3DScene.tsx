@@ -14,7 +14,7 @@ import { importHumanoid } from "../scene3d/assets/retarget";
 import { twoBoneIK } from "./ik";
 import { applyRodBend, aimRod, spinReel, worldOf } from "./rodBend";
 import { placeRodReady, seatRodInHand, closeRightFist, rollRightWristOut } from "./grip";
-import { liveArms } from "./idleLive";
+import { applyAimArms } from "./idleLive";
 import { applyAimPose, AIM_PITCH, AIM_YAW, AIM_LINE_TENSION } from "./aim";
 import { applyCastPose, CAST_DURATION, isCastClip, sampleCast } from "./cast";
 import { LOOPING_CHAR, ikFor, tensionFor, type CharClip, type DebugFlags, type FishClip } from "./types";
@@ -167,6 +167,7 @@ export function Rig3DScene({
   const fpsAcc = useRef({ t: 0, frames: 0 });
   const attached = useRef(false);
   const gripKey = useRef("");
+  const aimU = useRef(0);
   const extraYaw = useRef(0);
   const floatRef = useRef<THREE.Group>(null);
   const castT = useRef(0);
@@ -320,7 +321,6 @@ export function Rig3DScene({
     fishMixer.update(dt);
 
     const clip = charRef.current;
-    if (clip === "READY" || clip === "AIM") liveArms(man, dt);
     const casting = isCastClip(clip);
     if (casting) {
       const seek = (window as unknown as { __CAST_SEEK?: number }).__CAST_SEEK;
@@ -339,14 +339,15 @@ export function Rig3DScene({
         applyRodBend(rod, s.bend);
         gripKey.current = "cast";
       } else {
-        if (clip === "AIM") applyAimPose(man);
-        const key = clip === "AIM" ? "aim" : "ready";
-        if (gripKey.current !== key) {
-          const pitch = clip === "AIM" ? AIM_PITCH : undefined;
-          const yaw = clip === "AIM" ? AIM_YAW : undefined;
-          attached.current = seatRodInHand(man, rod, pitch, yaw);
+        const target = clip === "AIM" ? 1 : 0;
+        const step = dt / 0.4;
+        if (aimU.current < target) aimU.current = Math.min(target, aimU.current + step);
+        else if (aimU.current > target) aimU.current = Math.max(target, aimU.current - step);
+        applyAimArms(man, aimU.current);
+        if (gripKey.current !== "hold") {
+          attached.current = seatRodInHand(man, rod);
           applyRodBend(rod, 0);
-          gripKey.current = key;
+          gripKey.current = "hold";
         }
         rod.visible = true;
       }
@@ -356,6 +357,7 @@ export function Rig3DScene({
       rod.visible = false;
       attached.current = false;
       gripKey.current = "";
+      aimU.current = 0;
     }
 
     if (attached.current && clip !== "READY" && clip !== "AIM" && !casting) aimRod(man, rod, clip);
