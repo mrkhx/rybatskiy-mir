@@ -1,25 +1,27 @@
 /**
- * PRE-CAST (AIM) — READY + raised tip, float off the water hanging on the line.
- * Does not rewrite READY. No IK. No world-copy. No CAST.
+ * PRE-CAST (AIM) runtime — consumes approvedPrecast.ts.
+ * Do not retune here.
  */
 import * as THREE from "three";
-import { DEG, READY_PITCH } from "./approvedReady";
+import {
+  AIM_PITCH,
+  AIM_YAW,
+  AIM_LINE_TENSION,
+  PRECAST_HANG_DROP,
+  PRECAST_HANG_IN,
+  PRECAST_SPINE_X,
+  PRECAST_SPINE1_X,
+  PRECAST_NECK_X,
+  PRECAST_HEAD_X,
+} from "./approvedPrecast";
 
-/** 42° — inside 35–45°, clearly above READY 30°. */
-export const AIM_PITCH = 42 * DEG;
-export const AIM_YAW = 4 * DEG;
-/** Slack hang, not a fight line. */
-export const AIM_LINE_TENSION = 0.05;
-/** Metres below RodTip, slightly back toward the body. */
-export const PRECAST_HANG_DROP = 1.08;
-export const PRECAST_HANG_IN = 0.16;
-
-void READY_PITCH;
-
-const SPINE_X = 5 * DEG;
-const SPINE1_X = 3 * DEG;
-const NECK_X = 5 * DEG;
-const HEAD_X = 4 * DEG;
+export {
+  AIM_PITCH,
+  AIM_YAW,
+  AIM_LINE_TENSION,
+  PRECAST_HANG_DROP,
+  PRECAST_HANG_IN,
+};
 
 const REST: Record<string, THREE.Quaternion> = {};
 const _qx = new THREE.Quaternion();
@@ -44,8 +46,8 @@ function addLocalX(man: THREE.Object3D, name: string, angle: number) {
 }
 
 export function applyAimPose(man: THREE.Object3D): void {
-  addLocalX(man, "Spine", SPINE_X);
-  addLocalX(man, "Spine1", SPINE1_X);
-  addLocalX(man, "Neck", NECK_X);
-  addLocalX(man, "Head", HEAD_X);
+  addLocalX(man, "Spine", PRECAST_SPINE_X);
+  addLocalX(man, "Spine1", PRECAST_SPINE1_X);
+  addLocalX(man, "Neck", PRECAST_NECK_X);
+  addLocalX(man, "Head", PRECAST_HEAD_X);
 }

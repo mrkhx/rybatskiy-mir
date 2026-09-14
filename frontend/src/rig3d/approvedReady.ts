@@ -10,8 +10,8 @@
  * - fisherman READY clip pose (IDLE-derived, fingers/wrist overlays below)
  * - rod local orientation: blank man-local (−cos 30°, sin 30°, 0), reel −Y
  * - rod in the closed right fist, 4 cm toward torso
- * Chain (line + float) locked in approvedTackle.ts
- * at HEAD c804d16dd2b4c4ec1b0d478fa441377145b6875c
+ * PRE-CAST locked in approvedPrecast.ts
+ * at HEAD f9097991039998213e518e957eb20b34db8ac83d
  */
 import * as THREE from "three";
 
