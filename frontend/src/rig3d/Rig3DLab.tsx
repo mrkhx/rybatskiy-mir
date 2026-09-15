@@ -131,6 +131,7 @@ export function Rig3DLab() {
   const [serverDecision, setServerDecision] = useState<CatchDecision>(null);
   const serverVisuals = useFishingVisualsFromSession({
     enabled: serverOn,
+    frameDriven: true,
     session: fishing.session,
     castNonce: serverCastNonce,
     reelNonce: serverReelNonce,
@@ -674,6 +675,7 @@ export function Rig3DLab() {
               onCharFinished={onCharFinished}
               onCastComplete={onCastComplete}
               onLandingComplete={onLandingComplete}
+              onVisualPhaseComplete={serverOn ? serverVisuals.onVisualPhaseComplete : undefined}
               biteKey={biteKey}
               hookKey={hookKey}
               fightKey={fightKey}

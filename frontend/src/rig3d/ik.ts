@@ -30,10 +30,10 @@ export function ccdIK(chain: THREE.Object3D[], target: THREE.Vector3, iterations
       _toTarget.multiplyScalar(1 / dist);
       _q.setFromUnitVectors(_toEnd, _toTarget);
       if (clamp < 1) _q.slerp(_ident, 1 - clamp);
-      _world.setFromRotationMatrix(bone.matrixWorld);
+      bone.getWorldQuaternion(_world);
       _next.copy(_q).multiply(_world);
       if (bone.parent) {
-        _parent.setFromRotationMatrix(bone.parent.matrixWorld);
+        bone.parent.getWorldQuaternion(_parent);
         bone.quaternion.copy(_parent.invert().multiply(_next));
       } else {
         bone.quaternion.copy(_next);

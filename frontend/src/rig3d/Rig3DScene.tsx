@@ -75,6 +75,7 @@ type Props = {
   onCharFinished?: (name: string) => void;
   onCastComplete?: () => void;
   onLandingComplete?: () => void;
+  onVisualPhaseComplete?: (phase: CharClip) => void;
   biteKey?: number;
   hookKey?: number;
   fightKey?: number;
@@ -170,6 +171,7 @@ export function Rig3DScene({
   onCharFinished,
   onCastComplete,
   onLandingComplete,
+  onVisualPhaseComplete,
   biteKey = 0,
   hookKey = 0,
   fightKey = 0,
@@ -232,6 +234,15 @@ export function Rig3DScene({
   const landSim = useRef(makeLandingSim());
   const landT = useRef(0);
   const landDone = useRef(false);
+  const phaseElapsed = useRef(0);
+  const phaseSignaled = useRef(false);
+  const phaseCompleteRef = useRef(onVisualPhaseComplete);
+  phaseCompleteRef.current = onVisualPhaseComplete;
+  useEffect(() => {
+    phaseElapsed.current = 0;
+    phaseSignaled.current = false;
+  }, [charClip, hookKey, fightKey, prepKey, landKey, holdKey, reelKey]);
+
   const waitU = useRef(0);
   const waitClock = useRef(0);
   const biteT = useRef(0);
@@ -699,6 +710,8 @@ export function Rig3DScene({
     fishMixer.update(dt);
 
     const clip = charRef.current;
+    const renderedPoseTime = clip === "HOOKSET" ? hookT.current : clip === "LAND_PREP" ? prepT.current
+      : clip === "LAND" ? outT.current : clip === "LANDED_HOLD" ? holdT.current : phaseElapsed.current;
     const casting = isCastClip(clip);
     const landing = isFloatLanding(clip);
     const waiting = isWaitClip(clip);
@@ -1232,12 +1245,34 @@ export function Rig3DScene({
       setPikeFade(pike, 1);
     }
 
+    // Preserve the authored approach pose, but constrain the wrist to the rotating
+    // handle throughout retrieve and its blend out. Both points are world-space.
+    if (reelReach.current > 1e-4 && (reeling || fighting || prepping)
+      && worldOf(rod, "ReelHandleTarget", _target)) {
+      const hand = man.getObjectByName("Hand_L");
+      if (hand) {
+        const wrist = hand.getWorldPosition(new THREE.Vector3());
+        _target.lerpVectors(wrist, _target, THREE.MathUtils.smoothstep(reelReach.current, 0, 1));
+        twoBoneIK(man, ["UpperArm_L", "LowerArm_L", "Hand_L"], _target, 16);
+      }
+    }
+
     const ikMode = ikFor(clip);
     if (ikMode !== "none") {
       const targetName = ikMode === "reel" ? "ReelHandleTarget" : "RodSupportTarget";
       if (worldOf(rod, targetName, _target)) {
         twoBoneIK(man, ["UpperArm_L", "LowerArm_L", "Hand_L"], _target, 8);
       }
+    }
+
+    phaseElapsed.current += dt;
+    const phaseDuration = clip === "AIM" ? .35 : clip === "HOOKSET" ? HOOK_DURATION
+      : clip === "FIGHT_LIGHT" ? FIGHT_LOOP : clip === "REEL" ? 1.2 : clip === "LAND_PREP" ? PREP_DURATION
+      : clip === "LAND" ? LAND_DURATION : clip === "LANDED_HOLD" ? .7 : Infinity;
+    // The pose at this timestamp was applied above. Wall-clock time cannot skip it.
+    if (phaseCompleteRef.current && !phaseSignaled.current && renderedPoseTime >= phaseDuration) {
+      phaseSignaled.current = true;
+      phaseCompleteRef.current(clip);
     }
 
     fpsAcc.current.t += dt;

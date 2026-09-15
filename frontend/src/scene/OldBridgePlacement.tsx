@@ -27,18 +27,23 @@ export function OldBridgePlacement({ feet, children, calibration, showMarkers = 
     ray.setFromCamera(new Vector2(target.x / size.width * 2 - 1, 1 - target.y / size.height * 2), camera);
     const contact = ray.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), 0), new Vector3());
     if (!contact) return;
-    const offset = new Vector3(...feet.center).multiplyScalar(calibration.scale)
-      .applyAxisAngle(new Vector3(0, 1, 0), calibration.yaw);
-    node.scale.setScalar(calibration.scale);
-    node.rotation.set(0, calibration.yaw, 0);
-    node.position.copy(contact).sub(offset);
-    node.position.y += calibration.feetOffset;
-    node.updateMatrixWorld(true);
     const waterPhoto = photoToStage(oldBridgeCastAnchor.u, oldBridgeCastAnchor.v, size.width, size.height,
       photo.width, photo.height, photo.objectX, photo.objectY, photo.overscan);
     ray.setFromCamera(new Vector2(waterPhoto.x / size.width * 2 - 1, 1 - waterPhoto.y / size.height * 2), camera);
     const waterlineWorldY = OLD_BRIDGE_3D.waterlineWorldY;
     const castTargetWorld = ray.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), -waterlineWorldY), new Vector3());
+    // The approved rod points along local -X; Rig3DScene's internal π makes it +X.
+    // Turn that axis towards the water target, not towards a fixed screen direction.
+    const facingYaw = castTargetWorld
+      ? Math.atan2(-(castTargetWorld.z - contact.z), castTargetWorld.x - contact.x) + calibration.yaw
+      : calibration.yaw;
+    const offset = new Vector3(...feet.center).multiplyScalar(calibration.scale)
+      .applyAxisAngle(new Vector3(0, 1, 0), facingYaw);
+    node.scale.setScalar(calibration.scale);
+    node.rotation.set(0, facingYaw, 0);
+    node.position.copy(contact).sub(offset);
+    node.position.y += calibration.feetOffset;
+    node.updateMatrixWorld(true);
     if (castTargetWorld) setWater({ castTargetWorld, waterlineWorldY, motionFrame: node });
     if (showMarkers) setMarkers([
       { label: "photo standing target", point: contact },
@@ -48,8 +53,7 @@ export function OldBridgePlacement({ feet, children, calibration, showMarkers = 
       ...(castTargetWorld ? [{ label: `cast target / waterline ${waterlineWorldY}`, point: castTargetWorld }] : []),
     ]);
   }, [camera, feet, size.width, size.height, calibration, showMarkers]);
-  return <RuntimeWaterContext.Provider value={water}><group ref={group} visible={feet !== null} scale={calibration.scale}
-    rotation={[0, calibration.yaw, 0]}>{children}</group>
+  return <RuntimeWaterContext.Provider value={water}><group ref={group} visible={feet !== null} >{children}</group>
     {showMarkers && markers.map(({ label, point }) => <Html key={label} position={point.toArray()} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}>
       <span style={{ color: "#ffed50", background: "#102128bb", fontSize: 11 }}>⊕ {label}</span>
     </Html>)}

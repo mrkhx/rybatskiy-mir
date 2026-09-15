@@ -7,8 +7,9 @@ import * as THREE from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { anchorWorldY, readFloatAnchors } from "./floatAnchors";
 import { MotionSpace } from "./motionSpace";
-import { RuntimeWaterContext, castVelocity } from "./runtimeWater";
+import { RuntimeWaterContext, advanceToWater, castVelocity, sampleBallisticCast } from "./runtimeWater";
 import { PRODUCTION } from "../scene3d/assets/paths";
 import { worldOf } from "./rodBend";
 import { LINE_FLOATS, lineOpacity, lineToLocal, sampleLine } from "./fishingLine";
@@ -121,6 +122,7 @@ export const LakeFloat = forwardRef<
       s.scale.setScalar(FLOAT_SCALE);
       return s;
     }, [gltf.scene]);
+    const anchors = useMemo(() => readFloatAnchors(root), [root]);
     const inner = useRef<THREE.Group>(null);
     const clock = useRef(0);
     const fly = useRef({
@@ -133,6 +135,7 @@ export const LakeFloat = forwardRef<
       contact: false,
       settleT: 0,
     });
+    const calibratedCast = useRef<{ start: THREE.Vector3; velocity: THREE.Vector3; releasedAt: number; duration: number; gravity: number } | null>(null);
     const lastTip = useRef(new THREE.Vector3());
     const biteRest = useRef(new THREE.Vector3());
     const biteArmed = useRef(false);
@@ -168,13 +171,15 @@ export const LakeFloat = forwardRef<
       const t = clock.current;
       const gparent = g.parent;
       const motionScale = water ? water.motionFrame.getWorldScale(_worldScale).y : 1;
-      const keelBelow = KEEL_BELOW * motionScale;
+      const keelBelow = water && anchors.bottom ? -anchorWorldY(g, anchors.bottom) : KEEL_BELOW * motionScale;
+      const floatRestY = waterline - (water && anchors.waterline ? anchorWorldY(g, anchors.waterline) : 0);
       const gravity = LANDING_GRAVITY * motionScale;
       // Preserve the same photo-water location when cover cropping changes on resize.
       if (water) {
         if (previousTarget.current) {
           _in.copy(water.castTargetWorld).sub(previousTarget.current);
           if (_in.lengthSq() > 0) {
+            calibratedCast.current?.start.add(_in);
             for (const point of [fly.current.pos, fly.current.hang, biteRest.current, hookRest.current, fightRest.current]) point.add(_in);
           }
         }
@@ -233,18 +238,19 @@ export const LakeFloat = forwardRef<
               // End the cast just above contact; the existing landing solver continues it.
               _in.copy(water.castTargetWorld);
               _in.y += keelBelow;
-              castVelocity(fly.current.pos, _in, CAST_DURATION - (castTimeRef?.current ?? 0), gravity, fly.current.vel);
+              const releasedAt = castTimeRef?.current ?? 0;
+              const duration = Math.max(.05, CAST_DURATION - releasedAt);
+              castVelocity(fly.current.pos, _in, duration, gravity, fly.current.vel);
+              calibratedCast.current = { start: fly.current.pos.clone(), velocity: fly.current.vel.clone(), releasedAt, duration, gravity };
             }
           }
-          if ((castTimeRef?.current ?? 0) < CAST_DURATION) {
-            if (water) {
-              fly.current.pos.addScaledVector(fly.current.vel, dt);
-              fly.current.pos.y -= .5 * gravity * dt * dt;
-              fly.current.vel.y -= gravity * dt;
-            } else {
-              fly.current.vel.y -= gravity * dt;
-              fly.current.pos.addScaledVector(fly.current.vel, dt);
-            }
+          const flight = calibratedCast.current;
+          if (water && flight) {
+            sampleBallisticCast(flight.start, flight.velocity, (castTimeRef?.current ?? 0) - flight.releasedAt,
+              flight.duration, flight.gravity, fly.current.pos, fly.current.vel);
+          } else if ((castTimeRef?.current ?? 0) < CAST_DURATION) {
+            fly.current.vel.y -= gravity * dt;
+            fly.current.pos.addScaledVector(fly.current.vel, dt);
             if (fly.current.pos.y < waterline + 0.08 * motionScale) {
               fly.current.pos.y = waterline + 0.08 * motionScale;
               fly.current.vel.y = Math.max(0, fly.current.vel.y);
@@ -259,6 +265,13 @@ export const LakeFloat = forwardRef<
         g.rotation.set(0.05 * Math.sin(t * 2.2), 0, 0.08 * Math.sin(t * 1.8));
       } else if (landing && rod) {
         const st = fly.current;
+        if (water && calibratedCast.current) {
+          // CAST's final callback may run before this child gets its last frame.
+          const flight = calibratedCast.current;
+          sampleBallisticCast(flight.start, flight.velocity, flight.duration, flight.duration,
+            flight.gravity, st.pos, st.vel);
+          calibratedCast.current = null;
+        }
         if (!st.primed) {
           if (!worldOf(rod, "RodTip", _tip)) worldOf(rod, "LineStart", _tip);
           st.pos.copy(_tip);
@@ -270,9 +283,14 @@ export const LakeFloat = forwardRef<
           st.settleT = 0;
         }
         if (!st.contact) {
-          st.vel.y -= gravity * dt;
-          st.pos.addScaledVector(st.vel, dt);
-          if (st.pos.y - keelBelow <= waterline) {
+          let contacted: boolean;
+          if (water) contacted = advanceToWater(st.pos, st.vel, dt, gravity, waterline + keelBelow);
+          else {
+            st.vel.y -= gravity * dt;
+            st.pos.addScaledVector(st.vel, dt);
+            contacted = st.pos.y - keelBelow <= waterline;
+          }
+          if (contacted) {
             st.contact = true;
             st.settleT = 0;
             st.vel.y = Math.min(st.vel.y, 0) * 0.14 - 0.28;
@@ -294,7 +312,7 @@ export const LakeFloat = forwardRef<
           const dipU = Math.max(0, Math.min(1, st.settleT / 0.3));
           const dip = -LANDING_DIP * motionScale * Math.sin(dipU * Math.PI) * (1 - 0.45 * u);
           const bob = FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ) * u * motionScale;
-          const targetY = waterline + dip + bob;
+          const targetY = floatRestY + dip + bob;
           st.vel.y += (targetY - st.pos.y) * 24 * dt;
           st.vel.y *= Math.exp(-7.2 * dt);
           st.vel.x *= Math.exp(-6.5 * dt);
@@ -328,13 +346,13 @@ export const LakeFloat = forwardRef<
         const st = fly.current;
         const bob = FLOAT_BOB_AMP * motionScale * wave * Math.sin(t * FLOAT_BOB_FREQ);
         if (st.primed && st.contact) {
-          st.pos.y = waterline + bob;
+          st.pos.y = floatRestY + bob;
           _hang.copy(st.pos);
           if (gparent) gparent.worldToLocal(_hang);
           g.position.copy(_hang);
         } else {
           restWorld(st.pos);
-          st.pos.y = waterline + bob;
+          st.pos.y = floatRestY + bob;
           st.primed = true;
           st.contact = true;
           _hang.copy(st.pos);
@@ -573,13 +591,18 @@ export const LakeFloat = forwardRef<
         }
         if (water) {
           const u = Math.max(0, Math.min(1, (returnTimeRef?.current ?? 0) / RETURN_DURATION));
-          st.pos.lerpVectors(fightRest.current, water.castTargetWorld, u * u * (3 - 2 * u));
+          _in.copy(water.castTargetWorld);
+          _in.y = floatRestY + FLOAT_BOB_AMP * motionScale * wave * Math.sin(t * FLOAT_BOB_FREQ);
+          st.pos.lerpVectors(fightRest.current, _in, u * u * (3 - 2 * u));
         } else returnFloatWorld(fightRest.current, returnTimeRef?.current ?? 0, st.pos);
         _hang.copy(st.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
         const u = Math.min(1, (returnTimeRef?.current ?? 0) / RETURN_DURATION);
-        g.rotation.set(0.06 * (1 - u), 0, 0.03 * (1 - u) * Math.sin(t * 2.2));
+        g.rotation.set(
+          0.06 * (1 - u) + (water ? FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ) * u : 0), 0,
+          0.03 * (1 - u) * Math.sin(t * 2.2) + (water ? FLOAT_TILT_Z * wave * Math.cos(t * FLOAT_TILT_Z_FREQ) * u : 0),
+        );
         if (simRef) simRef.current.tension = 0.05;
         (window as unknown as { __FLOAT?: { y: number; contact: boolean; settleT: number; phase?: string } }).__FLOAT = {
           y: st.pos.y,
@@ -588,9 +611,7 @@ export const LakeFloat = forwardRef<
           phase: "return",
         };
       } else {
-        fly.current.primed = false;
-        fly.current.on = false;
-        fly.current.contact = false;
+        calibratedCast.current = null;
         fly.current.primed = false;
         fly.current.on = false;
         fly.current.contact = false;
@@ -611,7 +632,7 @@ export const LakeFloat = forwardRef<
           g.rotation.set(0.06 * Math.sin(t * 0.95), 0, 0.08 * Math.sin(t * 1.35));
         } else {
           restWorld(_hang);
-          _hang.y += FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ);
+          _hang.y = floatRestY + FLOAT_BOB_AMP * motionScale * wave * Math.sin(t * FLOAT_BOB_FREQ);
           if (gparent) gparent.worldToLocal(_hang);
           g.position.copy(_hang);
           g.rotation.set(

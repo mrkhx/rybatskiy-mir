@@ -147,6 +147,81 @@ describe("server visual orchestration", () => {
     expect(result.current.charClip).toBe("WAIT");
   });
 
+  it("waits for rendered phases in two production cycles, regardless of elapsed wall time", () => {
+    let props = { id: "frame-0", state: "READY", castNonce: 0, reelNonce: 0,
+      decisionGen: 0, lastDecision: null as CatchDecision };
+    const { result, rerender } = renderHook((p) => useFishingVisualsFromSession({
+      ...p, enabled: true, frameDriven: true, session: { ...session(p.state), id: p.id },
+    }), { initialProps: props, wrapper });
+    const send = (p: Partial<typeof props>) => { props = { ...props, ...p }; rerender(props); };
+    const complete = (phase: Parameters<typeof result.current.onVisualPhaseComplete>[0]) => {
+      advance(60000);
+      expect(result.current.charClip).toBe(phase);
+      act(() => {
+        result.current.onVisualPhaseComplete(phase);
+        result.current.onVisualPhaseComplete(phase); // duplicate frame signal
+      });
+    };
+    for (const choice of ["keep", "release"] as const) {
+      send({ state: "WAITING_BITE", castNonce: props.castNonce + 1 });
+      complete("AIM");
+      expect(result.current.charClip).toBe("CAST_BACKSWING");
+      act(() => result.current.onCastComplete());
+      act(() => result.current.onLandingComplete());
+      send({ state: "BITE" });
+      send({ state: "HOOKED" });
+      send({ state: "FIGHTING" });
+      const beforeFightKey = result.current.fightKey;
+      complete("HOOKSET");
+      expect(result.current.fightKey).toBe(beforeFightKey + 1);
+      complete("FIGHT_LIGHT");
+      send({ reelNonce: props.reelNonce + 1 });
+      complete("REEL");
+      expect(result.current.charClip).toBe("FIGHT_LIGHT");
+      send({ state: "LANDED" });
+      complete("LAND_PREP");
+      complete("LAND");
+      advance(60000);
+      expect(result.current.resultOpen).toBe(false);
+      complete("LANDED_HOLD");
+      expect(result.current.resultOpen).toBe(true);
+      send({ id: `frame-${props.decisionGen + 1}`, state: "READY", lastDecision: choice,
+        decisionGen: props.decisionGen + 1 });
+      act(() => choice === "keep" ? result.current.onKeepComplete() : result.current.onReleaseComplete());
+      advance(280);
+      expect(result.current.charClip).toBe("RETURN_TO_READY");
+      act(() => result.current.onReturnComplete());
+      expect(result.current.charClip).toBe("READY");
+    }
+  });
+
+  it("buffers early LANDED until a rendered fight and the active reel have finished", () => {
+    const { result, rerender } = renderHook(({ state }) => useFishingVisualsFromSession({
+      enabled: true, frameDriven: true, session: session(state), lastDecision: null, decisionGen: 0,
+    }), { initialProps: { state: "HOOKED" }, wrapper });
+    rerender({ state: "LANDED" });
+    act(() => result.current.onVisualPhaseComplete("HOOKSET"));
+    expect(result.current.charClip).toBe("FIGHT_LIGHT");
+    advance(60000);
+    expect(result.current.charClip).toBe("FIGHT_LIGHT");
+    act(() => result.current.onVisualPhaseComplete("FIGHT_LIGHT"));
+    expect(result.current.charClip).toBe("LAND_PREP");
+  });
+
+  it("finishes REEL before LAND PREP when the server lands the fish during reeling", () => {
+    const { result, rerender } = renderHook(({ state, reelNonce }) => useFishingVisualsFromSession({
+      enabled: true, frameDriven: true, session: session(state), reelNonce, lastDecision: null, decisionGen: 0,
+    }), { initialProps: { state: "FIGHTING", reelNonce: 0 }, wrapper });
+    act(() => result.current.onVisualPhaseComplete("FIGHT_LIGHT"));
+    rerender({ state: "FIGHTING", reelNonce: 1 });
+    expect(result.current.charClip).toBe("REEL");
+    rerender({ state: "LANDED", reelNonce: 1 });
+    advance(60000);
+    expect(result.current.charClip).toBe("REEL");
+    act(() => result.current.onVisualPhaseComplete("REEL"));
+    expect(result.current.charClip).toBe("LAND_PREP");
+  });
+
   it("replays confirmed recasts and clears an interrupted PRE-CAST on unmount", () => {
     const { result, rerender, unmount } = renderHook(({ castNonce }) => useFishingVisualsFromSession({
       enabled: true, session: session("WAITING_BITE"), lastDecision: null, decisionGen: 0, castNonce,

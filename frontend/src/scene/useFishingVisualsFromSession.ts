@@ -26,8 +26,10 @@ export function useFishingVisualsFromSession(opts: {
   decisionGen: number;
   reelNonce?: number;
   castNonce?: number;
+  /** Production scenes signal completion after rendering the final pose. */
+  frameDriven?: boolean;
 }) {
-  const { enabled, session, lastDecision, decisionGen, reelNonce = 0, castNonce = 0 } = opts;
+  const { enabled, session, lastDecision, decisionGen, reelNonce = 0, castNonce = 0, frameDriven = false } = opts;
   const [charClip, setCharClip] = useState<CharClip>("READY");
   const [fishClip, setFishClip] = useState<FishClip>("SWIM_IDLE");
   const [biteKey, setBiteKey] = useState(0);
@@ -49,6 +51,7 @@ export function useFishingVisualsFromSession(opts: {
   const currentClip = useRef(charClip);
   currentClip.current = charClip;
   const landLock = useRef(false);
+  const fightShown = useRef(false);
   const recoverLock = useRef(false);
   const lastCast = useRef(castNonce);
   const lastReel = useRef(reelNonce);
@@ -56,6 +59,39 @@ export function useFishingVisualsFromSession(opts: {
   const prevState = useRef<string | null>(null);
 
   const state = session?.state ?? null;
+  const serverState = useRef(state);
+  serverState.current = state;
+  const beginLanding = useCallback(() => {
+    if (landLock.current) return;
+    landLock.current = true;
+    currentClip.current = "LAND_PREP";
+    setPrepKey((n) => n + 1);
+    setCharClip("LAND_PREP");
+  }, []);
+  const onVisualPhaseComplete = useCallback((phase: CharClip) => {
+    if (!enabled || activeSession.current !== session?.id || currentClip.current !== phase) return;
+    const next = (clip: CharClip) => { currentClip.current = clip; setCharClip(clip); };
+    if (phase === "AIM") {
+      if (["CAST", "WAITING_BITE", "BITE", "HOOKED", "FIGHTING"].includes(serverState.current ?? "")) next("CAST_BACKSWING");
+    } else if (phase === "FIGHT_LIGHT") {
+      fightShown.current = true;
+      if (serverState.current === "LANDED") beginLanding();
+    } else if (phase === "HOOKSET" || phase === "REEL") {
+      if (!["HOOKED", "FIGHTING", "LANDED"].includes(serverState.current ?? "")) return;
+      if (phase === "REEL" && serverState.current === "LANDED" && fightShown.current) {
+        beginLanding();
+        return;
+      }
+      setFightKey((n) => n + 1);
+      setFishClip("STRUGGLE_LIGHT");
+      next("FIGHT_LIGHT");
+    } else if (serverState.current === "LANDED") {
+      if (phase === "LAND_PREP") { setLandKey((n) => n + 1); next("LAND"); }
+      else if (phase === "LAND") { setHoldKey((n) => n + 1); next("LANDED_HOLD"); }
+      else if (phase === "LANDED_HOLD") setResultOpen(true);
+    }
+  }, [enabled, session?.id, beginLanding]);
+
 
   useEffect(() => {
     if (!enabled || !session) {
@@ -78,6 +114,7 @@ export function useFishingVisualsFromSession(opts: {
     // /decide creates a new server session. Finish the current KEEP/RELEASE before READY.
     if (decisionHandoff) return;
     landLock.current = false;
+    fightShown.current = false;
     recoverLock.current = false;
     lastCast.current = castNonce;
     lastReel.current = reelNonce;
@@ -106,16 +143,17 @@ export function useFishingVisualsFromSession(opts: {
     setResultOpen(false);
     setKeepComplete(false);
     setReleaseComplete(false);
+    fightShown.current = false;
     setCharClip("AIM");
   }, [enabled, state, charClip, castNonce]);
 
   // The timer belongs to AIM, not to the effect that enters AIM.
   // Server polling must not restart or cancel this visual transition.
   useEffect(() => {
-    if (!enabled || charClip !== "AIM") return;
-    const cancel = scheduleVisualTransition(() => setCharClip("CAST_BACKSWING"), PRECAST_MS);
+    if (!enabled || frameDriven || charClip !== "AIM") return;
+    const cancel = scheduleVisualTransition(() => onVisualPhaseComplete("AIM"), PRECAST_MS);
     return cancel;
-  }, [enabled, charClip]);
+  }, [enabled, charClip, frameDriven, onVisualPhaseComplete]);
 
   const onCastComplete = useCallback(() => {
     if (!enabled || activeSession.current !== session?.id) return;
@@ -152,15 +190,9 @@ export function useFishingVisualsFromSession(opts: {
   }, [enabled, state, charClip]);
 
   useEffect(() => {
-    if (!enabled) return;
-    if (charClip !== "HOOKSET") return;
-    const cancel = scheduleVisualTransition(() => {
-      setFightKey((n) => n + 1);
-      setCharClip("FIGHT_LIGHT");
-      setFishClip("STRUGGLE_LIGHT");
-    }, (HOOK_DURATION + 0.08) * 1000);
-    return cancel;
-  }, [enabled, charClip, hookKey]);
+    if (!enabled || frameDriven || charClip !== "HOOKSET") return;
+    return scheduleVisualTransition(() => onVisualPhaseComplete("HOOKSET"), (HOOK_DURATION + 0.08) * 1000);
+  }, [enabled, frameDriven, charClip, hookKey, onVisualPhaseComplete]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -173,54 +205,37 @@ export function useFishingVisualsFromSession(opts: {
   }, [enabled, reelNonce, state, charClip]);
 
   useEffect(() => {
-    if (!enabled || charClip !== "REEL") return;
-    const cancel = scheduleVisualTransition(() => {
-      setFightKey((n) => n + 1);
-      setCharClip("FIGHT_LIGHT");
-    }, 1200);
-    return cancel;
-  }, [enabled, charClip, reelKey]);
+    if (!enabled || frameDriven || charClip !== "REEL") return;
+    return scheduleVisualTransition(() => onVisualPhaseComplete("REEL"), 1200);
+  }, [enabled, frameDriven, charClip, reelKey, onVisualPhaseComplete]);
 
   useEffect(() => {
     if (!enabled) return;
     if (state !== "LANDED") return;
     if (landLock.current) return;
     if (charClip !== "FIGHT_LIGHT" && charClip !== "REEL") return;
-    landLock.current = true;
-    setPrepKey((n) => n + 1);
-    setCharClip("LAND_PREP");
-  }, [enabled, state, charClip]);
+    if (frameDriven && (charClip === "REEL" || !fightShown.current)) return;
+    beginLanding();
+  }, [enabled, state, charClip, frameDriven, beginLanding]);
 
   useEffect(() => {
-    if (!enabled) return;
-    if (charClip !== "LAND_PREP") return;
+    if (!enabled || frameDriven || charClip !== "LAND_PREP") return;
     if (state !== "LANDED") return;
-    const cancel = scheduleVisualTransition(() => {
-      setLandKey((n) => n + 1);
-      setCharClip("LAND");
-    }, PREP_DURATION * 1000);
-    return cancel;
-  }, [enabled, charClip, prepKey, state]);
+    return scheduleVisualTransition(() => onVisualPhaseComplete("LAND_PREP"), PREP_DURATION * 1000);
+  }, [enabled, frameDriven, charClip, prepKey, onVisualPhaseComplete, state]);
 
   useEffect(() => {
-    if (!enabled) return;
-    if (charClip !== "LAND") return;
+    if (!enabled || frameDriven || charClip !== "LAND") return;
     if (state !== "LANDED") return;
-    const cancel = scheduleVisualTransition(() => {
-      setHoldKey((n) => n + 1);
-      setCharClip("LANDED_HOLD");
-    }, LAND_DURATION * 1000);
-    return cancel;
-  }, [enabled, charClip, landKey, state]);
+    return scheduleVisualTransition(() => onVisualPhaseComplete("LAND"), LAND_DURATION * 1000);
+  }, [enabled, frameDriven, charClip, landKey, onVisualPhaseComplete, state]);
 
   useEffect(() => {
-    if (!enabled) return;
-    if (charClip !== "LANDED_HOLD") return;
+    if (!enabled || frameDriven || charClip !== "LANDED_HOLD") return;
     if (state !== "LANDED") return;
     if (resultOpen) return;
-    const cancel = scheduleVisualTransition(() => setResultOpen(true), HOLD_BEFORE_RESULT_MS);
-    return cancel;
-  }, [enabled, charClip, holdKey, state, resultOpen]);
+    return scheduleVisualTransition(() => onVisualPhaseComplete("LANDED_HOLD"), HOLD_BEFORE_RESULT_MS);
+  }, [enabled, frameDriven, charClip, holdKey, onVisualPhaseComplete, state, resultOpen]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -265,6 +280,7 @@ export function useFishingVisualsFromSession(opts: {
     setKeepComplete(false);
     setReleaseComplete(false);
     landLock.current = false;
+    fightShown.current = false;
     recoverLock.current = false;
     setCharClip("READY");
     setFishClip("SWIM_IDLE");
@@ -304,6 +320,7 @@ export function useFishingVisualsFromSession(opts: {
     keepComplete,
     releaseComplete,
     resultOpen,
+    onVisualPhaseComplete,
     onCastComplete,
     onLandingComplete,
     onCharFinished,

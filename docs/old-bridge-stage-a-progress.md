@@ -178,3 +178,59 @@ Callbacks CAST / LANDING / KEEP / RELEASE / RETURN проверяют ID акт�
 Результат: 25 frontend-тестов проходят, 10 файлов. Frontend production build проходит; прежнее предупреждение Vite о размере chunk сохраняется. Live preview, реальные backend-циклы, screenshots и визуальная приёмка не выполнялись. Stage B не начат, push не выполнялся.
 
 Изменённые файлы: frontend/src/scene/useFishingVisualsFromSession.ts, frontend/src/scene/useFishingVisualsFromSession.test.tsx и этот отчёт.
+
+## Продолжение Stage A: реальные anchors production float
+
+CURRENT HEAD BEFORE: `ee70f4042baa9803b84bca69ec1388ca3b9b8bd9`.
+Commit message: `fix(frontend): anchor float water contact to production model`.
+
+Для embedding считываются FloatBottom и FloatWaterline существующего production float.glb. Контакт с водой учитывает фактическое положение FloatBottom, наклон поплавка, scale модели и трансформацию parent. WAIT и settling используют положение FloatWaterline. Поплавок в READY покачивается с масштабом embedding, как в WAIT; повторный идентичный сброс fly flags удалён.
+
+В реальном GLB FloatBottom.y=-0.056; после FLOAT_SCALE=1.35 точка находится на -0.0756 относительно группы поплавка. FloatWaterline находится на нулевой высоте. Asset не изменён. Для standalone сохранены существующие значения; при отсутствии named anchors есть прежний fallback.
+
+Проверки: 27 frontend-тестов проходят (11 файлов), production frontend build проходит с прежним предупреждением о размере chunk. Новый тест читает node hierarchy настоящего GLB и проверяет anchors после переноса, поворота и scale, включая повторное считывание уже вложенной модели. Это проверка координат, не визуальная приёмка контакта с фото-водой.
+
+Файлы: frontend/src/rig3d/FloatActor.tsx, frontend/src/rig3d/floatAnchors.ts, frontend/src/rig3d/floatAnchors.test.ts и этот отчёт. Backend, production assets и approved animation files не изменены. Push и preview не выполнялись. Stage A остаётся перед live acceptance; Stage B не начат.
+
+## Продолжение Stage A: переход CAST → FLOAT LANDING → READY
+
+CURRENT HEAD BEFORE: `25fad23ccb8561045a1f580245e776a406414f09`.
+Commit message: `fix(frontend): preserve calibrated cast and landing continuity`.
+
+Обнаружен дефект порядка обновления: CAST прекращал интеграцию на последнем timestamp, а переключение состояния могло произойти до последнего frame поплавка. Затем приземление интегрировало целый следующий dt до проверки контакта, позволяя перелететь точку касания.
+
+В embedding траектория теперь рассчитывается аналитически по timestamp от release до конца CAST. FLOAT LANDING явно получает конечную позицию и скорость, если последний CAST frame был пропущен. Шаг приземления ограничивается первым пересечением уровня FloatBottom с водой; позиция не переносится вручную в произвольную точку. При resize начальная точка сохранённой траектории переносится вместе с водной целью. Standalone путь сохранён.
+
+RETURN в embedding заканчивается на текущем покачивающемся положении и наклоне READY, чтобы смена состояния не вводила дополнительную смену координат поплавка. Это изменение runtime integration, не новая версия approved character animation.
+
+29 frontend-тестов проходят (11 файлов). Добавлены проверки пропущенного конечного CAST frame и одинакового первого контакта при разных размерах шага приземления. Frontend production build проходит с прежним предупреждением Vite о размере chunk. Тесты являются математическими и регрессионными; визуальная приёмка, реальные серверные циклы и screenshots всё ещё не выполнены.
+
+Изменены frontend/src/rig3d/FloatActor.tsx, frontend/src/rig3d/runtimeWater.ts, frontend/src/rig3d/runtimeWater.test.ts и этот отчёт. Assets, backend и approved animation modules не изменены. Push и preview не выполнялись; Stage B не начат.
+
+## Продолжение Stage A: завершение фаз по кадровому циклу
+
+CURRENT HEAD BEFORE: `079eaf07a669c95a95d8edb656ac065796ec4591`.
+Commit message: `fix(frontend): advance fishing visuals after rendered phases`.
+
+Ранее таймеры могли закончить HOOKSET/LAND PREP/LAND раньше, чем соответствующая pose была применена сценой при низком FPS. PRE-CAST мог также истечь до загрузки GLB через Suspense.
+
+Forest Lake и /dev/rig3d SERVER теперь используют frameDriven режим того же общего controller. Rig3DScene после применения pose проверяет её время и отправляет одно событие onVisualPhaseComplete для AIM, HOOKSET, REEL, LAND PREP, LAND и HOLD. В этом режиме wall-clock timers этих фаз отключены. PRE-CAST отсчитывается после появления кадров сцены. Callbacks проверяют текущую фазу и ID сессии; повторное событие не дублирует переход. Временной fallback использует ту же функцию перехода, а не отдельный sequence engine. DEBUG mode сохранён.
+
+CAST/FLOAT LANDING и KEEP/RELEASE/RETURN сохраняют свои существующие scene callbacks. Backend продолжает определять события ловли; сигналы кадрового цикла не создают BITE и не определяют результат улова. Approved animation modules не изменены.
+
+30 frontend-тестов проходят, production frontend build проходит с прежним предупреждением размера chunk. Новый тест проходит KEEP и RELEASE с разными ID сессий в frameDriven режиме: даже 60 секунд wall time не переводят фазу без события сцены; дублированный сигнал не увеличивает fightKey повторно. Это тест controller с управляемыми frame callbacks, не live WebGL-проверка FPS и не реальные server-driven циклы.
+
+Изменены frontend/src/rig3d/Rig3DScene.tsx, frontend/src/rig3d/Rig3DLab.tsx, frontend/src/scene/ForestLakeFishing3D.tsx, frontend/src/scene/useFishingVisualsFromSession.ts, frontend/src/scene/useFishingVisualsFromSession.test.tsx и этот отчёт. Live acceptance по-прежнему не выполнена. Push и preview не выполнялись; Stage B не начат.
+
+## Продолжение Stage A: ранний LANDED во время подсечки / подмотки
+
+CURRENT HEAD BEFORE: `0f041b96a38e7edc37ee76aa0e274d9d5e7ed2b1`.
+Commit message: `fix(frontend): finish fight visuals before buffered landing`.
+
+Ранний серверный LANDED ранее мог перевести HOOKSET → FIGHT_LIGHT → LAND PREP за один React update, без кадра FIGHT. Также LANDED прерывал REEL. В frameDriven режиме controller теперь сохраняет серверный результат, но ждёт сигнал проигрывания существующего FIGHT_LOOP перед LAND PREP. Если этот цикл уже проигран, дополнительное ожидание FIGHT не добавляется. Активный REEL заканчивается своим frame callback перед подъёмом. В начале следующего заброса отметка проигранного FIGHT сбрасывается.
+
+Rig3DScene отправляет сигнал FIGHT_LIGHT по уже существующей длительности FIGHT_LOOP=5 секунд кадрового времени. Новая анимация не создана, длительности approved motion не изменены. Начало LAND PREP остаётся одной общей функцией controller. Backend не изменён и продолжает определять исход улова.
+
+Проверка: 32 frontend-теста проходят (11 файлов), frontend production build проходит с прежним предупреждением размера chunk. Добавлены отдельные регрессионные сценарии раннего LANDED во время HOOKSET и во время REEL. Тест двух frame-driven циклов дополнен сигналом проигранного FIGHT. Это проверки controller, не live acceptance.
+
+Изменены frontend/src/scene/useFishingVisualsFromSession.ts, frontend/src/scene/useFishingVisualsFromSession.test.tsx, frontend/src/rig3d/Rig3DScene.tsx и этот отчёт. Превью, screenshots, два живых серверных цикла и push не выполнялись. Stage A не объявляется принятым, Stage B не начат.

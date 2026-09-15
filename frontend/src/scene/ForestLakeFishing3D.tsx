@@ -60,6 +60,7 @@ export function ForestLakeFishing3D({ session, lastDecision, decisionGen, reelNo
   const [tabHidden, setTabHidden] = useState(typeof document !== "undefined" && document.hidden);
   const visuals = useFishingVisualsFromSession({
     enabled: true,
+    frameDriven: true,
     session,
     lastDecision,
     decisionGen,
@@ -152,6 +153,7 @@ export function ForestLakeFishing3D({ session, lastDecision, decisionGen, reelNo
               onCharFinished={visuals.onCharFinished}
               onCastComplete={visuals.onCastComplete}
               onLandingComplete={visuals.onLandingComplete}
+              onVisualPhaseComplete={visuals.onVisualPhaseComplete}
               biteKey={visuals.biteKey}
               hookKey={visuals.hookKey}
               fightKey={visuals.fightKey}

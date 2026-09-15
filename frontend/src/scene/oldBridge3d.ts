@@ -1,10 +1,10 @@
 /** Old Bridge hybrid overlay. Photo anchors are provisional until live acceptance. */
 export const OLD_BRIDGE_SPOT_ID = "old-bridge";
 
-/** Extra yaw on top of Rig3DScene's internal π. Small +Y turn faces open water. */
-export const OLD_BRIDGE_SPOT_FACING_YAW = 0.06;
+/** Calibration trim relative to the actual direction towards the cast target. */
+export const OLD_BRIDGE_SPOT_FACING_YAW = 0;
 
-export const OLD_BRIDGE_SCALE = 0.24;
+export const OLD_BRIDGE_SCALE = 0.60;
 
 export const OLD_BRIDGE_CAMERA = {
   position: [1.66, 1.4, -6.35] as [number, number, number],
