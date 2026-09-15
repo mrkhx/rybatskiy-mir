@@ -188,7 +188,7 @@ export const LakeFloat = forwardRef<
         return out;
       };
       if (casting && rod) {
-        worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
+        if (!worldOf(rod, "RodTip", _tip)) worldOf(rod, "LineStart", _tip);
         const ph = sampleCast(castTimeRef?.current ?? 0);
         if (!fly.current.primed) {
           _hang.copy(_tip);
@@ -260,7 +260,7 @@ export const LakeFloat = forwardRef<
       } else if (landing && rod) {
         const st = fly.current;
         if (!st.primed) {
-          worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
+          if (!worldOf(rod, "RodTip", _tip)) worldOf(rod, "LineStart", _tip);
           st.pos.copy(_tip);
           st.pos.y -= PRECAST_HANG_DROP * motionScale;
           st.vel.set(0, -0.4, 0);
@@ -595,7 +595,7 @@ export const LakeFloat = forwardRef<
         fly.current.on = false;
         fly.current.contact = false;
         if (hanging && rod) {
-          worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
+          if (!worldOf(rod, "RodTip", _tip)) worldOf(rod, "LineStart", _tip);
           _hang.copy(_tip);
           _hang.y -= PRECAST_HANG_DROP * motionScale;
           _in.set(_tip.x, 0, _tip.z);
@@ -767,7 +767,7 @@ export function FishingLineView({
       return;
     }
 
-    worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
+    if (!worldOf(rod, "RodTip", _tip)) worldOf(rod, "LineStart", _tip);
     const floatG = floatRef.current;
     const attachNode = floatG?.getObjectByName("FloatAttach");
     if (attachNode) {
