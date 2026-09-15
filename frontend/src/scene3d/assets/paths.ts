@@ -11,7 +11,8 @@ export const DEBUG_PROXY = {
   pike: "/models/rig3d/pike.glb",
 } as const;
 
-export type AssetKind = keyof typeof PRODUCTION;
+/** Assets resolved by the character/rod/fish loader. Float loads separately. */
+export type AssetKind = keyof typeof DEBUG_PROXY;
 export type AssetSource = "production" | "debug";
 
 export type ResolvedAssets = {

@@ -7,7 +7,7 @@ import { ForestLakeFishing3D } from "./ForestLakeFishing3D";
 import { AnglerRig, type AnglerHandle } from "./live/AnglerRig";
 import { LiveCanvas, type LiveHandle } from "./live/LiveCanvas";
 import { sceneQuality } from "./quality";
-import type { CatchDecision } from "./useFishingVisualsFromSession";
+import type { CatchDecision, FishingVisualStatus } from "./useFishingVisualsFromSession";
 import { shouldShow3DFisherman } from "./use3DFisherman";
 
 type LakeProps = {
@@ -22,6 +22,7 @@ type LakeProps = {
   lastDecision?: CatchDecision;
   decisionGen?: number;
   reelNonce?: number;
+  onVisualStatus?: (status: FishingVisualStatus) => void;
 };
 
 const A = "/scene/forest-lake";
@@ -39,6 +40,7 @@ export function Lake({
   lastDecision = null,
   decisionGen = 0,
   reelNonce = 0,
+  onVisualStatus,
 }: LakeProps) {
   const root = useRef<HTMLDivElement>(null);
   const angler = useRef<AnglerHandle>(null);
@@ -163,6 +165,8 @@ export function Lake({
             lastDecision={lastDecision}
             decisionGen={decisionGen}
             reelNonce={reelNonce}
+            castNonce={castNonce}
+            onVisualStatus={onVisualStatus}
           />
         )}
 

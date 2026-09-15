@@ -50,3 +50,16 @@ export { LINE_SEGMENTS, LINE_FLOATS };
 export function lineOpacity(tension: number): number {
   return LINE_OPACITY_0 + Math.max(0, Math.min(1, tension)) * LINE_OPACITY_SPAN;
 }
+
+const localPoint = new THREE.Vector3();
+const inverseParent = new THREE.Matrix4();
+
+/** Sample in world space, then store vertices in their render parent's space. */
+export function lineToLocal(positions: Float32Array, parent: THREE.Object3D | null): void {
+  if (!parent) return;
+  parent.updateWorldMatrix(true, false);
+  inverseParent.copy(parent.matrixWorld).invert();
+  for (let i = 0; i < positions.length; i += 3) {
+    localPoint.fromArray(positions, i).applyMatrix4(inverseParent).toArray(positions, i);
+  }
+}

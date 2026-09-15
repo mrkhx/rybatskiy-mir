@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useFishingRequests } from "../api/useFishingRequests";
 import { api, setToken, token, type Session } from "../api/client";
 import {
   eventFromSession,
@@ -25,6 +26,7 @@ async function ensureAuth(): Promise<void> {
 }
 
 export function useServerFishing(enabled: boolean) {
+  const fishingRequest = useFishingRequests();
   const [session, setSession] = useState<Session | null>(null);
   const [pending, setPending] = useState<PendingAction>("none");
   const [error, setError] = useState<string | null>(null);
@@ -37,11 +39,12 @@ export function useServerFishing(enabled: boolean) {
   enabledRef.current = enabled;
   const sessionRef = useRef(session);
   sessionRef.current = session;
-  const tickBusy = useRef(false);
 
   const apply = useCallback((s: Session, event?: ServerEventName) => {
+    const previous = sessionRef.current;
+    sessionRef.current = s;
     setSession(s);
-    setLastEvent(event ?? eventFromSession(sessionRef.current, s));
+    setLastEvent(event ?? eventFromSession(previous, s));
     setError(null);
     return s;
   }, []);
@@ -79,37 +82,40 @@ export function useServerFishing(enabled: boolean) {
       }
       let s: Session | null = null;
       try {
-        s = await api<Session | null>("/fishing/session");
+        s = await fishingRequest("/fishing/session");
       } catch {
         setToken(null);
         await ensureAuth();
-        s = await api<Session | null>("/fishing/session");
+        s = await fishingRequest("/fishing/session");
       }
       if (!s || s.state === "LOST" || s.state === "BROKEN") {
-        s = await api<Session>("/fishing/start", {
+        s = await fishingRequest("/fishing/start", {
           method: "POST",
           body: JSON.stringify({ spotId: SPOT_ID, method: METHOD }),
         });
       }
+      if (!s || !enabledRef.current) return null;
       setConnected(true);
       return apply(s, s.state === "READY" ? "SESSION_READY" : eventFromSession(null, s));
     });
-  }, [apply, exclusiveRun]);
+  }, [apply, exclusiveRun, fishingRequest]);
 
   const cast = useCallback(() => {
     return exclusiveRun("cast", async () => {
-      const s = await api<Session>("/fishing/cast", {
+      const s = await fishingRequest("/fishing/cast", {
         method: "POST",
         body: JSON.stringify(CAST_BODY),
       });
+      if (!s || !enabledRef.current) return null;
       return apply(s, "CAST_CONFIRMED");
     });
-  }, [apply, exclusiveRun]);
+  }, [apply, exclusiveRun, fishingRequest]);
 
   const peekBite = useCallback(async () => {
     if (!enabledRef.current || exclusive.current) return null;
     try {
-      const s = await api<Session>("/fishing/bite", { method: "POST", body: "{}" });
+      const s = await fishingRequest("/fishing/bite", { method: "POST", body: "{}" }, true);
+      if (!s || !enabledRef.current) return null;
       if (s.state === "BITE" && sessionRef.current?.state !== "BITE") {
         return apply(s, "BITE");
       }
@@ -118,30 +124,30 @@ export function useServerFishing(enabled: boolean) {
     } catch (e) {
       return fail(e);
     }
-  }, [apply, fail]);
+  }, [apply, fail, fishingRequest]);
 
   const hook = useCallback(() => {
     return exclusiveRun("hook", async () => {
-      const s = await api<Session>("/fishing/hook", {
+      const s = await fishingRequest("/fishing/hook", {
         method: "POST",
         body: JSON.stringify(HOOK_BODY),
       });
+      if (!s || !enabledRef.current) return null;
       if (s.state === "HOOKED" || s.state === "FIGHTING") return apply(s, "HOOK_OK");
       if (s.state === "LOST" || s.state === "BROKEN") return apply(s, "HOOK_FAIL");
       return apply(s);
     });
-  }, [apply, exclusiveRun]);
+  }, [apply, exclusiveRun, fishingRequest]);
 
   const tick = useCallback(
     async (reel = false) => {
       if (!enabledRef.current) return null;
-      if (tickBusy.current) return null;
-      tickBusy.current = true;
       try {
-        const s = await api<Session>("/fishing/tick", {
+        const s = await fishingRequest("/fishing/tick", {
           method: "POST",
           body: JSON.stringify(reel ? REEL_TICK : TICK_BODY),
-        });
+        }, !reel);
+        if (!s || !enabledRef.current) return null;
         if (s.state === "LANDED") return apply(s, "LANDED");
         if (s.state === "LOST") return apply(s, "LOST");
         if (s.state === "BROKEN") return apply(s, "BROKEN");
@@ -150,35 +156,35 @@ export function useServerFishing(enabled: boolean) {
         const msg = e instanceof Error ? e.message : "";
         if (msg === "Нет вываживания") return sessionRef.current;
         return fail(e);
-      } finally {
-        tickBusy.current = false;
       }
     },
-    [apply, fail],
+    [apply, fail, fishingRequest],
   );
 
   const decide = useCallback(
     (keep: boolean) => {
       return exclusiveRun("decide", async () => {
-        const s = await api<Session>("/fishing/decide", {
+        const s = await fishingRequest("/fishing/decide", {
           method: "POST",
           body: JSON.stringify({ keep }),
         });
+        if (!s || !enabledRef.current) return null;
         return apply(s, keep ? "KEEP_OK" : "RELEASE_OK");
       });
     },
-    [apply, exclusiveRun],
+    [apply, exclusiveRun, fishingRequest],
   );
 
   const recover = useCallback(() => {
     return exclusiveRun("start", async () => {
-      const s = await api<Session>("/fishing/start", {
+      const s = await fishingRequest("/fishing/start", {
         method: "POST",
         body: JSON.stringify({ spotId: SPOT_ID, method: METHOD }),
       });
+      if (!s || !enabledRef.current) return null;
       return apply(s, "SESSION_READY");
     });
-  }, [apply, exclusiveRun]);
+  }, [apply, exclusiveRun, fishingRequest]);
 
   useEffect(() => {
     if (!enabled) {

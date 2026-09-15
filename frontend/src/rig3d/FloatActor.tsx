@@ -1,15 +1,17 @@
 "use client";
 
-import { forwardRef, useMemo, useRef } from "react";
+import { forwardRef, useContext, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { MotionSpace } from "./motionSpace";
+import { RuntimeWaterContext, castVelocity } from "./runtimeWater";
 import { PRODUCTION } from "../scene3d/assets/paths";
 import { worldOf } from "./rodBend";
-import { LINE_FLOATS, lineOpacity, sampleLine } from "./fishingLine";
+import { LINE_FLOATS, lineOpacity, lineToLocal, sampleLine } from "./fishingLine";
 import {
   FLOAT_ATTACH_LOCAL,
   FLOAT_BOB_AMP,
@@ -58,6 +60,8 @@ const _keel = new THREE.Vector3();
 const _hang = new THREE.Vector3();
 const _in = new THREE.Vector3();
 const _blank = new THREE.Vector3();
+const _worldScale = new THREE.Vector3();
+const _rigEnd = new THREE.Vector3();
 const _qRod = new THREE.Quaternion();
 
 export type TackleProps = {
@@ -107,6 +111,10 @@ export const LakeFloat = forwardRef<
     simRef?: React.MutableRefObject<LandingSim>;
   }
 >(function LakeFloat({ floatOn, wave, active, hanging = false, rod, casting = false, landing = false, waiting = false, biting = false, hooking = false, fighting = false, reeling = false, prepping = false, outing = false, holding = false, releasing = false, keeping = false, returning = false, castTimeRef, biteTimeRef, hookTimeRef, fightTimeRef, prepTimeRef, outTimeRef, holdTimeRef, releaseTimeRef, keepTimeRef, returnTimeRef, approachRef, fishPointRef, simRef }, ref) {
+    const water = useContext(RuntimeWaterContext);
+    const motion = useMemo(() => new MotionSpace(water?.motionFrame ?? null, water?.waterlineWorldY), [water?.motionFrame, water?.waterlineWorldY]);
+    const waterline = water?.waterlineWorldY ?? WATERLINE_Y;
+    const previousTarget = useRef<THREE.Vector3 | null>(null);
     const gltf = useGLTF(PRODUCTION.float);
     const root = useMemo(() => {
       const s = gltf.scene.clone(true);
@@ -140,6 +148,7 @@ export const LakeFloat = forwardRef<
     const retArmed = useRef(false);
 
     useFrame((_, rawDt) => {
+      if (document.hidden) return;
       const dt = Math.min(rawDt, 0.05);
       clock.current += dt;
       const g = inner.current;
@@ -158,12 +167,32 @@ export const LakeFloat = forwardRef<
       if (!returning) retArmed.current = false;
       const t = clock.current;
       const gparent = g.parent;
+      const motionScale = water ? water.motionFrame.getWorldScale(_worldScale).y : 1;
+      const keelBelow = KEEL_BELOW * motionScale;
+      const gravity = LANDING_GRAVITY * motionScale;
+      // Preserve the same photo-water location when cover cropping changes on resize.
+      if (water) {
+        if (previousTarget.current) {
+          _in.copy(water.castTargetWorld).sub(previousTarget.current);
+          if (_in.lengthSq() > 0) {
+            for (const point of [fly.current.pos, fly.current.hang, biteRest.current, hookRest.current, fightRest.current]) point.add(_in);
+          }
+        }
+        if (!previousTarget.current) previousTarget.current = water.castTargetWorld.clone();
+        else previousTarget.current.copy(water.castTargetWorld);
+      }
+      const restWorld = (out: THREE.Vector3) => {
+        if (water) return out.copy(water.castTargetWorld);
+        out.set(FLOAT_X, WATER_Y, 0);
+        if (gparent) gparent.localToWorld(out);
+        return out;
+      };
       if (casting && rod) {
         worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
         const ph = sampleCast(castTimeRef?.current ?? 0);
         if (!fly.current.primed) {
           _hang.copy(_tip);
-          _hang.y -= PRECAST_HANG_DROP;
+          _hang.y -= PRECAST_HANG_DROP * motionScale;
           fly.current.hang.copy(_hang);
           fly.current.pos.copy(_hang);
           fly.current.hangVel.set(0, 0, 0);
@@ -177,10 +206,10 @@ export const LakeFloat = forwardRef<
         if (!ph.released) {
           fly.current.on = false;
           _hang.copy(_tip);
-          _hang.y -= PRECAST_HANG_DROP;
+          _hang.y -= PRECAST_HANG_DROP * motionScale;
           _in.set(_tip.x, 0, _tip.z);
           if (_in.lengthSq() > 1e-4) {
-            _in.normalize().multiplyScalar(-PRECAST_HANG_IN);
+            _in.normalize().multiplyScalar(-PRECAST_HANG_IN * motionScale);
             _hang.add(_in);
           }
           const k = ph.phase === "forward" ? 18 : 10;
@@ -200,12 +229,24 @@ export const LakeFloat = forwardRef<
             fly.current.vel.z += _blank.z * 5.8;
             fly.current.vel.y += _blank.y * 0.55 + 0.08;
             fly.current.pos.copy(fly.current.hang);
+            if (water) {
+              // End the cast just above contact; the existing landing solver continues it.
+              _in.copy(water.castTargetWorld);
+              _in.y += keelBelow;
+              castVelocity(fly.current.pos, _in, CAST_DURATION - (castTimeRef?.current ?? 0), gravity, fly.current.vel);
+            }
           }
           if ((castTimeRef?.current ?? 0) < CAST_DURATION) {
-            fly.current.vel.y -= 13.5 * dt;
-            fly.current.pos.addScaledVector(fly.current.vel, dt);
-            if (fly.current.pos.y < 0.08) {
-              fly.current.pos.y = 0.08;
+            if (water) {
+              fly.current.pos.addScaledVector(fly.current.vel, dt);
+              fly.current.pos.y -= .5 * gravity * dt * dt;
+              fly.current.vel.y -= gravity * dt;
+            } else {
+              fly.current.vel.y -= gravity * dt;
+              fly.current.pos.addScaledVector(fly.current.vel, dt);
+            }
+            if (fly.current.pos.y < waterline + 0.08 * motionScale) {
+              fly.current.pos.y = waterline + 0.08 * motionScale;
               fly.current.vel.y = Math.max(0, fly.current.vel.y);
               fly.current.vel.x *= 0.97;
               fly.current.vel.z *= 0.97;
@@ -221,7 +262,7 @@ export const LakeFloat = forwardRef<
         if (!st.primed) {
           worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
           st.pos.copy(_tip);
-          st.pos.y -= PRECAST_HANG_DROP;
+          st.pos.y -= PRECAST_HANG_DROP * motionScale;
           st.vel.set(0, -0.4, 0);
           st.primed = true;
           st.on = true;
@@ -229,9 +270,9 @@ export const LakeFloat = forwardRef<
           st.settleT = 0;
         }
         if (!st.contact) {
-          st.vel.y -= LANDING_GRAVITY * dt;
+          st.vel.y -= gravity * dt;
           st.pos.addScaledVector(st.vel, dt);
-          if (st.pos.y - KEEL_BELOW <= WATERLINE_Y) {
+          if (st.pos.y - keelBelow <= waterline) {
             st.contact = true;
             st.settleT = 0;
             st.vel.y = Math.min(st.vel.y, 0) * 0.14 - 0.28;
@@ -251,16 +292,16 @@ export const LakeFloat = forwardRef<
           st.settleT += dt;
           const u = Math.max(0, Math.min(1, st.settleT / LANDING_SETTLE));
           const dipU = Math.max(0, Math.min(1, st.settleT / 0.3));
-          const dip = -LANDING_DIP * Math.sin(dipU * Math.PI) * (1 - 0.45 * u);
-          const bob = FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ) * u;
-          const targetY = WATERLINE_Y + dip + bob;
+          const dip = -LANDING_DIP * motionScale * Math.sin(dipU * Math.PI) * (1 - 0.45 * u);
+          const bob = FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ) * u * motionScale;
+          const targetY = waterline + dip + bob;
           st.vel.y += (targetY - st.pos.y) * 24 * dt;
           st.vel.y *= Math.exp(-7.2 * dt);
           st.vel.x *= Math.exp(-6.5 * dt);
           st.vel.z *= Math.exp(-6.5 * dt);
           st.pos.addScaledVector(st.vel, dt);
-          if (st.pos.y > WATERLINE_Y + 0.035) {
-            st.pos.y = WATERLINE_Y + 0.035;
+          if (st.pos.y > waterline + 0.035 * motionScale) {
+            st.pos.y = waterline + 0.035 * motionScale;
             if (st.vel.y > 0) st.vel.y *= 0.15;
           }
           const tiltX = FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ);
@@ -285,14 +326,20 @@ export const LakeFloat = forwardRef<
         };
       } else if (waiting) {
         const st = fly.current;
-        const bob = FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ);
+        const bob = FLOAT_BOB_AMP * motionScale * wave * Math.sin(t * FLOAT_BOB_FREQ);
         if (st.primed && st.contact) {
-          st.pos.y = WATERLINE_Y + bob;
+          st.pos.y = waterline + bob;
           _hang.copy(st.pos);
           if (gparent) gparent.worldToLocal(_hang);
           g.position.copy(_hang);
         } else {
-          g.position.set(FLOAT_X, WATER_Y + bob, 0);
+          restWorld(st.pos);
+          st.pos.y = waterline + bob;
+          st.primed = true;
+          st.contact = true;
+          _hang.copy(st.pos);
+          if (gparent) gparent.worldToLocal(_hang);
+          g.position.copy(_hang);
         }
         g.rotation.set(
           FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ),
@@ -304,7 +351,7 @@ export const LakeFloat = forwardRef<
         const st = fly.current;
         if (!biteArmed.current) {
           if (!st.primed) {
-            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            restWorld(st.pos);
             st.primed = true;
             st.contact = true;
           }
@@ -314,7 +361,7 @@ export const LakeFloat = forwardRef<
         const b = sampleBiteFloat(biteTimeRef?.current ?? 0);
         const sink = Math.min(1, Math.abs(b.dip) / BITE_SINK_DIP);
         const bob = FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ) * (1 - sink);
-        st.pos.set(biteRest.current.x, WATERLINE_Y + b.dip + bob, biteRest.current.z + b.side);
+        motion.surface(biteRest.current, 0, b.dip + bob, b.side, st.pos);
         _hang.copy(st.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
@@ -334,7 +381,7 @@ export const LakeFloat = forwardRef<
         const st = fly.current;
         if (!hookArmed.current) {
           if (!st.primed) {
-            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            restWorld(st.pos);
             st.primed = true;
             st.contact = true;
           }
@@ -342,7 +389,7 @@ export const LakeFloat = forwardRef<
           hookArmed.current = true;
         }
         const h = sampleHookFloat(hookTimeRef?.current ?? 0);
-        st.pos.set(hookRest.current.x + h.pull, WATERLINE_Y + h.dip, hookRest.current.z + h.side);
+        motion.surface(hookRest.current, h.pull, h.dip, h.side, st.pos);
         _hang.copy(st.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
@@ -362,7 +409,7 @@ export const LakeFloat = forwardRef<
         const st = fly.current;
         if (!fightArmed.current) {
           if (!st.primed) {
-            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            restWorld(st.pos);
             st.primed = true;
             st.contact = true;
           }
@@ -371,11 +418,8 @@ export const LakeFloat = forwardRef<
         }
         const f = sampleFight(fightTimeRef?.current ?? 0);
         const approach = approachRef?.current ?? 0;
-        st.pos.set(
-          fightRest.current.x + f.fishX * f.floatFollow - approach * 0.45,
-          WATERLINE_Y + f.floatDip,
-          fightRest.current.z + f.fishZ * f.floatFollow,
-        );
+        motion.surface(fightRest.current, f.fishX * f.floatFollow - approach * 0.45,
+          f.floatDip, f.fishZ * f.floatFollow, st.pos);
         _hang.copy(st.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
@@ -395,7 +439,7 @@ export const LakeFloat = forwardRef<
         const st = fly.current;
         if (!prepArmed.current) {
           if (!st.primed) {
-            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            restWorld(st.pos);
             st.primed = true;
             st.contact = true;
           }
@@ -403,7 +447,7 @@ export const LakeFloat = forwardRef<
           prepArmed.current = true;
         }
         const fish = fishPointRef?.current;
-        if (fish) prepFloatWorld(fightRest.current, fish, prepTimeRef?.current ?? 0, st.pos);
+        if (fish) motion.pair(prepFloatWorld, fightRest.current, fish, prepTimeRef?.current ?? 0, st.pos);
         _hang.copy(st.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
@@ -416,7 +460,7 @@ export const LakeFloat = forwardRef<
         if (simRef) simRef.current.tension = 0.7 - 0.08 * lift;
         (window as unknown as { __FLOAT?: { y: number; contact: boolean; settleT: number; phase?: string } }).__FLOAT = {
           y: st.pos.y,
-          contact: st.pos.y < WATERLINE_Y + 0.04,
+          contact: st.pos.y < waterline + 0.04,
           settleT: prepTimeRef?.current ?? 0,
           phase: lift > 0.02 ? "lift" : "prep",
         };
@@ -424,7 +468,7 @@ export const LakeFloat = forwardRef<
         const st = fly.current;
         if (!outArmed.current) {
           if (!st.primed) {
-            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            restWorld(st.pos);
             st.primed = true;
             st.contact = true;
           }
@@ -432,7 +476,7 @@ export const LakeFloat = forwardRef<
           outArmed.current = true;
         }
         const fish = fishPointRef?.current;
-        if (fish) landFloatWorld(fightRest.current, fish, outTimeRef?.current ?? 0, st.pos);
+        if (fish) motion.pair(landFloatWorld, fightRest.current, fish, outTimeRef?.current ?? 0, st.pos);
         _hang.copy(st.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
@@ -448,7 +492,7 @@ export const LakeFloat = forwardRef<
         const st = fly.current;
         if (!holdArmed.current) {
           if (!st.primed) {
-            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            restWorld(st.pos);
             st.primed = true;
             st.contact = false;
           }
@@ -456,7 +500,7 @@ export const LakeFloat = forwardRef<
           holdArmed.current = true;
         }
         const fish = fishPointRef?.current;
-        if (fish) holdFloatWorld(fightRest.current, fish, holdTimeRef?.current ?? 0, st.pos);
+        if (fish) motion.pair(holdFloatWorld, fightRest.current, fish, holdTimeRef?.current ?? 0, st.pos);
         _hang.copy(st.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
@@ -472,7 +516,7 @@ export const LakeFloat = forwardRef<
         const st = fly.current;
         if (!relArmed.current) {
           if (!st.primed) {
-            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            restWorld(st.pos);
             st.primed = true;
             st.contact = false;
           }
@@ -480,7 +524,7 @@ export const LakeFloat = forwardRef<
           relArmed.current = true;
         }
         const fish = fishPointRef?.current;
-        if (fish) releaseFloatWorld(fightRest.current, fish, releaseTimeRef?.current ?? 0, st.pos);
+        if (fish) motion.pair(releaseFloatWorld, fightRest.current, fish, releaseTimeRef?.current ?? 0, st.pos);
         _hang.copy(st.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
@@ -488,7 +532,7 @@ export const LakeFloat = forwardRef<
         if (simRef) simRef.current.tension = 0.12;
         (window as unknown as { __FLOAT?: { y: number; contact: boolean; settleT: number; phase?: string } }).__FLOAT = {
           y: st.pos.y,
-          contact: st.pos.y < WATERLINE_Y + 0.04,
+          contact: st.pos.y < waterline + 0.04,
           settleT: releaseTimeRef?.current ?? 0,
           phase: "release",
         };
@@ -496,7 +540,7 @@ export const LakeFloat = forwardRef<
         const st = fly.current;
         if (!keepArmed.current) {
           if (!st.primed) {
-            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            restWorld(st.pos);
             st.primed = true;
             st.contact = false;
           }
@@ -504,7 +548,7 @@ export const LakeFloat = forwardRef<
           keepArmed.current = true;
         }
         const fish = fishPointRef?.current;
-        if (fish) keepFloatWorld(fightRest.current, fish, keepTimeRef?.current ?? 0, st.pos);
+        if (fish) motion.pair(keepFloatWorld, fightRest.current, fish, keepTimeRef?.current ?? 0, st.pos);
         _hang.copy(st.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
@@ -520,14 +564,17 @@ export const LakeFloat = forwardRef<
         const st = fly.current;
         if (!retArmed.current) {
           if (!st.primed) {
-            st.pos.set(FLOAT_X, WATERLINE_Y, 0);
+            restWorld(st.pos);
             st.primed = true;
             st.contact = false;
           }
           fightRest.current.copy(st.pos);
           retArmed.current = true;
         }
-        returnFloatWorld(fightRest.current, returnTimeRef?.current ?? 0, st.pos);
+        if (water) {
+          const u = Math.max(0, Math.min(1, (returnTimeRef?.current ?? 0) / RETURN_DURATION));
+          st.pos.lerpVectors(fightRest.current, water.castTargetWorld, u * u * (3 - 2 * u));
+        } else returnFloatWorld(fightRest.current, returnTimeRef?.current ?? 0, st.pos);
         _hang.copy(st.pos);
         if (gparent) gparent.worldToLocal(_hang);
         g.position.copy(_hang);
@@ -536,7 +583,7 @@ export const LakeFloat = forwardRef<
         if (simRef) simRef.current.tension = 0.05;
         (window as unknown as { __FLOAT?: { y: number; contact: boolean; settleT: number; phase?: string } }).__FLOAT = {
           y: st.pos.y,
-          contact: st.pos.y < WATERLINE_Y + 0.05,
+          contact: st.pos.y < waterline + 0.05,
           settleT: returnTimeRef?.current ?? 0,
           phase: "return",
         };
@@ -550,10 +597,10 @@ export const LakeFloat = forwardRef<
         if (hanging && rod) {
           worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
           _hang.copy(_tip);
-          _hang.y -= PRECAST_HANG_DROP;
+          _hang.y -= PRECAST_HANG_DROP * motionScale;
           _in.set(_tip.x, 0, _tip.z);
           if (_in.lengthSq() > 1e-4) {
-            _in.normalize().multiplyScalar(-PRECAST_HANG_IN);
+            _in.normalize().multiplyScalar(-PRECAST_HANG_IN * motionScale);
             _hang.x += _in.x;
             _hang.z += _in.z;
           }
@@ -563,7 +610,10 @@ export const LakeFloat = forwardRef<
           g.position.copy(_hang);
           g.rotation.set(0.06 * Math.sin(t * 0.95), 0, 0.08 * Math.sin(t * 1.35));
         } else {
-          g.position.set(FLOAT_X, WATER_Y + FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ), 0);
+          restWorld(_hang);
+          _hang.y += FLOAT_BOB_AMP * wave * Math.sin(t * FLOAT_BOB_FREQ);
+          if (gparent) gparent.worldToLocal(_hang);
+          g.position.copy(_hang);
           g.rotation.set(
             FLOAT_TILT_X * wave * Math.sin(t * FLOAT_TILT_X_FREQ),
             0,
@@ -728,15 +778,16 @@ export function FishingLineView({
       floatG.localToWorld(_attach);
     }
     sampleLine(_tip, _attach, ten, positions);
+    lineToLocal(positions, line.parent);
     (line.geometry as LineGeometry).setPositions(positions);
     const attr = thin.geometry.getAttribute("position") as THREE.BufferAttribute;
     attr.needsUpdate = true;
     thin.geometry.computeBoundingSphere();
 
-    const hasLeader = Boolean(fishPointRef);
+    const hasLeader = Boolean(floatG);
     leader.visible = hasLeader;
     leaderThin.visible = hasLeader;
-    if (hasLeader) {
+    if (floatG) {
       const bot = floatG?.getObjectByName("FloatBottom");
       if (bot) {
         bot.updateWorldMatrix(true, false);
@@ -746,7 +797,14 @@ export function FishingLineView({
         _keel.setFromMatrixPosition(floatG.matrixWorld);
         _keel.y -= 0.075;
       }
-      sampleLine(_keel, fishPointRef.current, ten, leaderPos);
+      if (fishPointRef) _rigEnd.copy(fishPointRef.current);
+      else {
+        // Existing hanging leader length, transformed with the float instead of bypassing it.
+        _rigEnd.set(0, -.14, 0);
+        floatG.localToWorld(_rigEnd);
+      }
+      sampleLine(_keel, _rigEnd, ten, leaderPos);
+      lineToLocal(leaderPos, leader.parent);
       (leader.geometry as LineGeometry).setPositions(leaderPos);
       const lattr = leaderThin.geometry.getAttribute("position") as THREE.BufferAttribute;
       lattr.needsUpdate = true;
@@ -770,7 +828,11 @@ export function FishingLineView({
         bot.updateWorldMatrix(true, false);
         markers.bottom.current.position.setFromMatrixPosition(bot.matrixWorld);
       }
-      if (markers.fish.current && fishPointRef) markers.fish.current.position.copy(fishPointRef.current);
+      if (markers.fish.current) markers.fish.current.position.copy(_rigEnd);
+      for (const marker of Object.values(markers)) {
+        const node = marker.current;
+        if (node?.parent) node.parent.worldToLocal(node.position);
+      }
     }
   });
 

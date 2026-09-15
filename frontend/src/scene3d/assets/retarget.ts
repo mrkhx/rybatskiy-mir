@@ -128,9 +128,9 @@ function contractBoneName(name: string): string | null {
   if (BONE_ALIASES[k]) return BONE_ALIASES[k];
   const finger = name.replace(/^mixamorig[_:]?/i, "").replace(/[_:\s]/g, "");
   const m = finger.match(FINGER_RE);
-  if (m) {
+  if (m && m[2] && m[3] && m[4]) {
     const side = m[2].toLowerCase() === "left" ? "L" : "R";
-    const digit = m[3][0].toUpperCase() + m[3].slice(1);
+    const digit = m[3].charAt(0).toUpperCase() + m[3].slice(1);
     return `${digit}_${side}_${m[4]}`;
   }
   return null;

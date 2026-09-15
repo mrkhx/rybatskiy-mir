@@ -1,8 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { api, setToken, token, type Player, type Session } from "./api/client";
+import { useFishingRequests } from "./api/useFishingRequests";
 import { Lake } from "./scene/Lake";
+import { shouldShow3DFisherman } from "./scene/use3DFisherman";
+import type { FishingVisualStatus } from "./scene/useFishingVisualsFromSession";
 import { isVkMiniApp } from "./vk/mini-app";
 import { RigLab } from "./rig/RigLab";
+
+const RodLab = lazy(() => import("./routes/dev.rod"));
 
 const Rig3DLab = lazy(() => import("./rig3d/Rig3DLab").then((m) => ({ default: m.Rig3DLab })));
 
@@ -126,6 +131,7 @@ export default function App() {
   if (typeof window !== "undefined") {
     const q = new URLSearchParams(window.location.search);
     const path = window.location.pathname.replace(/\/+$/, "");
+    if (path.endsWith("/dev/rod")) return <Suspense fallback={null}><RodLab /></Suspense>;
     if (q.get("rig3d") === "1" || path.endsWith("/dev/rig3d")) {
       return (
         <Suspense fallback={<div className="boot">3D lab…</div>}>
@@ -293,6 +299,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   const [tab, setTab] = useState<Tab>("fish");
   const [spotId, setSpotId] = useState("old-bridge");
   const [method, setMethod] = useState<Method>("FLOAT");
+  const fishingRequest = useFishingRequests();
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState("Соберите снасть и забросьте.");
   const [force, setForce] = useState(0.6);
@@ -312,6 +319,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   const [reelNonce, setReelNonce] = useState(0);
   const [lastDecision, setLastDecision] = useState<"keep" | "release" | null>(null);
   const [decisionGen, setDecisionGen] = useState(0);
+  const [visualStatus, setVisualStatus] = useState<FishingVisualStatus>({ clip: "READY", resultOpen: false });
   const canSpin = hasSpinningRod(bag);
 
   const applySession = useCallback((s: Session, extra?: string) => {
@@ -322,13 +330,14 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   }, []);
 
   const begin = useCallback(async (nextSpot: string, nextMethod: Method, label?: string) => {
-    const s = await api<Session>("/fishing/start", {
+    const s = await fishingRequest("/fishing/start", {
       method: "POST",
       body: JSON.stringify({ spotId: nextSpot, method: nextMethod }),
     });
+    if (!s) return null;
     applySession(s, label ?? "Прицельтесь и забросьте.");
     return s;
-  }, [applySession]);
+  }, [applySession, fishingRequest]);
 
   useEffect(() => {
     void api<WorldSnap>("/world").then(setWorld);
@@ -336,18 +345,19 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
       setSpeciesName(Object.fromEntries(rows.map((s) => [s.id, s.name])));
     });
     void api<BagRow[]>("/inventory").then(setBag);
-    void api<Session>("/fishing/start", {
+    void fishingRequest("/fishing/start", {
       method: "POST",
       body: JSON.stringify({ spotId: "old-bridge", method: "FLOAT" }),
     })
       .then((s) => {
+        if (!s) return;
         setSession(s);
         setSpotId(s.spotId);
         setMethod(s.method === "SPINNING" ? "SPINNING" : "FLOAT");
         setStatus("Прицельтесь и забросьте.");
       })
       .catch((e: Error) => setStatus(e.message));
-  }, []);
+  }, [fishingRequest]);
 
   useEffect(() => {
     if (tab === "bag") {
@@ -362,13 +372,14 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   useEffect(() => {
     const t = window.setInterval(() => {
       if (session?.state !== "WAITING_BITE") return;
-      void api<Session>("/fishing/bite", { method: "POST", body: "{}" }).then((s) => {
+      void fishingRequest("/fishing/bite", { method: "POST", body: "{}" }, true).then((s) => {
+        if (!s) return;
         setSession(s);
         if (s.playerHint) setStatus(s.playerHint);
-      });
+      }).catch((e: unknown) => setStatus(e instanceof Error ? e.message : "Ошибка связи"));
     }, 900);
     return () => window.clearInterval(t);
-  }, [session?.state]);
+  }, [session?.state, fishingRequest]);
 
   useEffect(() => {
     if (session?.state === "BITE") {
@@ -383,28 +394,19 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   }, [session?.state, session?.speciesId, session?.weightG, session?.tier, session?.loseReason, speciesName]);
 
   useEffect(() => {
-    if (session?.state !== "HOOKED") return;
-    void api<Session>("/fishing/tick", {
-      method: "POST",
-      body: JSON.stringify({ reel: 0.55, rodPressure: 0.5, rodDir: 0, drag: 0.4 }),
-    })
-      .then(setSession)
-      .catch(() => {
-        /* first fight tick can race; interval will retry while FIGHTING */
-      });
-  }, [session?.state]);
-
-  useEffect(() => {
-    if (session?.state !== "FIGHTING") return;
+    if (session?.state !== "FIGHTING" && session?.state !== "HOOKED") return;
     let busy = false;
-    const t = window.setInterval(() => {
+    const advanceFight = () => {
       if (busy) return;
       busy = true;
-      void api<Session>("/fishing/tick", {
+      void fishingRequest("/fishing/tick", {
         method: "POST",
-        body: JSON.stringify({ reel: 0.58, rodPressure: 0.5, rodDir: 0, drag: 0.42 }),
-      })
+        body: JSON.stringify(session.state === "HOOKED"
+          ? { reel: 0.55, rodPressure: 0.5, rodDir: 0, drag: 0.4 }
+          : { reel: 0.58, rodPressure: 0.5, rodDir: 0, drag: 0.42 }),
+      }, true)
         .then(async (s) => {
+          if (!s) return;
           setSession(s);
           if (s.state === "LANDED") onPlayer(await api<Player>("/players/me"));
         })
@@ -414,22 +416,26 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
         .finally(() => {
           busy = false;
         });
-    }, 420);
+    };
+    if (session?.state === "HOOKED") advanceFight();
+    const t = window.setInterval(advanceFight, 420);
     return () => window.clearInterval(t);
-  }, [session?.state, onPlayer]);
+  }, [session?.state, onPlayer, fishingRequest]);
 
   const tod = world?.clock.timeOfDay ?? "DAY";
   const wx = world?.clock.weather ?? "CLEAR";
   const fighting = session?.state === "FIGHTING";
   const hooked = session?.state === "HOOKED";
-  const landed = session?.state === "LANDED" && Boolean(session.speciesId);
   const shownSpotId = session?.spotId ?? spotId;
+  const in3D = shouldShow3DFisherman(shownSpotId);
+  const landed = session?.state === "LANDED" && Boolean(session.speciesId) && (!in3D || visualStatus.resultOpen);
   const shownMethod: Method = session?.method === "SPINNING" ? "SPINNING" : session?.method === "FLOAT" ? "FLOAT" : method;
   const spot = world?.waterbody.spots.find((s) => s.id === shownSpotId);
 
   const lineStatus = (() => {
     if (spinHint) return SPIN_HINT;
     if (!session) return status;
+    if (session.state === "LANDED" && in3D && !visualStatus.resultOpen) return "Подводим рыбу к берегу…";
     if (session.state === "LANDED" && session.speciesId) {
       return `Улов: ${fishName(speciesName, session.speciesId)} · ${session.weightG} г · ${TIER[session.tier ?? ""] ?? session.tier}`;
     }
@@ -443,12 +449,14 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   })();
 
   async function cast() {
-    setCastNonce((n) => n + 1);
+    if (in3D && visualStatus.clip !== "READY" && visualStatus.clip !== "WAIT") return;
     try {
-      const s = await api<Session>("/fishing/cast", {
+      const s = await fishingRequest("/fishing/cast", {
         method: "POST",
         body: JSON.stringify({ force, direction: 0.2, depthM: depth, retrieve }),
       });
+      if (!s) return;
+      setCastNonce((n) => n + 1);
       applySession(s, s.playerHint ?? "Ждём поклёвку…");
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Ошибка заброса");
@@ -456,12 +464,14 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
   }
 
   async function hook() {
-    setHookNonce((n) => n + 1);
+    if (in3D && visualStatus.clip !== "BITE_REACTION") return;
     try {
-      const s = await api<Session>("/fishing/hook", {
+      const s = await fishingRequest("/fishing/hook", {
         method: "POST",
         body: JSON.stringify({ timingMs: 80 }),
       });
+      if (!s) return;
+      if (s.state === "HOOKED" || s.state === "FIGHTING") setHookNonce((n) => n + 1);
       applySession(s, s.state === "HOOKED" || s.state === "FIGHTING" ? "Подсечка! Держите натяжение." : undefined);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Ошибка подсечки");
@@ -470,11 +480,13 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
 
   async function tick(partial: Partial<{ reel: number; rodPressure: number; rodDir: number; drag: number }>) {
     try {
-      const s = await api<Session>("/fishing/tick", {
+      const s = await fishingRequest("/fishing/tick", {
         method: "POST",
         body: JSON.stringify({ reel: 0.5, rodPressure: 0.5, rodDir: 0, drag: 0.4, ...partial }),
       });
+      if (!s) return;
       setSession(s);
+      if (partial.reel && s.state === "FIGHTING") setReelNonce((n) => n + 1);
       if (s.state === "LANDED") onPlayer(await api<Player>("/players/me"));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Ошибка";
@@ -485,7 +497,8 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
 
   async function decide(keep: boolean) {
     try {
-      const s = await api<Session>("/fishing/decide", { method: "POST", body: JSON.stringify({ keep }) });
+      const s = await fishingRequest("/fishing/decide", { method: "POST", body: JSON.stringify({ keep }) });
+      if (!s) return;
       setLastDecision(keep ? "keep" : "release");
       setDecisionGen((n) => n + 1);
       applySession(s, keep ? "В садке." : "Отпустили. Есть XP.");
@@ -544,7 +557,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
     if (fighting || hooked) {
       return (
         <div className="fight">
-          <button className="btn" type="button" onClick={() => { setReelNonce((n) => n + 1); void tick({ reel: 0.85 }); }}>Подмотка</button>
+          <button className="btn" type="button" onClick={() => { void tick({ reel: 0.85 }); }}>Подмотка</button>
           <button className="btn" type="button" onClick={() => void tick({ drag: 0.8, reel: 0.3 })}>Фрикцион</button>
           <button className="btn" type="button" onClick={() => void tick({ rodPressure: 0.9 })}>Поднять удилище</button>
           <button className="btn" type="button" onClick={() => void tick({ rodDir: -0.6, reel: 0.4 })}>В сторону</button>
@@ -566,6 +579,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
         </button>
       );
     }
+    if (session.state === "READY" && in3D && visualStatus.clip !== "READY") return <p className="muted">Готовимся к следующему забросу…</p>;
     if (session.state === "READY") {
       const mixes = bag.filter((r) => r.item.id.startsWith("groundbait"));
       return (
@@ -629,6 +643,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
         lastDecision={lastDecision}
         decisionGen={decisionGen}
         reelNonce={reelNonce}
+        onVisualStatus={setVisualStatus}
       />
       <div className="ui">
         <header className="topbar">

@@ -38,7 +38,8 @@ export function computeWorld(manifest: RigManifest, pose: RigPose): WorldMap {
     const part = byId[id];
     if (!part) return { x: 0, y: 0, angle: 0 };
     const delta = d2r(pose.rot[part.id] ?? 0);
-    if (part.parent === "root" || !byId[part.parent]) {
+    const parentPart = byId[part.parent];
+    if (part.parent === "root" || !parentPart) {
       const xf: WorldXf = {
         x: part.x + pose.originX,
         y: part.y + pose.originY,
@@ -48,8 +49,8 @@ export function computeWorld(manifest: RigManifest, pose: RigPose): WorldMap {
       return xf;
     }
     const parent = visit(part.parent);
-    const lx = part.x - byId[part.parent].x;
-    const ly = part.y - byId[part.parent].y;
+    const lx = part.x - parentPart.x;
+    const ly = part.y - parentPart.y;
     const pos = rotate(parent.x, parent.y, lx, ly, parent.angle);
     const xf: WorldXf = { x: pos.x, y: pos.y, angle: parent.angle + delta };
     bones[id] = xf;

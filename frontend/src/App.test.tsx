@@ -2,6 +2,9 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
+// This test covers the login copy, not a WebGL renderer.
+vi.mock("./scene/ForestLakeFishing3D", () => ({ ForestLakeFishing3D: () => null }));
+
 describe("App", () => {
   beforeEach(() => {
     vi.stubGlobal(

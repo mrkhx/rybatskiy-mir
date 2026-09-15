@@ -138,15 +138,15 @@ export function useRigAnimator(initial: AnimState = "IDLE") {
           }
         } else {
           const steps = cmd.steps;
-          let acc = tRef.current + dt;
+          const acc = tRef.current + dt;
           let idx = 0;
           let elapsed = acc;
-          while (idx < steps.length && elapsed > steps[idx].duration) {
-            elapsed -= steps[idx].duration;
+          while (idx < steps.length && elapsed > steps[idx]!.duration) {
+            elapsed -= steps[idx]!.duration;
             idx += 1;
           }
           if (idx >= steps.length) {
-            const lastStep = steps[steps.length - 1];
+            const lastStep = steps[steps.length - 1]!;
             cmdRef.current = null;
             stateRef.current = lastStep.state;
             setState(lastStep.state);
@@ -154,8 +154,8 @@ export function useRigAnimator(initial: AnimState = "IDLE") {
             fromRef.current = poseRef.current;
             tRef.current = 0;
           } else {
-            const step = steps[idx];
-            const prev = idx === 0 ? fromRef.current : POSES[steps[idx - 1].state];
+            const step = steps[idx]!;
+            const prev = idx === 0 ? fromRef.current : POSES[steps[idx - 1]!.state];
             const u = easeT(elapsed / step.duration, step.ease);
             poseRef.current = mixPose(prev, POSES[step.state], u);
             if (stateRef.current !== step.state) {
@@ -182,12 +182,12 @@ export function useRigAnimator(initial: AnimState = "IDLE") {
 
   const playClip = (name: string) => {
     const steps = CLIPS[name];
-    if (!steps) return;
+    if (!steps?.length) return;
     fromRef.current = poseRef.current;
     tRef.current = 0;
     cmdRef.current = { kind: "clip", steps };
-    stateRef.current = steps[0].state;
-    setState(steps[0].state);
+    stateRef.current = steps[0]!.state;
+    setState(steps[0]!.state);
   };
 
   return { pose, state, looping: LOOPING.has(state), playState, playClip };

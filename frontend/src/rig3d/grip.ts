@@ -38,12 +38,12 @@ function getBone(man: THREE.Object3D, name: string): THREE.Bone | null {
 
 /** Fingers only. Does not touch Hand_R / wrist / arm. */
 export function closeRightFist(man: THREE.Object3D, _rod?: THREE.Object3D): void {
-  for (const name of Object.keys(READY_FIST_Z)) {
+  for (const [name, angle] of Object.entries(READY_FIST_Z)) {
     const b = getBone(man, name);
     if (!b) continue;
     if (!REST_Q[name]) REST_Q[name] = b.quaternion.clone();
     b.quaternion.copy(REST_Q[name]);
-    _qz.setFromAxisAngle(_axisZ, READY_FIST_Z[name]);
+    _qz.setFromAxisAngle(_axisZ, angle);
     b.quaternion.multiply(_qz);
   }
 }

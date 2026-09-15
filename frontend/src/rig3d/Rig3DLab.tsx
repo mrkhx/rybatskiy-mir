@@ -7,13 +7,9 @@ import { Lights, Rig3DScene, type SceneReports } from "./Rig3DScene";
 import { CAST_SEQ, type CharClip, type DebugFlags, type FishClip } from "./types";
 import { CatchResultCard } from "./CatchResultCard";
 import { DEBUG_CATCH_RESULT, type CatchChoice, type CatchResultData } from "./catchResult";
-import { HOOK_DURATION } from "./hookset";
-import { LAND_DURATION } from "./land";
-import { PREP_DURATION } from "./landPrep";
 import { DEBUG_PROXY, PRODUCTION, resolveProductionAssets, type ResolvedAssets } from "../scene3d/assets/paths";
 import { summarize, type AdapterReport } from "../scene3d/assets/contract";
 import {
-  bootstrapVisual,
   canServerCast,
   canServerDecide,
   canServerHook,
@@ -24,13 +20,11 @@ import {
   type LabMode,
 } from "./serverFishingVisualAdapter";
 import { useServerFishing } from "./useServerFishing";
+import { useFishingVisualsFromSession, type CatchDecision } from "../scene/useFishingVisualsFromSession";
 import "../rig/rig.css";
 import "./rig3d.css";
 
 const AZIMUTHS = [0, 45, 90, 135, 180, 225, 270, 315] as const;
-const PRECAST_MS = 350;
-const HOLD_BEFORE_RESULT_MS = 700;
-const LOST_RECOVER_MS = 400;
 
 const CHAR_PRIMARY: Array<{ id: CharClip | "CAST" | "CATCH_RESULT"; label: string }> = [
   { id: "IDLE", label: "Idle" },
@@ -82,8 +76,8 @@ export function Rig3DLab() {
   const [mode, setMode] = useState<LabMode>("DEBUG");
   const serverOn = mode === "SERVER";
   const fishing = useServerFishing(serverOn);
-  const [charClip, setCharClip] = useState<CharClip>("IDLE");
-  const [fishClip, setFishClip] = useState<FishClip>("SWIM_IDLE");
+  const [debugCharClip, setCharClip] = useState<CharClip>("IDLE");
+  const [debugFishClip, setFishClip] = useState<FishClip>("SWIM_IDLE");
   const [fishScale, setFishScale] = useState(1);
   const [fps, setFps] = useState(0);
   const [hidden, setHidden] = useState(false);
@@ -112,25 +106,52 @@ export function Rig3DLab() {
   const [floatOn, setFloatOn] = useState(true);
   const [lineTension, setLineTension] = useState(0);
   const [wave, setWave] = useState(0.4);
-  const [biteKey, setBiteKey] = useState(0);
-  const [hookKey, setHookKey] = useState(0);
-  const [fightKey, setFightKey] = useState(0);
-  const [reelKey, setReelKey] = useState(0);
-  const [prepKey, setPrepKey] = useState(0);
-  const [landKey, setLandKey] = useState(0);
-  const [holdKey, setHoldKey] = useState(0);
-  const [resultOpen, setResultOpen] = useState(false);
+  const [debugBiteKey, setBiteKey] = useState(0);
+  const [debugHookKey, setHookKey] = useState(0);
+  const [debugFightKey, setFightKey] = useState(0);
+  const [debugReelKey, setReelKey] = useState(0);
+  const [debugPrepKey, setPrepKey] = useState(0);
+  const [debugLandKey, setLandKey] = useState(0);
+  const [debugHoldKey, setHoldKey] = useState(0);
+  const [debugResultOpen, setResultOpen] = useState(false);
   const [resultRecord, setResultRecord] = useState(false);
   const [catchChoice, setCatchChoice] = useState<CatchChoice | null>(null);
-  const [releaseKey, setReleaseKey] = useState(0);
-  const [releaseComplete, setReleaseComplete] = useState(false);
-  const [keepKey, setKeepKey] = useState(0);
-  const [keepComplete, setKeepComplete] = useState(false);
-  const [returnKey, setReturnKey] = useState(0);
+  const [debugReleaseKey, setReleaseKey] = useState(0);
+  const [debugReleaseComplete, setReleaseComplete] = useState(false);
+  const [debugKeepKey, setKeepKey] = useState(0);
+  const [debugKeepComplete, setKeepComplete] = useState(false);
+  const [debugReturnKey, setReturnKey] = useState(0);
   const landLock = useRef(false);
   const recoverLock = useRef(false);
-  const bootClip = useRef(false);
 
+
+  const [serverCastNonce, setServerCastNonce] = useState(0);
+  const [serverReelNonce, setServerReelNonce] = useState(0);
+  const [serverDecisionGen, setServerDecisionGen] = useState(0);
+  const [serverDecision, setServerDecision] = useState<CatchDecision>(null);
+  const serverVisuals = useFishingVisualsFromSession({
+    enabled: serverOn,
+    session: fishing.session,
+    castNonce: serverCastNonce,
+    reelNonce: serverReelNonce,
+    decisionGen: serverDecisionGen,
+    lastDecision: serverDecision,
+  });
+  const charClip = serverOn ? serverVisuals.charClip : debugCharClip;
+  const fishClip = serverOn ? serverVisuals.fishClip : debugFishClip;
+  const biteKey = serverOn ? serverVisuals.biteKey : debugBiteKey;
+  const hookKey = serverOn ? serverVisuals.hookKey : debugHookKey;
+  const fightKey = serverOn ? serverVisuals.fightKey : debugFightKey;
+  const reelKey = serverOn ? serverVisuals.reelKey : debugReelKey;
+  const prepKey = serverOn ? serverVisuals.prepKey : debugPrepKey;
+  const landKey = serverOn ? serverVisuals.landKey : debugLandKey;
+  const holdKey = serverOn ? serverVisuals.holdKey : debugHoldKey;
+  const returnKey = serverOn ? serverVisuals.returnKey : debugReturnKey;
+  const releaseKey = serverOn ? serverVisuals.releaseKey : debugReleaseKey;
+  const keepKey = serverOn ? serverVisuals.keepKey : debugKeepKey;
+  const resultOpen = serverOn ? serverVisuals.resultOpen : debugResultOpen;
+  const keepComplete = serverOn ? serverVisuals.keepComplete : debugKeepComplete;
+  const releaseComplete = serverOn ? serverVisuals.releaseComplete : debugReleaseComplete;
   useEffect(() => {
     const on = () => setHidden(document.hidden);
     document.addEventListener("visibilitychange", on);
@@ -341,43 +362,24 @@ export function Rig3DLab() {
     setCharClip(id);
   }, [charClip]);
 
-  const startCastVisual = useCallback(() => {
-    setCatchChoice(null);
-    setResultOpen(false);
-    setCharClip("AIM");
-    window.setTimeout(() => {
-      setCharClip((c) => (c === "AIM" ? "CAST_BACKSWING" : c));
-    }, PRECAST_MS);
-  }, []);
-
-  const playReturn = useCallback(() => {
-    setReturnKey((n) => n + 1);
-    setCharClip("RETURN_TO_READY");
-    setResultOpen(false);
-  }, []);
-
   const onServerCast = useCallback(async () => {
     if (!canServerCast(fishing.session?.state, charClip, fishing.pending)) return;
     const s = await fishing.cast();
     if (!s) return;
-    startCastVisual();
-  }, [charClip, fishing, startCastVisual]);
+    setCatchChoice(null);
+    setServerCastNonce((n) => n + 1);
+  }, [charClip, fishing]);
 
   const onServerHook = useCallback(async () => {
     if (!canServerHook(fishing.session?.state, charClip, fishing.pending)) return;
     const s = await fishing.hook();
     if (!s) return;
-    if (s.state === "HOOKED" || s.state === "FIGHTING") {
-      setHookKey((n) => n + 1);
-      setCharClip("HOOKSET");
-    }
   }, [charClip, fishing]);
 
   const onServerReel = useCallback(async () => {
     if (!canServerReel(fishing.session?.state, charClip)) return;
-    setReelKey((n) => n + 1);
-    setCharClip("REEL");
-    await fishing.tick(true);
+    const next = await fishing.tick(true);
+    if (next) setServerReelNonce((n) => n + 1);
   }, [charClip, fishing]);
 
   const onServerDecide = useCallback(
@@ -385,19 +387,9 @@ export function Rig3DLab() {
       if (!canServerDecide(fishing.session?.state, resultOpen, catchChoice, fishing.pending)) return;
       const s = await fishing.decide(keep);
       if (!s) return;
-      if (keep) {
-        setCatchChoice("KEEP_SELECTED");
-        setKeepComplete(false);
-        setKeepKey((n) => n + 1);
-        setCharClip("KEEP");
-        setResultOpen(false);
-      } else {
-        setCatchChoice("RELEASE_SELECTED");
-        setReleaseComplete(false);
-        setReleaseKey((n) => n + 1);
-        setCharClip("RELEASE");
-        setResultOpen(false);
-      }
+      setCatchChoice(keep ? "KEEP_SELECTED" : "RELEASE_SELECTED");
+      setServerDecision(keep ? "keep" : "release");
+      setServerDecisionGen((n) => n + 1);
     },
     [catchChoice, fishing, resultOpen],
   );
@@ -435,15 +427,16 @@ export function Rig3DLab() {
     [fishing, onServerCast, onServerDecide, onServerHook, onServerReel, playChar, serverOn],
   );
 
-  const onCastComplete = useCallback(() => {
+  const debugOnCastComplete = useCallback(() => {
     setCharClip((c) => (c.startsWith("CAST") ? "FLOAT_LANDING" : c));
   }, []);
 
-  const onLandingComplete = useCallback(() => {
+  const debugOnLandingComplete = useCallback(() => {
     setCharClip((c) => (c === "FLOAT_LANDING" ? "WAIT" : c));
   }, []);
 
   useEffect(() => {
+    if (serverOn) return;
     if (catchChoice !== "RELEASE_SELECTED") return;
     if (charClip === "RELEASE" || charClip === "RETURN_TO_READY" || charClip === "READY" || charClip === "KEEP") return;
     const id = window.setTimeout(() => {
@@ -453,9 +446,10 @@ export function Rig3DLab() {
       setResultOpen(false);
     }, 360);
     return () => window.clearTimeout(id);
-  }, [catchChoice, charClip]);
+  }, [serverOn, catchChoice, charClip]);
 
   useEffect(() => {
+    if (serverOn) return;
     if (catchChoice !== "KEEP_SELECTED") return;
     if (charClip === "KEEP" || charClip === "RETURN_TO_READY" || charClip === "READY" || charClip === "RELEASE") return;
     const id = window.setTimeout(() => {
@@ -465,17 +459,18 @@ export function Rig3DLab() {
       setResultOpen(false);
     }, 360);
     return () => window.clearTimeout(id);
-  }, [catchChoice, charClip]);
+  }, [serverOn, catchChoice, charClip]);
 
-  const onReleaseComplete = useCallback(() => {
+  const debugOnReleaseComplete = useCallback(() => {
     setReleaseComplete(true);
   }, []);
 
-  const onKeepComplete = useCallback(() => {
+  const debugOnKeepComplete = useCallback(() => {
     setKeepComplete(true);
   }, []);
 
   useEffect(() => {
+    if (serverOn) return;
     if (charClip !== "KEEP" && charClip !== "RELEASE") return;
     if (charClip === "KEEP" && !keepComplete) return;
     if (charClip === "RELEASE" && !releaseComplete) return;
@@ -485,9 +480,9 @@ export function Rig3DLab() {
       setResultOpen(false);
     }, 280);
     return () => window.clearTimeout(id);
-  }, [keepComplete, releaseComplete, charClip]);
+  }, [serverOn, keepComplete, releaseComplete, charClip]);
 
-  const onReturnComplete = useCallback(() => {
+  const debugOnReturnComplete = useCallback(() => {
     setCatchChoice(null);
     setResultOpen(false);
     setKeepComplete(false);
@@ -497,31 +492,19 @@ export function Rig3DLab() {
     setCharClip("READY");
   }, []);
 
-  const onCharFinished = useCallback((name: string) => {
+  const debugOnCharFinished = useCallback((name: string) => {
     if (name.startsWith("CAST")) return;
     const i = CAST_SEQ.indexOf(name as CharClip);
     const next = i >= 0 ? CAST_SEQ[i + 1] : undefined;
     if (next) setCharClip(next);
   }, []);
 
-  useEffect(() => {
-    if (!serverOn) {
-      bootClip.current = false;
-      landLock.current = false;
-      recoverLock.current = false;
-      return;
-    }
-    if (!fishing.connected || !fishing.session) return;
-    if (bootClip.current) return;
-    bootClip.current = true;
-    const boot = bootstrapVisual(fishing.session.state);
-    setCharClip(boot.clip);
-    setResultOpen(boot.result);
-    if (boot.clip === "BITE_REACTION") setBiteKey((n) => n + 1);
-    if (boot.clip === "HOOKSET") setHookKey((n) => n + 1);
-    if (boot.clip === "FIGHT_LIGHT") setFightKey((n) => n + 1);
-    if (boot.clip === "LANDED_HOLD") setHoldKey((n) => n + 1);
-  }, [serverOn, fishing.connected, fishing.session]);
+  const onCastComplete = serverOn ? serverVisuals.onCastComplete : debugOnCastComplete;
+  const onLandingComplete = serverOn ? serverVisuals.onLandingComplete : debugOnLandingComplete;
+  const onReleaseComplete = serverOn ? serverVisuals.onReleaseComplete : debugOnReleaseComplete;
+  const onKeepComplete = serverOn ? serverVisuals.onKeepComplete : debugOnKeepComplete;
+  const onReturnComplete = serverOn ? serverVisuals.onReturnComplete : debugOnReturnComplete;
+  const onCharFinished = serverOn ? serverVisuals.onCharFinished : debugOnCharFinished;
 
   useEffect(() => {
     if (!serverOn) return;
@@ -540,25 +523,6 @@ export function Rig3DLab() {
 
   useEffect(() => {
     if (!serverOn) return;
-    if (charClip !== "WAIT") return;
-    if (fishing.session?.state !== "BITE") return;
-    setBiteKey((n) => n + 1);
-    setCharClip("BITE_REACTION");
-  }, [serverOn, charClip, fishing.session?.state]);
-
-  useEffect(() => {
-    if (!serverOn) return;
-    if (charClip !== "HOOKSET") return;
-    if (fishing.session?.state !== "HOOKED" && fishing.session?.state !== "FIGHTING") return;
-    const id = window.setTimeout(() => {
-      setFightKey((n) => n + 1);
-      setCharClip("FIGHT_LIGHT");
-    }, (HOOK_DURATION + 0.08) * 1000);
-    return () => window.clearTimeout(id);
-  }, [serverOn, charClip, hookKey, fishing.session?.state]);
-
-  useEffect(() => {
-    if (!serverOn) return;
     const state = fishing.session?.state;
     if (state !== "HOOKED" && state !== "FIGHTING") return;
     if (charClip !== "HOOKSET" && charClip !== "FIGHT_LIGHT" && charClip !== "REEL") return;
@@ -571,64 +535,6 @@ export function Rig3DLab() {
     }, 420);
     return () => window.clearInterval(t);
   }, [serverOn, charClip, fishing.tick, fishing.session?.state]);
-
-  useEffect(() => {
-    if (!serverOn) return;
-    if (fishing.session?.state !== "LANDED") return;
-    if (landLock.current) return;
-    if (charClip !== "FIGHT_LIGHT" && charClip !== "REEL") return;
-    landLock.current = true;
-    setPrepKey((n) => n + 1);
-    setCharClip("LAND_PREP");
-  }, [serverOn, fishing.session?.state, charClip]);
-
-  useEffect(() => {
-    if (!serverOn) return;
-    if (charClip !== "LAND_PREP") return;
-    if (fishing.session?.state !== "LANDED") return;
-    const id = window.setTimeout(() => {
-      setLandKey((n) => n + 1);
-      setCharClip("LAND");
-    }, PREP_DURATION * 1000);
-    return () => window.clearTimeout(id);
-  }, [serverOn, charClip, prepKey, fishing.session?.state]);
-
-  useEffect(() => {
-    if (!serverOn) return;
-    if (charClip !== "LAND") return;
-    if (fishing.session?.state !== "LANDED") return;
-    const id = window.setTimeout(() => {
-      setHoldKey((n) => n + 1);
-      setCharClip("LANDED_HOLD");
-    }, LAND_DURATION * 1000);
-    return () => window.clearTimeout(id);
-  }, [serverOn, charClip, landKey, fishing.session?.state]);
-
-  useEffect(() => {
-    if (!serverOn) return;
-    if (charClip !== "LANDED_HOLD") return;
-    if (fishing.session?.state !== "LANDED") return;
-    if (resultOpen || catchChoice) return;
-    const id = window.setTimeout(() => {
-      setCatchChoice(null);
-      setResultOpen(true);
-    }, HOLD_BEFORE_RESULT_MS);
-    return () => window.clearTimeout(id);
-  }, [serverOn, charClip, holdKey, fishing.session?.state, resultOpen, catchChoice]);
-
-  useEffect(() => {
-    if (!serverOn) return;
-    const state = fishing.session?.state;
-    if (state !== "LOST" && state !== "BROKEN") return;
-    if (recoverLock.current) return;
-    if (charClip === "RETURN_TO_READY" || charClip === "READY") return;
-    recoverLock.current = true;
-    const id = window.setTimeout(() => {
-      void fishing.recover();
-      playReturn();
-    }, LOST_RECOVER_MS);
-    return () => window.clearTimeout(id);
-  }, [serverOn, fishing.recover, fishing.session?.state, charClip, playReturn]);
 
   const tog = (key: keyof DebugFlags) => setDebug((d) => ({ ...d, [key]: !d[key] }));
   const dpr = useMemo<[number, number]>(() => [1, 1.5], []);

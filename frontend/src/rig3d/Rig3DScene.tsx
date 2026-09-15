@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { RuntimeWaterContext } from "./runtimeWater";
+import { MotionSpace } from "./motionSpace";
+import { measureReadyFeet, type FeetAnchor } from "../scene/feetAnchor";
+
+import { useContext, useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { ContactShadows, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
@@ -15,7 +19,7 @@ import { twoBoneIK } from "./ik";
 import { applyRodBend, aimRod, spinReel, worldOf } from "./rodBend";
 import { seatRodInHand, closeRightFist, rollRightWristOut, measureRodPitchYaw } from "./grip";
 import { applyAimArms } from "./idleLive";
-import { applyAimPose, AIM_PITCH, AIM_YAW, AIM_LINE_TENSION } from "./aim";
+import { AIM_LINE_TENSION } from "./aim";
 import { applyCastPose, CAST_DURATION, CAST_START_PITCH, CAST_START_YAW, isCastClip, sampleCast } from "./cast";
 import { holdsCastPose, isFloatLanding, makeLandingSim } from "./floatLanding";
 import { applyWaitPose, isWaitClip, sampleWait, WAIT_AFTER_LANDING, WAIT_BLEND, WAIT_LINE_TENSION } from "./wait";
@@ -88,6 +92,7 @@ type Props = {
   onReports?: (reports: SceneReports) => void;
   /** Forest Lake overlay: no debug grid / lab water plate. */
   embed?: boolean;
+  onFeetAnchor?: (anchor: FeetAnchor | null) => void;
 };
 
 function hardenMaterials(root: THREE.Object3D) {
@@ -181,6 +186,7 @@ export function Rig3DScene({
   onReturnComplete,
   onReports,
   embed = false,
+  onFeetAnchor,
 }: Props) {
   const manGltf = useGLTF(fishermanUrl);
   const rodGltf = useGLTF(rodUrl);
@@ -190,6 +196,10 @@ export function Rig3DScene({
     importHumanoid(manGltf);
     return cloneSkinned(manGltf.scene);
   }, [manGltf]);
+  useEffect(() => {
+    if (onFeetAnchor) onFeetAnchor(measureReadyFeet(manGltf.scene, manGltf.animations));
+  }, [manGltf, onFeetAnchor]);
+
   const rod = useMemo(() => cloneSkinned(rodGltf.scene), [rodGltf.scene]);
   const pike = useMemo(() => cloneSkinned(pikeGltf.scene), [pikeGltf.scene]);
 
@@ -210,8 +220,6 @@ export function Rig3DScene({
   }, [pikeGltf.animations, fishMixer]);
 
   const charRef = useRef<CharClip>(charClip);
-  const lineGeo = useMemo(() => new THREE.BufferGeometry(), []);
-  const linePts = useMemo(() => new Float32Array(9), []);
   const fpsAcc = useRef({ t: 0, frames: 0 });
   const attached = useRef(false);
   const gripKey = useRef("");
@@ -256,6 +264,9 @@ export function Rig3DScene({
   const returnDone = useRef(false);
   const splashOnce = useRef(false);
   const fishHold = useRef<THREE.Group>(null);
+  const water = useContext(RuntimeWaterContext);
+  const motion = useMemo(() => new MotionSpace(water?.motionFrame ?? null, water?.waterlineWorldY), [water?.motionFrame, water?.waterlineWorldY]);
+  const motionOffset = useMemo(() => new THREE.Vector3(), []);
   const fishPoint = useRef(new THREE.Vector3());
   const fishRest = useRef(new THREE.Vector3());
   const fishArmed = useRef(false);
@@ -678,6 +689,9 @@ export function Rig3DScene({
   }, [debug.skeleton, debug.fishSkeleton, debug.armAxes, helpers]);
 
   useFrame((_, rawDt) => {
+    if (document.hidden) return;
+    motion.rebase([fishRest.current, fishPoint.current, fishPrepStart.current, fishLandStart.current,
+      fishHoldStart.current, fishReleaseStart.current, fishKeepStart.current, detachAt.current, leaderEnd.current]);
     const dt = Math.min(rawDt, 0.05);
     if (autoYaw) extraYaw.current += dt * 0.45;
     else extraYaw.current = 0;
@@ -826,8 +840,8 @@ export function Rig3DScene({
           }
           fishArmed.current = true;
         }
-        fightFishWorld(fishRest.current, s, fishPoint.current);
-        fishPoint.current.x -= reelApproach.current * 0.55;
+        motion.point(fightFishWorld, fishRest.current, s, fishPoint.current);
+        fishPoint.current.add(motion.offset(-reelApproach.current * 0.55, 0, 0, motionOffset));
         if (reeling) {
           reelApproach.current = Math.min(REEL_APPROACH_CAP, reelApproach.current + dt * REEL_APPROACH * (speed / 8.4));
         }
@@ -871,7 +885,7 @@ export function Rig3DScene({
           applyReelLeftArm(man, s, reelReach.current, handle?.rotation.z ?? 0);
         }
         if (fishPrepStart.current.lengthSq() < 0.05) fishPrepStart.current.copy(fishPoint.current.lengthSq() > 0.05 ? fishPoint.current : fishRest.current);
-        prepFishWorld(fishPrepStart.current, prepT.current, fishPoint.current);
+        motion.point(prepFishWorld, fishPrepStart.current, prepT.current, fishPoint.current);
         prepT.current = Math.min(PREP_DURATION, prepT.current + dt);
         const dist = Math.hypot(fishPoint.current.x, fishPoint.current.z);
         (window as unknown as { __PREP?: { t: number; dist: number; progress: number; ten: number; reach: number; lift: number; fishY: number } }).__PREP = {
@@ -902,13 +916,15 @@ export function Rig3DScene({
         if (fishLandStart.current.lengthSq() < 0.05) {
           fishLandStart.current.copy(fishPoint.current.lengthSq() > 0.05 ? fishPoint.current : fishRest.current);
         }
-        landFishWorld(fishLandStart.current, outT.current, fishPoint.current);
+        motion.point(landFishWorld, fishLandStart.current, outT.current, fishPoint.current);
         if (!splashOnce.current && outT.current >= LAND_SURFACE_T) {
           splashOnce.current = true;
           if (landSim.current) {
             landSim.current.splashStamp += 1;
-            landSim.current.splashX = fishPoint.current.x;
-            landSim.current.splashZ = fishPoint.current.z;
+            _fishMouth.copy(fishPoint.current);
+            if (floatRef.current?.parent) floatRef.current.parent.worldToLocal(_fishMouth);
+            landSim.current.splashX = _fishMouth.x;
+            landSim.current.splashZ = _fishMouth.z;
           }
         }
         const hold = fishHold.current;
@@ -918,13 +934,12 @@ export function Rig3DScene({
           _fishMouth.copy(fishPoint.current);
           if (hold.parent) hold.parent.worldToLocal(_fishMouth);
           hold.position.copy(_fishMouth);
-          const yawFish = Math.atan2(fishPoint.current.x, fishPoint.current.z);
+          const yawFish = water ? Math.atan2(_fishMouth.x, _fishMouth.z) : Math.atan2(fishPoint.current.x, fishPoint.current.z);
           hold.rotation.set(s.nose * 0.35 + s.twist * 0.25, yawFish, s.tail * 0.15);
           hold.updateWorldMatrix(true, true);
           const jaw = pike.getObjectByName("Jaw");
           if (jaw) {
             pike.position.set(0, 0, 0);
-        landSim.current = makeLandingSim();
             hold.updateWorldMatrix(true, true);
             jaw.updateWorldMatrix(true, false);
             _tip.setFromMatrixPosition(jaw.matrixWorld);
@@ -960,7 +975,7 @@ export function Rig3DScene({
         if (fishHoldStart.current.lengthSq() < 0.05) {
           fishHoldStart.current.copy(fishPoint.current.lengthSq() > 0.05 ? fishPoint.current : fishLandStart.current);
         }
-        holdFishWorld(fishHoldStart.current, holdT.current, fishPoint.current);
+        motion.point(holdFishWorld, fishHoldStart.current, holdT.current, fishPoint.current);
         const hold = fishHold.current;
         if (hold) {
           hold.visible = true;
@@ -968,13 +983,12 @@ export function Rig3DScene({
           _fishMouth.copy(fishPoint.current);
           if (hold.parent) hold.parent.worldToLocal(_fishMouth);
           hold.position.copy(_fishMouth);
-          const yawFish = Math.atan2(fishPoint.current.x, fishPoint.current.z);
+          const yawFish = water ? Math.atan2(_fishMouth.x, _fishMouth.z) : Math.atan2(fishPoint.current.x, fishPoint.current.z);
           hold.rotation.set(s.nose * 0.35 + s.twist * 0.25, yawFish, s.tail * 0.15);
           hold.updateWorldMatrix(true, true);
           const jaw = pike.getObjectByName("Jaw");
           if (jaw) {
             pike.position.set(0, 0, 0);
-        landSim.current = makeLandingSim();
             hold.updateWorldMatrix(true, true);
             jaw.updateWorldMatrix(true, false);
             _tip.setFromMatrixPosition(jaw.matrixWorld);
@@ -1011,13 +1025,15 @@ export function Rig3DScene({
         if (fishReleaseStart.current.lengthSq() < 0.05) {
           fishReleaseStart.current.copy(fishPoint.current.lengthSq() > 0.05 ? fishPoint.current : fishHoldStart.current);
         }
-        releaseFishWorld(fishReleaseStart.current, relT.current, fishPoint.current);
+        motion.point(releaseFishWorld, fishReleaseStart.current, relT.current, fishPoint.current);
         if (!splashOnce.current && relT.current >= RELEASE_ENTER) {
           splashOnce.current = true;
           if (landSim.current) {
             landSim.current.splashStamp += 1;
-            landSim.current.splashX = fishPoint.current.x;
-            landSim.current.splashZ = fishPoint.current.z;
+            _fishMouth.copy(fishPoint.current);
+            if (floatRef.current?.parent) floatRef.current.parent.worldToLocal(_fishMouth);
+            landSim.current.splashX = _fishMouth.x;
+            landSim.current.splashZ = _fishMouth.z;
           }
         }
         if (!detached.current && relT.current >= RELEASE_DETACH) {
@@ -1032,7 +1048,7 @@ export function Rig3DScene({
           _mid.copy(fishPoint.current);
           _mid.y = 0;
         }
-        releaseLeaderWorld(fishPoint.current, _mid, detachAt.current, relT.current, leaderEnd.current);
+        motion.leader(releaseLeaderWorld, fishPoint.current, _mid, detachAt.current, relT.current, leaderEnd.current);
         const hold = fishHold.current;
         const hideFish = relT.current >= RELEASE_DURATION - 0.12;
         pike.visible = !hideFish;
@@ -1042,13 +1058,12 @@ export function Rig3DScene({
           _fishMouth.copy(fishPoint.current);
           if (hold.parent) hold.parent.worldToLocal(_fishMouth);
           hold.position.copy(_fishMouth);
-          const yawFish = Math.atan2(fishPoint.current.x, fishPoint.current.z);
+          const yawFish = water ? Math.atan2(_fishMouth.x, _fishMouth.z) : Math.atan2(fishPoint.current.x, fishPoint.current.z);
           hold.rotation.set(s.nose * 0.35 + s.twist * 0.25, yawFish, s.tail * 0.15);
           hold.updateWorldMatrix(true, true);
           const jaw = pike.getObjectByName("Jaw");
           if (jaw) {
             pike.position.set(0, 0, 0);
-        landSim.current = makeLandingSim();
             hold.updateWorldMatrix(true, true);
             jaw.updateWorldMatrix(true, false);
             _tip.setFromMatrixPosition(jaw.matrixWorld);
@@ -1089,7 +1104,7 @@ export function Rig3DScene({
         if (fishKeepStart.current.lengthSq() < 0.05) {
           fishKeepStart.current.copy(fishPoint.current.lengthSq() > 0.05 ? fishPoint.current : fishHoldStart.current);
         }
-        keepFishWorld(fishKeepStart.current, keepT.current, fishPoint.current);
+        motion.point(keepFishWorld, fishKeepStart.current, keepT.current, fishPoint.current);
         if (!detached.current && keepT.current >= KEEP_DETACH) {
           detached.current = true;
           detachAt.current.copy(fishPoint.current);
@@ -1101,7 +1116,7 @@ export function Rig3DScene({
         } else {
           _mid.copy(fishPoint.current);
         }
-        keepLeaderWorld(fishPoint.current, _mid, detachAt.current, keepT.current, leaderEnd.current);
+        motion.leader(keepLeaderWorld, fishPoint.current, _mid, detachAt.current, keepT.current, leaderEnd.current);
         setPikeFade(pike, 1 - s.fade);
         const hold = fishHold.current;
         const hideFish = s.fade >= 0.98;
@@ -1112,13 +1127,12 @@ export function Rig3DScene({
           _fishMouth.copy(fishPoint.current);
           if (hold.parent) hold.parent.worldToLocal(_fishMouth);
           hold.position.copy(_fishMouth);
-          const yawFish = Math.atan2(fishPoint.current.x, fishPoint.current.z);
+          const yawFish = water ? Math.atan2(_fishMouth.x, _fishMouth.z) : Math.atan2(fishPoint.current.x, fishPoint.current.z);
           hold.rotation.set(s.nose * 0.35 + s.twist * 0.25, yawFish, s.tail * 0.15);
           hold.updateWorldMatrix(true, true);
           const jaw = pike.getObjectByName("Jaw");
           if (jaw && !hideFish) {
             pike.position.set(0, 0, 0);
-        landSim.current = makeLandingSim();
             hold.updateWorldMatrix(true, true);
             jaw.updateWorldMatrix(true, false);
             _tip.setFromMatrixPosition(jaw.matrixWorld);
@@ -1175,7 +1189,7 @@ export function Rig3DScene({
         } else {
           _mid.set(0, 0, 0);
         }
-        returnLeaderWorld(_mid, leaderEnd.current);
+        motion.point((start, _t, out) => returnLeaderWorld(start, out), _mid, 0, leaderEnd.current);
         retT.current = Math.min(RETURN_DURATION, retT.current + dt);
         if (s.done && !returnDone.current) {
           returnDone.current = true;
@@ -1224,28 +1238,6 @@ export function Rig3DScene({
       if (worldOf(rod, targetName, _target)) {
         twoBoneIK(man, ["UpperArm_L", "LowerArm_L", "Hand_L"], _target, 8);
       }
-    }
-
-    if (debug.line && clip !== "READY" && !fighting && !reeling && !prepping && !outing && !holding && !releasing && !keeping && !returning) {
-      worldOf(rod, "RodTip", _tip) ?? worldOf(rod, "LineStart", _tip);
-      const jaw = pike.getObjectByName("Jaw") ?? pike.getObjectByName("PikeRoot");
-      if (jaw) {
-        jaw.updateWorldMatrix(true, false);
-        _fishMouth.setFromMatrixPosition(jaw.matrixWorld);
-      }
-      _mid.lerpVectors(_tip, _fishMouth, 0.5);
-      _mid.y -= 0.18;
-      linePts[0] = _tip.x;
-      linePts[1] = _tip.y;
-      linePts[2] = _tip.z;
-      linePts[3] = _mid.x;
-      linePts[4] = _mid.y;
-      linePts[5] = _mid.z;
-      linePts[6] = _fishMouth.x;
-      linePts[7] = _fishMouth.y;
-      linePts[8] = _fishMouth.z;
-      lineGeo.setAttribute("position", new THREE.BufferAttribute(linePts, 3));
-      lineGeo.computeBoundingSphere();
     }
 
     fpsAcc.current.t += dt;
@@ -1329,12 +1321,6 @@ export function Rig3DScene({
         debug={debug.line}
         active={charClip === "READY" || charClip === "AIM" || holdsCastPose(charClip) || isWaitClip(charClip) || isBiteClip(charClip) || isHookClip(charClip) || isFightClip(charClip) || isReelClip(charClip) || isPrepClip(charClip) || isLandClip(charClip) || isHoldClip(charClip) || isReleaseClip(charClip) || isKeepClip(charClip) || isReturnClip(charClip)}
       />
-      {debug.line && charClip !== "READY" && charClip !== "FIGHT_LIGHT" && charClip !== "REEL" && charClip !== "LAND_PREP" && charClip !== "LAND" && charClip !== "LANDED_HOLD" && charClip !== "RELEASE" && charClip !== "KEEP" && charClip !== "RETURN_TO_READY" && (
-        <line>
-          <primitive object={lineGeo} attach="geometry" />
-          <lineBasicMaterial color="#d8dde4" transparent opacity={0.75} />
-        </line>
-      )}
       {debug.ik && <IkDots rod={rod} />}
       {debug.rodAnchors && <AnchorDots rod={rod} man={man} />}
       {!embed && <gridHelper args={[6, 12, "#7a8a94", "#3d4a52"]} />}

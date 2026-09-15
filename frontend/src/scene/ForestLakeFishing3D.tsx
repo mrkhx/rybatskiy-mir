@@ -6,8 +6,11 @@ import type { Session } from "../api/client";
 import { Lights, Rig3DScene } from "../rig3d/Rig3DScene";
 import type { DebugFlags } from "../rig3d/types";
 import { DEBUG_PROXY, PRODUCTION, resolveProductionAssets, type ResolvedAssets } from "../scene3d/assets/paths";
+import { INITIAL_BRIDGE_CALIBRATION, OldBridgeCalibration } from "./OldBridgeCalibration";
+import { OldBridgePlacement } from "./OldBridgePlacement";
+import type { FeetAnchor } from "./feetAnchor";
 import { OLD_BRIDGE_3D } from "./oldBridge3d";
-import { type CatchDecision, useFishingVisualsFromSession } from "./useFishingVisualsFromSession";
+import { type CatchDecision, type FishingVisualStatus, useFishingVisualsFromSession } from "./useFishingVisualsFromSession";
 
 const DEBUG_OFF: DebugFlags = {
   skeleton: false,
@@ -46,9 +49,14 @@ type Props = {
   lastDecision: CatchDecision;
   decisionGen: number;
   reelNonce: number;
+  castNonce?: number;
+  onVisualStatus?: (status: FishingVisualStatus) => void;
 };
 
-export function ForestLakeFishing3D({ session, lastDecision, decisionGen, reelNonce }: Props) {
+export function ForestLakeFishing3D({ session, lastDecision, decisionGen, reelNonce, castNonce = 0, onVisualStatus }: Props) {
+  const calibrationMode = import.meta.env.DEV && new URLSearchParams(window.location.search).get("calib") === "1";
+  const [calibration, setCalibration] = useState(INITIAL_BRIDGE_CALIBRATION);
+  const [feet, setFeet] = useState<FeetAnchor | null>(null);
   const [tabHidden, setTabHidden] = useState(typeof document !== "undefined" && document.hidden);
   const visuals = useFishingVisualsFromSession({
     enabled: true,
@@ -56,7 +64,11 @@ export function ForestLakeFishing3D({ session, lastDecision, decisionGen, reelNo
     lastDecision,
     decisionGen,
     reelNonce,
+    castNonce,
   });
+  useEffect(() => {
+    onVisualStatus?.({ clip: visuals.charClip, resultOpen: visuals.resultOpen });
+  }, [onVisualStatus, visuals.charClip, visuals.resultOpen]);
   const [assets, setAssets] = useState<ResolvedAssets>({
     fisherman: PRODUCTION.fisherman,
     rod: PRODUCTION.rod,
@@ -78,16 +90,16 @@ export function ForestLakeFishing3D({ session, lastDecision, decisionGen, reelNo
       setAssets({
         fisherman: next.productionPresent.fisherman ? next.fisherman : PRODUCTION.fisherman,
         rod: next.productionPresent.rod ? next.rod : PRODUCTION.rod,
-        pike: next.productionPresent.pike ? next.pike : DEBUG_PROXY.pike,
+        pike: DEBUG_PROXY.pike,
         source: {
           fisherman: "production",
           rod: "production",
-          pike: next.productionPresent.pike ? "production" : "debug",
+          pike: "debug",
         },
         productionPresent: {
           fisherman: true,
           rod: true,
-          pike: next.productionPresent.pike,
+          pike: false,
         },
       });
     });
@@ -99,7 +111,7 @@ export function ForestLakeFishing3D({ session, lastDecision, decisionGen, reelNo
   const dpr = useMemo<[number, number]>(() => [1, 1.5], []);
 
   return (
-    <div className="lake-3d-layer" aria-hidden="true">
+    <><div className="lake-3d-layer" aria-hidden={calibrationMode ? undefined : true}>
       <Canvas
         className="lake-3d-canvas"
         style={{ pointerEvents: "none", width: "100%", height: "100%" }}
@@ -120,7 +132,7 @@ export function ForestLakeFishing3D({ session, lastDecision, decisionGen, reelNo
         <BridgeCamera />
         <Suspense fallback={null}>
           <Lights />
-          <group position={OLD_BRIDGE_3D.position} scale={OLD_BRIDGE_3D.scale} rotation={[0, OLD_BRIDGE_3D.spotFacingYaw, 0]}>
+          <OldBridgePlacement feet={feet} calibration={calibration} showMarkers={calibrationMode}>
             <Rig3DScene
               fishermanUrl={assets.fisherman}
               rodUrl={assets.rod}
@@ -154,11 +166,14 @@ export function ForestLakeFishing3D({ session, lastDecision, decisionGen, reelNo
               onReleaseComplete={visuals.onReleaseComplete}
               onKeepComplete={visuals.onKeepComplete}
               onReturnComplete={visuals.onReturnComplete}
+              onFeetAnchor={setFeet}
               embed
             />
-          </group>
+          </OldBridgePlacement>
         </Suspense>
       </Canvas>
     </div>
+      {calibrationMode && <OldBridgeCalibration value={calibration} onChange={setCalibration} />}
+    </>
   );
 }

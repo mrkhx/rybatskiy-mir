@@ -140,6 +140,5 @@ export function ikFor(clip: CharClip): IkMode {
   ) {
     return "none";
   }
-  if (clip === "REEL") return "reel";
   return "support";
 }
