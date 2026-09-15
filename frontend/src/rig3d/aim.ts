@@ -21,5 +21,6 @@ export {
 };
 
 export function applyAimPose(_man: THREE.Object3D): void {
+  void _man;
   /* planted READY stance — do not roll Spine/Neck */
 }

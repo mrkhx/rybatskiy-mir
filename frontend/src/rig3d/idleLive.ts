@@ -54,5 +54,6 @@ export function applyAimArms(man: THREE.Object3D, u: number): void {
 }
 
 export function liveArms(man: THREE.Object3D, _dt: number): void {
+  void _dt;
   applyAimArms(man, 0);
 }

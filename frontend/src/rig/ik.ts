@@ -16,8 +16,8 @@ function solve2Bone(
   l2: number,
   sign: number,
 ) {
-  let dx = tx - ox;
-  let dy = ty - oy;
+  const dx = tx - ox;
+  const dy = ty - oy;
   const raw = Math.hypot(dx, dy) || 0.001;
   const maxd = l1 + l2 - 0.75;
   const mind = Math.abs(l1 - l2) + 0.75;

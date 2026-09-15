@@ -38,6 +38,7 @@ function getBone(man: THREE.Object3D, name: string): THREE.Bone | null {
 
 /** Fingers only. Does not touch Hand_R / wrist / arm. */
 export function closeRightFist(man: THREE.Object3D, _rod?: THREE.Object3D): void {
+  void _rod;
   for (const [name, angle] of Object.entries(READY_FIST_Z)) {
     const b = getBone(man, name);
     if (!b) continue;
@@ -50,6 +51,7 @@ export function closeRightFist(man: THREE.Object3D, _rod?: THREE.Object3D): void
 
 /** Tiny outward roll from clip wrist. Absolute pose — no per-frame axis rebuild. */
 export function rollRightWristOut(man: THREE.Object3D, _rod?: THREE.Object3D): void {
+  void _rod;
   const hand = getBone(man, "Hand_R");
   if (!hand) return;
   if (!REST_Q.Hand_R) REST_Q.Hand_R = hand.quaternion.clone();
