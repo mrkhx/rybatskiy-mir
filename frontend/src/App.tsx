@@ -1,3 +1,4 @@
+import { LakeSound } from "./audio/LakeSound";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { api, setToken, token, type Player, type Session } from "./api/client";
 import { useFishingRequests } from "./api/useFishingRequests";
@@ -652,6 +653,7 @@ function Play({ player, onPlayer }: { player: Player; onPlayer: (p: Player) => v
             <strong>{world?.waterbody.name ?? "Лесное озеро"}</strong>
           </div>
           <div className="meta">
+            <LakeSound spot={shownSpotId} tod={tod} wx={wx} phase={in3D ? visualStatus.clip : session?.state ?? "READY"} state={session?.state} reelNonce={reelNonce} />
             <span className="chip">{player.nickname}</span>
             <span className="chip">ур. {player.stats?.level ?? 1}</span>
             <span className="chip">{player.stats?.coins ?? 0} монет</span>

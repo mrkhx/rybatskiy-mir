@@ -957,3 +957,7 @@ body {
     animation: none;
   }
 }
+
+.lake-sound { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lake-sound input { width: 72px; accent-color: #c9bb91; }
+.lake-sound button { cursor: pointer; font: inherit; }
