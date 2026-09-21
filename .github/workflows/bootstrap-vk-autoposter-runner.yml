@@ -1,19 +1,10 @@
-# TEMPORARY one-shot workflow. Delete after vk-autoposter runner is Idle.
-# Does NOT deploy the game. Does NOT run docker compose of the game.
-# Does NOT touch /opt/rybatskiy-mir. Does NOT start vk-autoposter compose.
-#
-# Uses existing staging SSH secrets of THIS repository only.
-# Does not copy those secrets to mrkhx/vk-autoposter.
+# TEMPORARY inspect-only. Delete after verification.
+# Does NOT deploy the game. Does NOT mint runner tokens. Does NOT install.
 
 name: Bootstrap VK Autoposter runner
 
 on:
   workflow_dispatch:
-    inputs:
-      note:
-        description: Temporary bootstrap. Does not deploy the game.
-        required: false
-        default: inspect-then-install
 
 concurrency:
   group: bootstrap-vk-autoposter-runner
@@ -23,10 +14,10 @@ permissions:
   contents: read
 
 jobs:
-  bootstrap:
-    name: inspect-and-maybe-install
+  inspect:
+    name: inspect-only
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     environment: staging
     steps:
       - name: Check SSH secrets exist (values not printed)
@@ -46,7 +37,7 @@ jobs:
           fi
           echo "SSH secret names are present. Values not logged."
 
-      - name: Inspect VPS (no install)
+      - name: Inspect VPS (read-only)
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.STAGING_HOST }}
@@ -58,16 +49,11 @@ jobs:
             set -euo pipefail
             echo "===== INSPECT BEGIN ====="
             echo "whoami=$(whoami)"
-            echo "pwd=$(pwd)"
             uname -a
             echo "----- docker ps -----"
             docker ps
             echo "----- docker compose ls -----"
             docker compose ls
-            echo "----- free -----"
-            free -h
-            echo "----- df -----"
-            df -h
             echo "----- game health localhost:80 -----"
             echo -n "live="
             curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1/health/live || echo fail
@@ -75,255 +61,15 @@ jobs:
             echo -n "ready="
             curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1/health/ready || echo fail
             echo
-            echo "----- runner path -----"
-            RUNNER_DIR=/home/deploy/actions-runner-vk-autoposter
-            if [ -e "$RUNNER_DIR" ]; then
-              echo "path_exists=yes"
-              ls -la "$RUNNER_DIR"
-              if [ -f "$RUNNER_DIR/.runner" ]; then
-                echo "configured_runner=yes"
-                echo "BOOTSTRAP_STATUS=runner_exists"
-              else
-                echo "configured_runner=no"
-                echo "BOOTSTRAP_STATUS=dir_exists_unconfigured"
-              fi
-            else
-              echo "path_exists=no"
-              echo "configured_runner=no"
-              echo "BOOTSTRAP_STATUS=ready_to_install"
-            fi
-            if systemctl list-unit-files --no-legend 2>/dev/null | grep -q '^github-actions-runner-vk-autoposter.service'; then
-              echo "systemd_unit=present"
-              systemctl is-active github-actions-runner-vk-autoposter.service || true
-            else
-              echo "systemd_unit=absent"
-            fi
-            docker ps -aq | sort > /tmp/vk-autoposter-bootstrap-docker-before.txt
-            echo "----- docker id snapshot -----"
-            cat /tmp/vk-autoposter-bootstrap-docker-before.txt
-            echo "===== INSPECT END ====="
-
-      - name: Mint vk-autoposter registration token
-        id: mint
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VK_AUTOPOSTER_GITHUB_TOKEN: ${{ secrets.VK_AUTOPOSTER_GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -n "${VK_AUTOPOSTER_GITHUB_TOKEN:-}" ]; then
-            echo "::add-mask::${VK_AUTOPOSTER_GITHUB_TOKEN}"
-          fi
-
-          mint() {
-            local tok="$1"
-            local label="$2"
-            if [ -z "$tok" ]; then
-              echo "skip mint via ${label}: empty"
-              return 1
-            fi
-            local resp http
-            resp="$(mktemp)"
-            http="$(curl -sS -o "$resp" -w '%{http_code}' -X POST \
-              -H "Authorization: Bearer ${tok}" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              https://api.github.com/repos/mrkhx/vk-autoposter/actions/runners/registration-token || true)"
-            if [ "$http" = "201" ]; then
-              local rt
-              rt="$(jq -r '.token // empty' "$resp")"
-              rm -f "$resp"
-              if [ -n "$rt" ]; then
-                echo "::add-mask::${rt}"
-                echo "RUNNER_TOKEN=${rt}" >> "$GITHUB_ENV"
-                echo "minted=yes" >> "$GITHUB_OUTPUT"
-                echo "mint_via=${label}" >> "$GITHUB_OUTPUT"
-                echo "registration token minted via ${label} (value not logged)"
-                return 0
-              fi
-              echo "mint via ${label}: HTTP 201 but empty token"
-              return 1
-            fi
-            echo "mint via ${label}: HTTP ${http}"
-            jq -r '.message // empty' "$resp" 2>/dev/null || true
-            rm -f "$resp"
-            return 1
-          }
-
-          echo "minted=no" >> "$GITHUB_OUTPUT"
-          echo "mint_via=none" >> "$GITHUB_OUTPUT"
-          if mint "$GITHUB_TOKEN" "GITHUB_TOKEN"; then
-            exit 0
-          fi
-          if mint "${VK_AUTOPOSTER_GITHUB_TOKEN:-}" "VK_AUTOPOSTER_GITHUB_TOKEN"; then
-            exit 0
-          fi
-          echo "CANNOT_MINT_REGISTRATION_TOKEN"
-          echo "GITHUB_TOKEN of mrkhx/rybatskiy-mir is scoped to this repo and cannot create a runner registration token for private repo mrkhx/vk-autoposter."
-          echo "Minimum extra credential: repository secret VK_AUTOPOSTER_GITHUB_TOKEN on mrkhx/rybatskiy-mir."
-          echo "Fine-grained PAT (or GitHub App installation token) with:"
-          echo "  repository access: ONLY mrkhx/vk-autoposter"
-          echo "  permission: Administration = Read and write"
-          echo "  (needed for POST /repos/mrkhx/vk-autoposter/actions/runners/registration-token)"
-          echo "Do not use a classic PAT with org-wide or extra scopes."
-
-      - name: Stop if registration token is missing
-        if: ${{ steps.mint.outputs.minted != 'yes' }}
-        run: |
-          echo "Inspect finished. Install was not attempted."
-          echo "Add secret VK_AUTOPOSTER_GITHUB_TOKEN on mrkhx/rybatskiy-mir (Administration:write on vk-autoposter only), then re-run this workflow."
-          echo "Not deleting this temporary workflow yet because install did not succeed."
-          exit 1
-
-      - name: Install runner on VPS
-        uses: appleboy/ssh-action@v1
-        env:
-          RUNNER_TOKEN: ${{ env.RUNNER_TOKEN }}
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          port: ${{ secrets.STAGING_PORT || 22 }}
-          command_timeout: 12m
-          envs: RUNNER_TOKEN
-          script: |
-            set -euo pipefail
-            RUNNER_DIR=/home/deploy/actions-runner-vk-autoposter
-            RUNNER_NAME=vk-autoposter-vps
-            REPO_URL=https://github.com/mrkhx/vk-autoposter
-            UNIT_NAME=github-actions-runner-vk-autoposter.service
-            VERSION=2.337.0
-
-            echo "===== PRE-INSTALL GUARDS ====="
-            case "$(pwd)" in
-              *rybatskiy*) echo "refusing: cwd looks like the game"; exit 1 ;;
-            esac
-            if [ -d /opt/rybatskiy-mir ]; then
-              echo "game dir present — will not modify it"
-            fi
-            if [ ! -f /tmp/vk-autoposter-bootstrap-docker-before.txt ]; then
-              docker ps -aq | sort > /tmp/vk-autoposter-bootstrap-docker-before.txt
-            fi
-            if systemctl list-unit-files --no-legend 2>/dev/null | grep -q "^${UNIT_NAME}"; then
-              echo "BOOTSTRAP_STATUS=service_exists"
-              echo "systemd unit already present; not deleting; stopping"
-              exit 78
-            fi
-
-            echo "===== DOWNLOAD OFFICIAL RUNNER ====="
-            mkdir -p "$RUNNER_DIR"
-            cd "$RUNNER_DIR"
-            if [ ! -f ./config.sh ]; then
-              tarball="actions-runner-linux-x64-${VERSION}.tar.gz"
-              url="https://github.com/actions/runner/releases/download/v${VERSION}/${tarball}"
-              echo "downloading official actions/runner v${VERSION}"
-              curl -fsSL -o "$tarball" "$url"
-              tar xzf "$tarball"
-              rm -f "$tarball"
-            fi
-
-            echo "===== CONFIGURE (vk-autoposter only) ====="
-            if [ -f "$RUNNER_DIR/.runner" ]; then
-              echo "already configured; will not re-register or delete"
-            else
-              if [ -z "${RUNNER_TOKEN:-}" ]; then
-                echo "RUNNER_TOKEN empty; refusing configure"
-                exit 1
-              fi
-              ./config.sh --unattended \
-                --url "$REPO_URL" \
-                --token "$RUNNER_TOKEN" \
-                --name "$RUNNER_NAME" \
-                --labels vk-autoposter \
-                --work _work
-            fi
-            unset RUNNER_TOKEN
-
-            echo "===== UNIT FILE (home copy, no game paths) ====="
-            echo 'W1VuaXRdCkRlc2NyaXB0aW9uPUdpdEh1YiBBY3Rpb25zIFJ1bm5lciBmb3IgbXJraHgvdmstYXV0b3Bvc3RlcgpBZnRlcj1uZXR3b3JrLW9ubGluZS50YXJnZXQgZG9ja2VyLnNlcnZpY2UKV2FudHM9bmV0d29yay1vbmxpbmUudGFyZ2V0ClJlcXVpcmVzPWRvY2tlci5zZXJ2aWNlCgpbU2VydmljZV0KVHlwZT1zaW1wbGUKVXNlcj1kZXBsb3kKR3JvdXA9ZGVwbG95CldvcmtpbmdEaXJlY3Rvcnk9L2hvbWUvZGVwbG95L2FjdGlvbnMtcnVubmVyLXZrLWF1dG9wb3N0ZXIKRXhlY1N0YXJ0PS9iaW4vYmFzaCAvaG9tZS9kZXBsb3kvYWN0aW9ucy1ydW5uZXItdmstYXV0b3Bvc3Rlci9ydW5zdmMuc2gKUmVzdGFydD1hbHdheXMKUmVzdGFydFNlYz0xMApLaWxsTW9kZT1wcm9jZXNzCktpbGxTaWduYWw9U0lHVEVSTQpUaW1lb3V0U3RvcFNlYz01bWluCkxpbWl0Tk9GSUxFPTY1NTM2CkVudmlyb25tZW50PURPVE5FVF9TWVNURU1fR0xPQkFMSVpBVElPTl9JTlZBUklBTlQ9MQoKW0luc3RhbGxdCldhbnRlZEJ5PW11bHRpLXVzZXIudGFyZ2V0Cg==' | base64 -d > "$RUNNER_DIR/${UNIT_NAME}"
-            if grep -q rybatskiy "$RUNNER_DIR/${UNIT_NAME}"; then
-              echo "refusing: unit file mentions the game"
-              exit 1
-            fi
-            SYSTEMD_OK=0
-            if sudo -n true 2>/dev/null; then
-              echo "===== SYSTEMD SYSTEM UNIT ====="
-              sudo cp "$RUNNER_DIR/${UNIT_NAME}" /etc/systemd/system/${UNIT_NAME}
-              sudo chmod 644 /etc/systemd/system/${UNIT_NAME}
-              sudo systemctl daemon-reload
-              sudo systemctl enable --now ${UNIT_NAME}
-              SYSTEMD_OK=1
-              echo "SYSTEMD_STATUS=system"
-            else
-              echo "passwordless sudo unavailable; cannot write /etc/systemd/system"
-              echo "===== START RUNNER AS deploy (setsid) ====="
-              if pgrep -x Runner.Listener >/dev/null 2>&1; then
-                echo "Runner.Listener already running"
-              else
-                setsid ./run.sh < /dev/null > "$RUNNER_DIR/runner.out" 2>&1 &
-                echo $! > "$RUNNER_DIR/runner.pid"
-                sleep 8
-              fi
-              if pgrep -x Runner.Listener >/dev/null 2>&1; then
-                echo "Runner.Listener is up"
-              else
-                echo "Runner.Listener failed to start"
-                tail -n 30 "$RUNNER_DIR/runner.out" || true
-                exit 1
-              fi
-              echo "SYSTEMD_STATUS=needs_root"
-            fi
-
-            echo "===== POSTCHECK ====="
-            sleep 5
-            if [ "$SYSTEMD_OK" -eq 1 ]; then
-              systemctl status ${UNIT_NAME} --no-pager -L || true
-              systemctl show ${UNIT_NAME} -p Id,ActiveState,SubState,MainPID,User,FragmentPath,WorkingDirectory --no-pager
-            else
-              echo "systemd system unit not installed"
-            fi
+            echo "----- docker ids -----"
+            docker ps -aq | sort
+            echo "----- runner systemd -----"
+            UNIT=actions.runner.mrkhx-vk-autoposter.vk-autoposter-vps.service
+            systemctl is-enabled "$UNIT" || true
+            systemctl is-active "$UNIT" || true
+            systemctl show "$UNIT" -p Id,ActiveState,SubState,UnitFileState,MainPID,User,FragmentPath,WorkingDirectory --no-pager || true
             echo "----- runner processes -----"
-            ps -o user,pid,ppid,cmd -C Runner.Listener || ps -ef | grep -E 'Runner.Listener|actions-runner-vk-autoposter/run.sh' | grep -v grep || true
-            echo "----- docker ps after -----"
-            docker ps
-            echo "----- docker compose ls after -----"
-            docker compose ls
-            docker ps -aq | sort > /tmp/vk-autoposter-bootstrap-docker-after.txt
-            echo "----- docker id diff (should be empty) -----"
-            if ! diff -u /tmp/vk-autoposter-bootstrap-docker-before.txt /tmp/vk-autoposter-bootstrap-docker-after.txt; then
-              echo "ERROR: docker container set changed during runner install"
-              exit 1
-            fi
-            echo "docker set unchanged"
-            echo -n "live="
-            curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1/health/live || echo fail
-            echo
-            echo -n "ready="
-            curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1/health/ready || echo fail
-            echo
-            echo "BOOTSTRAP_STATUS=installed"
-            echo "===== INSTALL END ====="
-
-      - name: Confirm vk-autoposter runner Idle
-        env:
-          VK_AUTOPOSTER_GITHUB_TOKEN: ${{ secrets.VK_AUTOPOSTER_GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          echo "::add-mask::${VK_AUTOPOSTER_GITHUB_TOKEN}"
-          for i in 1 2 3 4 5 6 7 8 9 10 12 14; do
-            resp="$(mktemp)"
-            http="$(curl -sS -o "$resp" -w '%{http_code}' \
-              -H "Authorization: Bearer ${VK_AUTOPOSTER_GITHUB_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              https://api.github.com/repos/mrkhx/vk-autoposter/actions/runners || true)"
-            echo "poll $i HTTP $http"
-            jq -r '.runners[]? | [.name,.status,(.busy|tostring),([.labels[].name]|join("+"))] | @tsv' "$resp" || true
-            hit="$(jq -r '.runners[]? | select(.name=="vk-autoposter-vps" and .status=="online") | .name' "$resp" | head -1)"
-            rm -f "$resp"
-            if [ "$hit" = "vk-autoposter-vps" ]; then
-              echo "RUNNER_ONLINE=yes"
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "runner vk-autoposter-vps not online"
-          exit 1
+            ps -o user,pid,ppid,cmd -C Runner.Listener || true
+            echo "----- runner dir -----"
+            ls -ld /home/deploy/actions-runner-vk-autoposter || true
+            echo "===== INSPECT END ====="
