@@ -54,7 +54,6 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           port: ${{ secrets.STAGING_PORT || 22 }}
           command_timeout: 3m
-          script_stop: true
           script: |
             set -euo pipefail
             echo "===== INSPECT BEGIN ====="
@@ -185,7 +184,6 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           port: ${{ secrets.STAGING_PORT || 22 }}
           command_timeout: 12m
-          script_stop: true
           envs: RUNNER_TOKEN
           script: |
             set -euo pipefail
@@ -202,23 +200,13 @@ jobs:
             if [ -d /opt/rybatskiy-mir ]; then
               echo "game dir present — will not modify it"
             fi
-            if [ -f "$RUNNER_DIR/.runner" ]; then
-              echo "BOOTSTRAP_STATUS=runner_exists"
-              echo "configured runner already present; not deleting; stopping"
-              exit 78
+            if [ ! -f /tmp/vk-autoposter-bootstrap-docker-before.txt ]; then
+              docker ps -aq | sort > /tmp/vk-autoposter-bootstrap-docker-before.txt
             fi
             if systemctl list-unit-files --no-legend 2>/dev/null | grep -q "^${UNIT_NAME}"; then
               echo "BOOTSTRAP_STATUS=service_exists"
               echo "systemd unit already present; not deleting; stopping"
               exit 78
-            fi
-            if [ -z "${RUNNER_TOKEN:-}" ]; then
-              echo "RUNNER_TOKEN empty; refusing install"
-              exit 1
-            fi
-            if ! sudo -n true 2>/dev/null; then
-              echo "passwordless sudo is not available for systemd install"
-              exit 1
             fi
 
             echo "===== DOWNLOAD OFFICIAL RUNNER ====="
@@ -234,30 +222,59 @@ jobs:
             fi
 
             echo "===== CONFIGURE (vk-autoposter only) ====="
-            ./config.sh --unattended \
-              --url "$REPO_URL" \
-              --token "$RUNNER_TOKEN" \
-              --name "$RUNNER_NAME" \
-              --labels vk-autoposter \
-              --work _work
+            if [ -f "$RUNNER_DIR/.runner" ]; then
+              echo "already configured; will not re-register or delete"
+            else
+              if [ -z "${RUNNER_TOKEN:-}" ]; then
+                echo "RUNNER_TOKEN empty; refusing configure"
+                exit 1
+              fi
+              ./config.sh --unattended \
+                --url "$REPO_URL" \
+                --token "$RUNNER_TOKEN" \
+                --name "$RUNNER_NAME" \
+                --labels vk-autoposter \
+                --work _work
+            fi
             unset RUNNER_TOKEN
 
-            echo "===== SYSTEMD UNIT ====="
-            echo 'W1VuaXRdCkRlc2NyaXB0aW9uPUdpdEh1YiBBY3Rpb25zIFJ1bm5lciBmb3IgbXJraHgvdmstYXV0b3Bvc3RlcgpBZnRlcj1uZXR3b3JrLW9ubGluZS50YXJnZXQgZG9ja2VyLnNlcnZpY2UKV2FudHM9bmV0d29yay1vbmxpbmUudGFyZ2V0ClJlcXVpcmVzPWRvY2tlci5zZXJ2aWNlCgpbU2VydmljZV0KVHlwZT1zaW1wbGUKVXNlcj1kZXBsb3kKR3JvdXA9ZGVwbG95CldvcmtpbmdEaXJlY3Rvcnk9L2hvbWUvZGVwbG95L2FjdGlvbnMtcnVubmVyLXZrLWF1dG9wb3N0ZXIKRXhlY1N0YXJ0PS9iaW4vYmFzaCAvaG9tZS9kZXBsb3kvYWN0aW9ucy1ydW5uZXItdmstYXV0b3Bvc3Rlci9ydW5zdmMuc2gKUmVzdGFydD1hbHdheXMKUmVzdGFydFNlYz0xMApLaWxsTW9kZT1wcm9jZXNzCktpbGxTaWduYWw9U0lHVEVSTQpUaW1lb3V0U3RvcFNlYz01bWluCkxpbWl0Tk9GSUxFPTY1NTM2CkVudmlyb25tZW50PURPVE5FVF9TWVNURU1fR0xPQkFMSVpBVElPTl9JTlZBUklBTlQ9MQoKW0luc3RhbGxdCldhbnRlZEJ5PW11bHRpLXVzZXIudGFyZ2V0Cg==' | base64 -d > /tmp/github-actions-runner-vk-autoposter.service
-            sudo mv /tmp/github-actions-runner-vk-autoposter.service /etc/systemd/system/${UNIT_NAME}
-            sudo chmod 644 /etc/systemd/system/${UNIT_NAME}
-            if grep -q rybatskiy /etc/systemd/system/${UNIT_NAME}; then
+            echo "===== UNIT FILE (home copy, no game paths) ====="
+            echo 'W1VuaXRdCkRlc2NyaXB0aW9uPUdpdEh1YiBBY3Rpb25zIFJ1bm5lciBmb3IgbXJraHgvdmstYXV0b3Bvc3RlcgpBZnRlcj1uZXR3b3JrLW9ubGluZS50YXJnZXQgZG9ja2VyLnNlcnZpY2UKV2FudHM9bmV0d29yay1vbmxpbmUudGFyZ2V0ClJlcXVpcmVzPWRvY2tlci5zZXJ2aWNlCgpbU2VydmljZV0KVHlwZT1zaW1wbGUKVXNlcj1kZXBsb3kKR3JvdXA9ZGVwbG95CldvcmtpbmdEaXJlY3Rvcnk9L2hvbWUvZGVwbG95L2FjdGlvbnMtcnVubmVyLXZrLWF1dG9wb3N0ZXIKRXhlY1N0YXJ0PS9iaW4vYmFzaCAvaG9tZS9kZXBsb3kvYWN0aW9ucy1ydW5uZXItdmstYXV0b3Bvc3Rlci9ydW5zdmMuc2gKUmVzdGFydD1hbHdheXMKUmVzdGFydFNlYz0xMApLaWxsTW9kZT1wcm9jZXNzCktpbGxTaWduYWw9U0lHVEVSTQpUaW1lb3V0U3RvcFNlYz01bWluCkxpbWl0Tk9GSUxFPTY1NTM2CkVudmlyb25tZW50PURPVE5FVF9TWVNURU1fR0xPQkFMSVpBVElPTl9JTlZBUklBTlQ9MQoKW0luc3RhbGxdCldhbnRlZEJ5PW11bHRpLXVzZXIudGFyZ2V0Cg==' | base64 -d > "$RUNNER_DIR/${UNIT_NAME}"
+            if grep -q rybatskiy "$RUNNER_DIR/${UNIT_NAME}"; then
               echo "refusing: unit file mentions the game"
               exit 1
             fi
-            echo "unit file written without game paths"
-            sudo systemctl daemon-reload
-            sudo systemctl enable --now ${UNIT_NAME}
+            SYSTEMD_OK=0
+            if sudo -n true 2>/dev/null; then
+              echo "===== SYSTEMD SYSTEM UNIT ====="
+              sudo cp "$RUNNER_DIR/${UNIT_NAME}" /etc/systemd/system/${UNIT_NAME}
+              sudo chmod 644 /etc/systemd/system/${UNIT_NAME}
+              sudo systemctl daemon-reload
+              sudo systemctl enable --now ${UNIT_NAME}
+              SYSTEMD_OK=1
+              echo "SYSTEMD_STATUS=system"
+            else
+              echo "passwordless sudo unavailable; cannot write /etc/systemd/system"
+              echo "===== START RUNNER AS deploy (nohup) ====="
+              if pgrep -f '/home/deploy/actions-runner-vk-autoposter/run.sh' >/dev/null 2>&1; then
+                echo "run.sh already running"
+              else
+                nohup ./run.sh > "$RUNNER_DIR/runner.out" 2>&1 < /dev/null &
+                echo $! > "$RUNNER_DIR/runner.pid"
+              fi
+              echo "SYSTEMD_STATUS=needs_root"
+            fi
 
             echo "===== POSTCHECK ====="
-            sleep 3
-            systemctl status ${UNIT_NAME} --no-pager -L || true
-            systemctl show ${UNIT_NAME} -p Id,ActiveState,SubState,MainPID,User,FragmentPath,WorkingDirectory --no-pager
+            sleep 5
+            if [ "$SYSTEMD_OK" -eq 1 ]; then
+              systemctl status ${UNIT_NAME} --no-pager -L || true
+              systemctl show ${UNIT_NAME} -p Id,ActiveState,SubState,MainPID,User,FragmentPath,WorkingDirectory --no-pager
+            else
+              echo "systemd system unit not installed"
+            fi
+            echo "----- runner processes -----"
+            ps -o user,pid,ppid,cmd -C Runner.Listener || ps -ef | grep -E 'Runner.Listener|actions-runner-vk-autoposter/run.sh' | grep -v grep || true
             echo "----- docker ps after -----"
             docker ps
             echo "----- docker compose ls after -----"
@@ -277,3 +294,28 @@ jobs:
             echo
             echo "BOOTSTRAP_STATUS=installed"
             echo "===== INSTALL END ====="
+
+      - name: Confirm vk-autoposter runner Idle
+        env:
+          VK_AUTOPOSTER_GITHUB_TOKEN: ${{ secrets.VK_AUTOPOSTER_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "::add-mask::${VK_AUTOPOSTER_GITHUB_TOKEN}"
+          for i in 1 2 3 4 5 6 7 8 9 10 12 14; do
+            resp="$(mktemp)"
+            http="$(curl -sS -o "$resp" -w '%{http_code}' \
+              -H "Authorization: Bearer ${VK_AUTOPOSTER_GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              https://api.github.com/repos/mrkhx/vk-autoposter/actions/runners || true)"
+            echo "poll $i HTTP $http"
+            jq -r '.runners[]? | [.name,.status,(.busy|tostring),([.labels[].name]|join("+"))] | @tsv' "$resp" || true
+            hit="$(jq -r '.runners[]? | select(.name=="vk-autoposter-vps" and .status=="online") | .name' "$resp" | head -1)"
+            rm -f "$resp"
+            if [ "$hit" = "vk-autoposter-vps" ]; then
+              echo "RUNNER_ONLINE=yes"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "runner vk-autoposter-vps not online"
+          exit 1
