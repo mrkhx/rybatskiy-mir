@@ -62,7 +62,7 @@ jobs:
             echo "pwd=$(pwd)"
             uname -a
             echo "----- docker ps -----"
-            docker ps --no-trunc
+            docker ps
             echo "----- docker compose ls -----"
             docker compose ls
             echo "----- free -----"
@@ -259,7 +259,7 @@ jobs:
             systemctl status ${UNIT_NAME} --no-pager -L || true
             systemctl show ${UNIT_NAME} -p Id,ActiveState,SubState,MainPID,User,FragmentPath,WorkingDirectory --no-pager
             echo "----- docker ps after -----"
-            docker ps --no-trunc
+            docker ps
             echo "----- docker compose ls after -----"
             docker compose ls
             docker ps -aq | sort > /tmp/vk-autoposter-bootstrap-docker-after.txt
