@@ -255,12 +255,20 @@ jobs:
               echo "SYSTEMD_STATUS=system"
             else
               echo "passwordless sudo unavailable; cannot write /etc/systemd/system"
-              echo "===== START RUNNER AS deploy (nohup) ====="
-              if pgrep -f '/home/deploy/actions-runner-vk-autoposter/run.sh' >/dev/null 2>&1; then
-                echo "run.sh already running"
+              echo "===== START RUNNER AS deploy (setsid) ====="
+              if pgrep -x Runner.Listener >/dev/null 2>&1; then
+                echo "Runner.Listener already running"
               else
-                nohup ./run.sh > "$RUNNER_DIR/runner.out" 2>&1 < /dev/null &
+                setsid ./run.sh < /dev/null > "$RUNNER_DIR/runner.out" 2>&1 &
                 echo $! > "$RUNNER_DIR/runner.pid"
+                sleep 8
+              fi
+              if pgrep -x Runner.Listener >/dev/null 2>&1; then
+                echo "Runner.Listener is up"
+              else
+                echo "Runner.Listener failed to start"
+                tail -n 30 "$RUNNER_DIR/runner.out" || true
+                exit 1
               fi
               echo "SYSTEMD_STATUS=needs_root"
             fi
