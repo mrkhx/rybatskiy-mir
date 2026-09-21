@@ -1,5 +1,5 @@
 # TEMPORARY one-shot workflow. Delete after vk-autoposter runner is Idle.
-# Does NOT deploy Рыбацкий Мир. Does NOT run docker compose of the game.
+# Does NOT deploy the game. Does NOT run docker compose of the game.
 # Does NOT touch /opt/rybatskiy-mir. Does NOT start vk-autoposter compose.
 #
 # Uses existing staging SSH secrets of THIS repository only.
@@ -9,6 +9,11 @@ name: Bootstrap VK Autoposter runner
 
 on:
   workflow_dispatch:
+    inputs:
+      note:
+        description: Temporary bootstrap. Does not deploy the game.
+        required: false
+        default: inspect-then-install
 
 concurrency:
   group: bootstrap-vk-autoposter-runner
@@ -57,7 +62,7 @@ jobs:
             echo "pwd=$(pwd)"
             uname -a
             echo "----- docker ps -----"
-            docker ps --format 'table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.RunningFor}}\t{{.Ports}}'
+            docker ps --no-trunc
             echo "----- docker compose ls -----"
             docker compose ls
             echo "----- free -----"
@@ -94,8 +99,8 @@ jobs:
             else
               echo "systemd_unit=absent"
             fi
-            docker ps -a --format '{{.ID}} {{.Names}} {{.Image}} {{.State}}' | sort > /tmp/vk-autoposter-bootstrap-docker-before.txt
-            echo "----- docker snapshot -----"
+            docker ps -aq | sort > /tmp/vk-autoposter-bootstrap-docker-before.txt
+            echo "----- docker id snapshot -----"
             cat /tmp/vk-autoposter-bootstrap-docker-before.txt
             echo "===== INSPECT END ====="
 
@@ -276,11 +281,11 @@ WantedBy=multi-user.target
             systemctl status ${UNIT_NAME} --no-pager -L || true
             systemctl show ${UNIT_NAME} -p Id,ActiveState,SubState,MainPID,User,FragmentPath,WorkingDirectory --no-pager
             echo "----- docker ps after -----"
-            docker ps --format 'table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.RunningFor}}\t{{.Ports}}'
+            docker ps --no-trunc
             echo "----- docker compose ls after -----"
             docker compose ls
-            docker ps -a --format '{{.ID}} {{.Names}} {{.Image}} {{.State}}' | sort > /tmp/vk-autoposter-bootstrap-docker-after.txt
-            echo "----- docker diff (should be empty) -----"
+            docker ps -aq | sort > /tmp/vk-autoposter-bootstrap-docker-after.txt
+            echo "----- docker id diff (should be empty) -----"
             if ! diff -u /tmp/vk-autoposter-bootstrap-docker-before.txt /tmp/vk-autoposter-bootstrap-docker-after.txt; then
               echo "ERROR: docker container set changed during runner install"
               exit 1
