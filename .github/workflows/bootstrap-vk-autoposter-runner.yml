@@ -243,29 +243,7 @@ jobs:
             unset RUNNER_TOKEN
 
             echo "===== SYSTEMD UNIT ====="
-            python3 -c 'open("/tmp/github-actions-runner-vk-autoposter.service","w").write("""[Unit]
-Description=GitHub Actions Runner for mrkhx/vk-autoposter
-After=network-online.target docker.service
-Wants=network-online.target
-Requires=docker.service
-
-[Service]
-Type=simple
-User=deploy
-Group=deploy
-WorkingDirectory=/home/deploy/actions-runner-vk-autoposter
-ExecStart=/bin/bash /home/deploy/actions-runner-vk-autoposter/runsvc.sh
-Restart=always
-RestartSec=10
-KillMode=process
-KillSignal=SIGTERM
-TimeoutStopSec=5min
-LimitNOFILE=65536
-Environment=DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
-
-[Install]
-WantedBy=multi-user.target
-""")'
+            echo 'W1VuaXRdCkRlc2NyaXB0aW9uPUdpdEh1YiBBY3Rpb25zIFJ1bm5lciBmb3IgbXJraHgvdmstYXV0b3Bvc3RlcgpBZnRlcj1uZXR3b3JrLW9ubGluZS50YXJnZXQgZG9ja2VyLnNlcnZpY2UKV2FudHM9bmV0d29yay1vbmxpbmUudGFyZ2V0ClJlcXVpcmVzPWRvY2tlci5zZXJ2aWNlCgpbU2VydmljZV0KVHlwZT1zaW1wbGUKVXNlcj1kZXBsb3kKR3JvdXA9ZGVwbG95CldvcmtpbmdEaXJlY3Rvcnk9L2hvbWUvZGVwbG95L2FjdGlvbnMtcnVubmVyLXZrLWF1dG9wb3N0ZXIKRXhlY1N0YXJ0PS9iaW4vYmFzaCAvaG9tZS9kZXBsb3kvYWN0aW9ucy1ydW5uZXItdmstYXV0b3Bvc3Rlci9ydW5zdmMuc2gKUmVzdGFydD1hbHdheXMKUmVzdGFydFNlYz0xMApLaWxsTW9kZT1wcm9jZXNzCktpbGxTaWduYWw9U0lHVEVSTQpUaW1lb3V0U3RvcFNlYz01bWluCkxpbWl0Tk9GSUxFPTY1NTM2CkVudmlyb25tZW50PURPVE5FVF9TWVNURU1fR0xPQkFMSVpBVElPTl9JTlZBUklBTlQ9MQoKW0luc3RhbGxdCldhbnRlZEJ5PW11bHRpLXVzZXIudGFyZ2V0Cg==' | base64 -d > /tmp/github-actions-runner-vk-autoposter.service
             sudo mv /tmp/github-actions-runner-vk-autoposter.service /etc/systemd/system/${UNIT_NAME}
             sudo chmod 644 /etc/systemd/system/${UNIT_NAME}
             if grep -q rybatskiy /etc/systemd/system/${UNIT_NAME}; then
